@@ -398,37 +398,54 @@ async function deleteCompanyCloudData(companyId){
 function getActiveCompanyId(){ return localStorage.getItem(META_ACTIVE+':'+App.uid); }
 function setActiveCompanyId(id){ localStorage.setItem(META_ACTIVE+':'+App.uid, id); }
 
-/* ---------------- Seed (first login on this account) ---------------- */
+/* ---------------- First company (first login on this account) ----------------
+   Every new account/login starts with ONE EMPTY company — no shared demo or
+   historical data. (Earlier this auto-imported the JOKERWAL BROTHERS Excel
+   history into every brand-new account, so a second login/company wrongly
+   showed the same data as the first. That import is now a deliberate,
+   opt-in action — see importHistoricalSeed() below — instead of automatic,
+   so every company/login truly starts with its own data.) */
 async function ensureSeeded(){
   const existing = await loadCompanies();
   if(existing.length) return existing;
-  if(typeof window.__JB_SEED__ === 'undefined'){
-    const id = 'co_'+Date.now().toString(36);
-    const co = {id, name:'My Business'};
-    await saveCompanyMeta(co);
-    return [co];
-  }
-  const seed = window.__JB_SEED__;
-  const co = {id:seed.company.id, name:seed.company.name};
+  const id = 'co_'+Date.now().toString(36);
+  const co = {id, name:'My Business'};
   await saveCompanyMeta(co);
-  const store = new Store(fbDb, App.uid, seed.company.id);
-  await store.put('settings', Object.assign({}, seed.company, {id:'profile'}));
-  await store.putAll('customers', seed.data.customers);
-  await store.putAll('products', seed.data.products);
-  await store.putAll('invoices', seed.data.invoices);
-  await store.putAll('saleItems', seed.data.saleItems);
-  await store.putAll('payments', seed.data.payments);
-  await store.putAll('ledger', seed.data.ledger);
   return [co];
+}
+
+/* One-time, explicit import of the original JOKERWAL BROTHERS Excel history
+   into the CURRENTLY ACTIVE company. Only relevant on the deployment built
+   from that Excel file (window.__JB_SEED__ is embedded in index.html), and
+   meant to be run once, into a fresh/empty company. */
+async function importHistoricalSeed(){
+  if(typeof window.__JB_SEED__ === 'undefined'){ toast('Is version mein koi purani history data available nahi hai.','err'); return; }
+  const ok = await confirmDialog('Yeh "'+App.company.name+'" company mein JOKERWAL BROTHERS ki purani Excel history (customers, products, invoices, payments, ledger) add kar dega. Sirf khali/nayi company mein use karein — existing data ke saath mix ho sakta hai. Continue?', 'Import History');
+  if(!ok) return;
+  const seed = window.__JB_SEED__;
+  await App.store.put('settings', Object.assign({}, App.company, seed.company, {id:'profile'}));
+  await App.store.putAll('customers', seed.data.customers);
+  await App.store.putAll('products', seed.data.products);
+  await App.store.putAll('invoices', seed.data.invoices);
+  await App.store.putAll('saleItems', seed.data.saleItems);
+  await App.store.putAll('payments', seed.data.payments);
+  await App.store.putAll('ledger', seed.data.ledger);
+  App.company = await App.store.get('settings','profile');
+  toast('History import ho gayi.','ok');
+  navigate('#/dashboard'); renderShell2();
 }
 
 async function switchCompany(companyId){
   App.store = new Store(fbDb, App.uid, companyId);
+  const DEFAULT_PROFILE = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
+    mobile:'', email:'', website:'', gstin:'', invoicePrefix:'INV', productPrefix:'PRD', lowStockDefault:5, pin:'',
+    gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:''};
   let profile = await App.store.get('settings','profile');
   if(!profile){
-    profile = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
-      mobile:'', email:'', website:'', gstin:'', invoicePrefix:'INV', productPrefix:'PRD', lowStockDefault:5, pin:''};
+    profile = Object.assign({}, DEFAULT_PROFILE);
     await App.store.put('settings', profile);
+  } else {
+    profile = Object.assign({}, DEFAULT_PROFILE, profile); // fill in any new fields older companies don't have yet
   }
   App.company = profile;
   setActiveCompanyId(companyId);
@@ -511,11 +528,13 @@ const DB = {
   async itemsForInvoiceRow(invoiceRowId){
     return App.store.byIndex('saleItems','invoiceNo', invoiceRowId);
   },
-  computeTotals(items, previousBalance, receivedAmount){
-    const billTotal = items.reduce((s,it)=> s + (Number(it.qty)||0)*(Number(it.rate)||0), 0);
+  computeTotals(items, previousBalance, receivedAmount, gstEnabled){
+    const taxableTotal = items.reduce((s,it)=> s + (Number(it.qty)||0)*(Number(it.rate)||0), 0);
+    const gstTotal = gstEnabled ? items.reduce((s,it)=> s + ((Number(it.qty)||0)*(Number(it.rate)||0)) * ((Number(it.gstRate)||0)/100), 0) : 0;
+    const billTotal = taxableTotal + gstTotal;
     const totalPayable = billTotal + (Number(previousBalance)||0);
     const balanceDue = clamp0(totalPayable - (Number(receivedAmount)||0));
-    return {billTotal, totalPayable, balanceDue};
+    return {taxableTotal, gstTotal, billTotal, totalPayable, balanceDue};
   },
   validateBill(b){
     if(!b.customerName || !b.customerName.trim()) return 'Customer ka naam daalein.';
@@ -535,16 +554,20 @@ const DB = {
     const cust = await DB.getOrCreateCustomer(b.mobile, b.customerName);
     const previousBalance = Number(cust.balance)||0;
     const receivedAmount = b.paymentMode==='CREDIT' ? (Number(b.receivedAmount)||0) : Number(b.receivedAmount)||0;
-    const {billTotal,totalPayable,balanceDue} = DB.computeTotals(items, previousBalance, receivedAmount);
+    const gstEnabled = !!App.company.gstEnabled;
+    const {taxableTotal,gstTotal,billTotal,totalPayable,balanceDue} = DB.computeTotals(items, previousBalance, receivedAmount, gstEnabled);
     const invId = uid();
     const invoice = {
       id: invId, invoiceNo: b.invoiceNo, date: b.date, customerId: cust.id, customerName: cust.name,
       mobile: cust.mobile, paymentMode: b.paymentMode, billTotal, previousBalance, currentBill: billTotal,
-      totalPayable, receivedAmount, balanceDue, status:'COMPLETED', createdAt: new Date().toISOString()
+      totalPayable, receivedAmount, balanceDue, status:'COMPLETED', createdAt: new Date().toISOString(),
+      gstEnabled, taxableTotal, gstTotal
     };
     await App.store.put('invoices', invoice);
     for(const it of items){
-      await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount:Number(it.qty)*Number(it.rate)});
+      const amount = Number(it.qty)*Number(it.rate);
+      const gstRate = gstEnabled ? (Number(it.gstRate)||0) : 0;
+      await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount, hsn: it.hsn||'', gstRate, gstAmount: amount*gstRate/100});
     }
     // customer balance = new outstanding balance due (mirrors Excel UpdateCustomerBalance)
     cust.balance = balanceDue;
@@ -615,16 +638,20 @@ const DB = {
     const items = b.items.filter(it=>it.productCode && Number(it.qty)>0);
     const previousBalance = cust ? Number(cust.balance)||0 : 0;
     const receivedAmount = Number(b.receivedAmount)||0;
-    const {billTotal,totalPayable,balanceDue} = DB.computeTotals(items, previousBalance, receivedAmount);
+    const gstEnabled = !!App.company.gstEnabled;
+    const {taxableTotal,gstTotal,billTotal,totalPayable,balanceDue} = DB.computeTotals(items, previousBalance, receivedAmount, gstEnabled);
     const invId = uid();
     const invoice = {
       id: invId, invoiceNo: oldInvoiceNo, date: b.date, customerId: cust?cust.id:oldRow.customerId,
       customerName: b.customerName, mobile: b.mobile, paymentMode: b.paymentMode, billTotal, previousBalance,
-      currentBill: billTotal, totalPayable, receivedAmount, balanceDue, status:'COMPLETED', createdAt: new Date().toISOString()
+      currentBill: billTotal, totalPayable, receivedAmount, balanceDue, status:'COMPLETED', createdAt: new Date().toISOString(),
+      gstEnabled, taxableTotal, gstTotal
     };
     await App.store.put('invoices', invoice);
     for(const it of items){
-      await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount:Number(it.qty)*Number(it.rate)});
+      const amount = Number(it.qty)*Number(it.rate);
+      const gstRate = gstEnabled ? (Number(it.gstRate)||0) : 0;
+      await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount, hsn: it.hsn||'', gstRate, gstAmount: amount*gstRate/100});
     }
     if(cust){ cust.balance = balanceDue; cust.name = b.customerName; cust.mobile = b.mobile; await App.store.put('customers', cust); }
     if(b.paymentMode==='CREDIT' && cust){
@@ -899,7 +926,16 @@ function sendReceiptWhatsApp(payment){
 /* ---------------- Print views ---------------- */
 function printInvoice(invoice, items){
   const area = $('#print-area');
-  const rowsHtml = items.map((it,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(it.productCode)}</td><td>${escapeHtml(it.productName)}</td><td class="right">${fmtNum(it.qty)}</td><td class="right">${fmtMoney(it.rate)}</td><td class="right">${fmtMoney(it.amount)}</td></tr>`).join('');
+  const gstOn = !!invoice.gstEnabled;
+  const rowsHtml = items.map((it,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(it.productCode)}</td><td>${escapeHtml(it.productName)}</td>${gstOn?`<td>${escapeHtml(it.hsn||'')}</td><td class="right">${Number(it.gstRate)||0}%</td>`:''}<td class="right">${fmtNum(it.qty)}</td><td class="right">${fmtMoney(it.rate)}</td><td class="right">${fmtMoney(it.amount)}</td></tr>`).join('');
+  const gstTotal = Number(invoice.gstTotal)||0;
+  const halfGst = gstTotal/2;
+  const gstRowsHtml = gstOn ? `
+      <div class="spread"><span>Taxable Amount</span><span>${fmtMoney(invoice.taxableTotal)}</span></div>
+      <div class="spread small"><span>CGST</span><span>${fmtMoney(halfGst)}</span></div>
+      <div class="spread small"><span>SGST</span><span>${fmtMoney(halfGst)}</span></div>` : '';
+  const bankHtml = App.company.invoiceBankDetails ? `<div style="margin-top:14px;font-size:11px;color:#555;white-space:pre-line;border-top:1px dashed #ccc;padding-top:8px;"><b>Bank Details:</b><br>${escapeHtml(App.company.invoiceBankDetails)}</div>` : '';
+  const footerNote = App.company.invoiceNote || 'Thank you for your business!';
   area.innerHTML = `<div class="invoice-doc">
     <div style="text-align:center;border-bottom:2px solid #a2732c;padding-bottom:10px;margin-bottom:14px;">
       <h2 style="margin:0;font-size:22px;">${escapeHtml(App.company.name)}</h2>
@@ -912,10 +948,11 @@ function printInvoice(invoice, items){
       <div style="text-align:right;"><b>Invoice No:</b> ${escapeHtml(invoice.invoiceNo)}<br><b>Date:</b> ${fmtDate(invoice.date)}<br><b>Payment Mode:</b> ${escapeHtml(invoice.paymentMode)}</div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
-      <thead><tr><th>#</th><th>Code</th><th>Item</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
+      <thead><tr><th>#</th><th>Code</th><th>Item</th>${gstOn?'<th>HSN</th><th class="right">GST%</th>':''}<th class="right">Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
     <div style="margin-left:auto;max-width:260px;font-size:13px;">
+      ${gstRowsHtml}
       <div class="spread"><span>Bill Total</span><b>${fmtMoney(invoice.billTotal)}</b></div>
       <div class="spread"><span>Previous Balance</span><span>${fmtMoney(invoice.previousBalance)}</span></div>
       <div class="spread"><span>Total Payable</span><span>${fmtMoney(invoice.totalPayable)}</span></div>
@@ -923,7 +960,8 @@ function printInvoice(invoice, items){
       <div class="spread" style="border-top:1px solid #ccc;margin-top:4px;padding-top:4px;"><b>Balance Due</b><b>${fmtMoney(invoice.balanceDue)}</b></div>
     </div>
     <div style="margin-top:14px;font-size:11.5px;font-style:italic;">Amount in words: ${amountInWordsIndian(invoice.totalPayable)}</div>
-    <div style="margin-top:22px;text-align:center;font-size:11.5px;color:#777;">Thank you for your business!${App.company.website?(' &nbsp;•&nbsp; '+escapeHtml(App.company.website)):''}</div>
+    ${bankHtml}
+    <div style="margin-top:22px;text-align:center;font-size:11.5px;color:#777;">${escapeHtml(footerNote)}${App.company.website?(' &nbsp;•&nbsp; '+escapeHtml(App.company.website)):''}</div>
   </div>`;
   window.print();
 }
@@ -1032,7 +1070,7 @@ async function viewBill(root){
   renderBillScreen(root);
 }
 function billTotals(){
-  return DB.computeTotals(billDraft.items, billDraft.previousBalance, billDraft.paymentMode==='CREDIT' ? (Number(billDraft.receivedAmount)||0) : (Number(billDraft.receivedAmount)||0));
+  return DB.computeTotals(billDraft.items, billDraft.previousBalance, Number(billDraft.receivedAmount)||0, !!App.company.gstEnabled);
 }
 function renderBillScreen(root){
   root.innerHTML='';
@@ -1052,19 +1090,28 @@ function renderBillScreen(root){
   const custRow = el('div',{class:'row'});
   const mobileInput = el('input',{placeholder:'Mobile number', value:billDraft.mobile, inputmode:'numeric'});
   const nameInput = el('input',{placeholder:'Customer name', value:billDraft.customerName});
+  const prevBalValueEl = el('span',{class:'num bold'},[fmtMoney(billDraft.previousBalance)]);
   mobileInput.addEventListener('change', async ()=>{
     billDraft.mobile = mobileInput.value.trim();
     const cust = await DB.findCustomerByMobile(billDraft.mobile);
-    if(cust){ billDraft.customerId=cust.id; billDraft.customerName=cust.name; billDraft.previousBalance=Number(cust.balance)||0; nameInput.value=cust.name; toast('Customer mil gaya: '+cust.name); }
-    else { billDraft.customerId=null; billDraft.previousBalance=0; }
-    renderBillScreen(root);
+    // Update in place (no full-screen rebuild) so we never clobber a name the
+    // user may already be typing while this lookup was in flight — a real
+    // risk now that lookups go over the network to Firestore instead of
+    // being instant on-device IndexedDB.
+    if(cust){
+      billDraft.customerId=cust.id; billDraft.previousBalance=Number(cust.balance)||0;
+      if(!nameInput.value.trim()){ billDraft.customerName=cust.name; nameInput.value=cust.name; }
+      toast('Customer mil gaya: '+cust.name);
+    } else { billDraft.customerId=null; billDraft.previousBalance=0; }
+    prevBalValueEl.textContent = fmtMoney(billDraft.previousBalance);
+    updateComputedTotals();
   });
   nameInput.addEventListener('input', ()=>{ billDraft.customerName = nameInput.value; });
   custRow.appendChild(mobileInput);
   custRow.appendChild(el('button',{class:'icon-btn', onclick:()=>openCustomerPicker((c)=>{ billDraft.customerId=c.id; billDraft.customerName=c.name; billDraft.mobile=c.mobile; billDraft.previousBalance=Number(c.balance)||0; renderBillScreen(root); })},[iconSearch()]));
   custCard.appendChild(custRow);
   custCard.appendChild(nameInput);
-  custCard.appendChild(el('div',{class:'spread small muted'},[el('span',{},['Previous Balance']), el('span',{class:'num bold'},[fmtMoney(billDraft.previousBalance)])]));
+  custCard.appendChild(el('div',{class:'spread small muted'},[el('span',{},['Previous Balance']), prevBalValueEl]));
   wrap.appendChild(custCard);
 
   const itemsCard = el('div',{class:'card pad stack'});
@@ -1100,10 +1147,13 @@ function renderBillScreen(root){
       const qtyInput = el('input',{type:'number', value:it.qty, min:'0', step:'any'});
       const rateInput = el('input',{type:'number', value:it.rate, min:'0', step:'any'});
       const amtEl = el('div',{class:'amt num'},[fmtNum(it.qty*it.rate)]);
-      qtyInput.addEventListener('input', ()=>{ it.qty = Number(qtyInput.value)||0; amtEl.textContent=fmtNum(it.qty*it.rate); refreshTotals(root); });
-      rateInput.addEventListener('input', ()=>{ it.rate = Number(rateInput.value)||0; amtEl.textContent=fmtNum(it.qty*it.rate); refreshTotals(root); });
+      qtyInput.addEventListener('input', ()=>{ it.qty = Number(qtyInput.value)||0; amtEl.textContent=fmtNum(it.qty*it.rate); updateComputedTotals(); });
+      rateInput.addEventListener('input', ()=>{ it.rate = Number(rateInput.value)||0; amtEl.textContent=fmtNum(it.qty*it.rate); updateComputedTotals(); });
       const rm = el('button',{class:'icon-btn btn-sm', onclick:()=>{ billDraft.items.splice(idx,1); renderBillScreen(root); }},[iconTrash()]);
-      tbl.appendChild(el('div',{class:'item-row'},[ el('div',{class:'small'},[it.productName]), qtyInput, rateInput, amtEl, rm ]));
+      const nameCell = App.company.gstEnabled
+        ? el('div',{class:'small'},[it.productName, el('div',{class:'tiny muted'},[(it.hsn?('HSN '+it.hsn+' • '):'')+'GST '+(Number(it.gstRate)||0)+'%'])])
+        : el('div',{class:'small'},[it.productName]);
+      tbl.appendChild(el('div',{class:'item-row'},[ nameCell, qtyInput, rateInput, amtEl, rm ]));
     });
     itemsCard.appendChild(tbl);
   } else {
@@ -1113,7 +1163,61 @@ function renderBillScreen(root){
 
   const totalsCard = el('div',{class:'card pad stack'});
   totalsCard.id='totals-card';
+
+  /* Payment Mode + Amount controls are created ONCE here and never
+     destroyed while typing — only the read-only totals below them are
+     refreshed on every keystroke. (Previously the whole card was rebuilt
+     on every keystroke, which recreated the Amount input each time and
+     threw away keyboard focus — you had to tap back in after every
+     digit. This keeps the same input element alive throughout.) */
+  const gstOn = !!App.company.gstEnabled;
+  const totalLine = el('div',{class:'spread'},[el('span',{},[gstOn?'Taxable Amount':'Total']), el('span',{class:'bold num'},['₹0.00'])]);
+  const totalValueEl = totalLine.lastChild;
+  const gstLine = el('div',{class:'spread small muted'},[el('span',{},['GST']), el('span',{class:'num'},['₹0.00'])]);
+  const gstValueEl = gstLine.lastChild;
+  const billTotalLine = el('div',{class:'spread'},[el('span',{class:'bold'},['Bill Total']), el('span',{class:'bold num'},['₹0.00'])]);
+  const billTotalValueEl = billTotalLine.lastChild;
+  gstLine.style.display = gstOn ? '' : 'none';
+  billTotalLine.style.display = gstOn ? '' : 'none';
+
+  const modeSelect = el('select',{},[
+    el('option',{value:'CASH'},['Cash']), el('option',{value:'UPI'},['UPI']), el('option',{value:'CREDIT'},['Credit']),
+  ]);
+  modeSelect.value = billDraft.paymentMode;
+  const amtLabelText = el('span',{},[]);
+  const amountInput = el('input',{type:'number', min:'0', step:'any', placeholder:'0.00', value: billDraft.receivedAmount, inputmode:'decimal'});
+  function syncModeUI(){ amtLabelText.textContent = billDraft.paymentMode==='CREDIT' ? 'Advance Received (optional)' : 'Received Amount'; }
+  syncModeUI();
+  modeSelect.addEventListener('change', ()=>{ billDraft.paymentMode = modeSelect.value; syncModeUI(); updateComputedTotals(); });
+  amountInput.addEventListener('input', ()=>{ billDraft.receivedAmount = amountInput.value; updateComputedTotals(); });
+
+  const prevBalLine = el('div',{class:'spread small muted'},[el('span',{},['Previous Balance']), el('span',{},[fmtMoney(billDraft.previousBalance)])]);
+  const payableLine = el('div',{class:'spread'},[el('span',{},['Total Payable']), el('span',{class:'bold num'},['₹0.00'])]);
+  const payableValueEl = payableLine.lastChild;
+  const dueLine = el('div',{class:'spread', style:'color:var(--danger);'},[el('span',{class:'bold'},['Balance Due']), el('span',{class:'bold num'},['₹0.00'])]);
+  const dueValueEl = dueLine.lastChild;
+  const wordsLine = el('div',{class:'tiny muted', style:'font-style:italic;'});
+
+  totalsCard.appendChild(totalLine);
+  totalsCard.appendChild(gstLine);
+  totalsCard.appendChild(billTotalLine);
+  totalsCard.appendChild(el('label',{class:'field'},['Payment Mode', modeSelect]));
+  totalsCard.appendChild(el('label',{class:'field'},[amtLabelText, amountInput]));
+  totalsCard.appendChild(prevBalLine);
+  totalsCard.appendChild(payableLine);
+  totalsCard.appendChild(dueLine);
+  totalsCard.appendChild(wordsLine);
   wrap.appendChild(totalsCard);
+
+  function updateComputedTotals(){
+    const t = billTotals();
+    gstValueEl.textContent = fmtMoney(t.gstTotal);
+    billTotalValueEl.textContent = fmtMoney(t.billTotal);
+    totalValueEl.textContent = fmtMoney(t.taxableTotal);
+    payableValueEl.textContent = fmtMoney(t.totalPayable);
+    dueValueEl.textContent = fmtMoney(t.balanceDue);
+    wordsLine.textContent = amountInWordsIndian(t.totalPayable);
+  }
 
   const actions = el('div',{class:'row wrap'},[
     el('button',{class:'btn btn-primary btn-block', onclick:onSaveBill},[iconCheck(), billDraft.editingInvoiceNo?'Update Bill':'Save Bill']),
@@ -1127,47 +1231,14 @@ function renderBillScreen(root){
   wrap.appendChild(secondary);
 
   root.appendChild(wrap);
-  refreshTotals(root);
+  updateComputedTotals();
 
   function addItemFromProduct(p){
     const existing = billDraft.items.find(it=>it.productCode===p.productCode);
     if(existing){ existing.qty = Number(existing.qty)+1; }
-    else{ billDraft.items.push({productCode:p.productCode, productName:p.name, qty:1, rate:Number(p.rate)||0}); }
+    else{ billDraft.items.push({productCode:p.productCode, productName:p.name, qty:1, rate:Number(p.rate)||0, hsn:p.hsn||'', gstRate:Number(p.gstRate)||0}); }
     renderBillScreen(root);
   }
-}
-function refreshTotals(root){
-  const t = billTotals();
-  const card = $('#totals-card');
-  if(!card) return;
-  card.innerHTML='';
-  card.appendChild(el('div',{class:'spread'},[el('span',{},['Total']), el('span',{class:'bold num'},[fmtMoney(t.billTotal)])]));
-  card.appendChild(el('label',{class:'field'},['Payment Mode', (()=>{
-    const s = el('select',{},[
-      el('option',{value:'CASH'},['Cash']), el('option',{value:'UPI'},['UPI']), el('option',{value:'CREDIT'},['Credit']),
-    ]);
-    s.value = billDraft.paymentMode;
-    s.addEventListener('change', ()=>{ billDraft.paymentMode = s.value; refreshTotals(root); });
-    return s;
-  })()]));
-  if(billDraft.paymentMode!=='CREDIT'){
-    card.appendChild(el('label',{class:'field'},['Received Amount', (()=>{
-      const i = el('input',{type:'number', min:'0', step:'any', placeholder:'0.00', value: billDraft.receivedAmount});
-      i.addEventListener('input', ()=>{ billDraft.receivedAmount = i.value; refreshTotals(root); });
-      return i;
-    })()]));
-  } else {
-    card.appendChild(el('label',{class:'field'},['Advance Received (optional)', (()=>{
-      const i = el('input',{type:'number', min:'0', step:'any', placeholder:'0.00', value: billDraft.receivedAmount});
-      i.addEventListener('input', ()=>{ billDraft.receivedAmount = i.value; refreshTotals(root); });
-      return i;
-    })()]));
-  }
-  const t2 = billTotals();
-  card.appendChild(el('div',{class:'spread small muted'},[el('span',{},['Previous Balance']), el('span',{},[fmtMoney(billDraft.previousBalance)])]));
-  card.appendChild(el('div',{class:'spread'},[el('span',{},['Total Payable']), el('span',{class:'bold num'},[fmtMoney(t2.totalPayable)])]));
-  card.appendChild(el('div',{class:'spread', style:'color:var(--danger);'},[el('span',{class:'bold'},['Balance Due']), el('span',{class:'bold num'},[fmtMoney(t2.balanceDue)])]));
-  card.appendChild(el('div',{class:'tiny muted', style:'font-style:italic;'},[amountInWordsIndian(t2.totalPayable)]));
 }
 async function onSaveBill(){
   try{
@@ -1198,7 +1269,7 @@ function openLoadInvoicePrompt(){
     try{
       const {row, items} = await DB.loadBillForModify(input.value.trim());
       billDraft = {invoiceNo: row.invoiceNo, date: row.date, customerId: row.customerId, customerName: row.customerName, mobile: row.mobile,
-        previousBalance: row.previousBalance, items: items.map(it=>({productCode:it.productCode, productName:it.productName, qty:it.qty, rate:it.rate})),
+        previousBalance: row.previousBalance, items: items.map(it=>({productCode:it.productCode, productName:it.productName, qty:it.qty, rate:it.rate, hsn:it.hsn||'', gstRate:it.gstRate||0})),
         paymentMode: row.paymentMode, receivedAmount: row.receivedAmount, editingInvoiceNo: row.invoiceNo};
       closeModal();
       renderRoute();
@@ -1351,11 +1422,14 @@ async function openProductForm(p, prefillCode){
   typeI.value = p?p.qtyType:'PIECE';
   const stockI = el('input',{type:'number', value: p? p.stock : 0});
   const lowI = el('input',{type:'number', value: p? (p.lowStockLimit||0) : (App.company.lowStockDefault||0)});
+  const hsnI = el('input',{value: p? (p.hsn||'') : '', placeholder:'e.g. 7117'});
+  const gstRateI = el('input',{type:'number', min:'0', step:'any', value: p? (p.gstRate!=null?p.gstRate:(App.company.defaultGstRate||0)) : (App.company.defaultGstRate||0)});
   const body = el('div',{class:'stack'},[
     el('label',{class:'field'},['QR / Product Code', codeI]),
     el('label',{class:'field'},['Product Name', nameI]),
     el('div',{class:'grid2'},[ el('label',{class:'field'},['Rate (₹)', rateI]), el('label',{class:'field'},['Qty Type', typeI]) ]),
     el('div',{class:'grid2'},[ el('label',{class:'field'},[isNew?'Opening Stock':'Stock', stockI]), el('label',{class:'field'},['Low Stock Limit', lowI]) ]),
+    App.company.gstEnabled ? el('div',{class:'grid2'},[ el('label',{class:'field'},['HSN Code', hsnI]), el('label',{class:'field'},['GST %', gstRateI]) ]) : null,
     el('div',{class:'row'},[
       el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
         const name = nameI.value.trim();
@@ -1369,6 +1443,7 @@ async function openProductForm(p, prefillCode){
         const rec = p || {id:code, createdAt:new Date().toISOString()};
         rec.productCode = code; rec.name=name; rec.rate=Number(rateI.value)||0; rec.qtyType=typeI.value;
         rec.stock=Number(stockI.value)||0; rec.lowStockLimit=Number(lowI.value)||0;
+        rec.hsn = hsnI.value.trim(); rec.gstRate = Number(gstRateI.value)||0;
         await App.store.put('products', rec);
         closeModal(); toast('Product saved.','ok'); renderRoute();
       }},[isNew?'Add Product':'Save Changes']),
@@ -1663,12 +1738,40 @@ async function viewSettings(root){
   profCard.appendChild(el('div',{class:'grid2'},[mk('invoicePrefix','Invoice Prefix'), mk('productPrefix','Product Code Prefix')]));
   const lowI = el('input',{type:'number', value:c.lowStockDefault||0}); fields.lowStockDefault=lowI;
   profCard.appendChild(el('label',{class:'field'},['Default Low Stock Limit (naye products ke liye)', lowI]));
-  profCard.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
-    for(const k in fields) c[k] = k==='lowStockDefault' ? (Number(fields[k].value)||0) : fields[k].value.trim();
+
+  const gstCard = el('div',{class:'card pad stack'});
+  gstCard.appendChild(el('div',{class:'bold'},['GST']));
+  const gstToggleRow = el('label',{class:'row', style:'align-items:center;gap:8px;cursor:pointer;'});
+  const gstToggle = el('input',{type:'checkbox'}); gstToggle.checked = !!c.gstEnabled; fields.gstEnabled = gstToggle;
+  gstToggleRow.appendChild(gstToggle); gstToggleRow.appendChild(el('span',{},['Is company ke bills mein GST lagayein']));
+  gstCard.appendChild(gstToggleRow);
+  const defGstI = el('input',{type:'number', min:'0', step:'any', value:c.defaultGstRate||0}); fields.defaultGstRate = defGstI;
+  gstCard.appendChild(el('label',{class:'field'},['Default GST % (naye products ke liye)', defGstI]));
+  gstCard.appendChild(el('div',{class:'tiny muted'},['GST on karne par har product mein HSN code aur GST % add karna hoga (Products mein). Bill/invoice mein GST automatically jud jayega — CGST+SGST split print par dikhega.']));
+
+  const invCard = el('div',{class:'card pad stack'});
+  invCard.appendChild(el('div',{class:'bold'},['Invoice Customization']));
+  const noteI = el('input',{value:c.invoiceNote||'', placeholder:'e.g. Thank you for your business!'}); fields.invoiceNote = noteI;
+  invCard.appendChild(el('label',{class:'field'},['Footer Note', noteI]));
+  const bankI = el('textarea',{placeholder:'e.g. Bank: HDFC Bank, A/c: 1234567890, IFSC: HDFC0001234'}); bankI.value = c.invoiceBankDetails||''; fields.invoiceBankDetails = bankI;
+  invCard.appendChild(el('label',{class:'field'},['Bank Details (optional — bill par print hoga)', bankI]));
+
+  const saveAllProfile = async ()=>{
+    for(const k in fields){
+      const f = fields[k];
+      if(f.type==='checkbox') c[k] = f.checked;
+      else if(k==='lowStockDefault' || k==='defaultGstRate') c[k] = Number(f.value)||0;
+      else c[k] = f.value;
+    }
     await App.store.put('settings', c);
     toast('Company profile saved.','ok'); renderRoute();
-  }},['Save Company Details']));
+  };
+  profCard.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: saveAllProfile},['Save Company Details']));
+  gstCard.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: saveAllProfile},['Save Company Details']));
+  invCard.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: saveAllProfile},['Save Company Details']));
   wrap.appendChild(profCard);
+  wrap.appendChild(gstCard);
+  wrap.appendChild(invCard);
 
   const pinCard = el('div',{class:'card pad stack'});
   pinCard.appendChild(el('div',{class:'bold'},[iconLock(),' App Lock (PIN)']));
@@ -1703,6 +1806,10 @@ async function viewSettings(root){
     ]));
   });
   companyMgmt.appendChild(el('button',{class:'btn btn-block', onclick:openAddCompany},[iconPlus(),'Add New Company']));
+  if(typeof window.__JB_SEED__ !== 'undefined'){
+    companyMgmt.appendChild(el('button',{class:'btn btn-block', onclick:importHistoricalSeed},[iconUpload(),'Import JOKERWAL BROTHERS Excel History']));
+    companyMgmt.appendChild(el('div',{class:'tiny muted'},['Sirf ek khaali/nayi company mein ek baar use karein — purani Excel history isi active company mein load ho jayegi.']));
+  }
   wrap.appendChild(companyMgmt);
 
   const acctCard = el('div',{class:'card pad stack'});

@@ -75,14 +75,16 @@ Yeh link hi aapki app hai — isko phone ke browser mein kholein, aur **"Add to 
 1. Upar wala link phone/computer ke browser mein kholein.
 2. **"Cloud Setup"** screen aayegi — Part 1 mein note ki hui 6 values yahan paste karein → **Save & Continue**.
 3. Ab **Login screen** aayega — pehli baar hai, isliye **"Naya account banayein"** par click karein.
-4. Apna email aur ek password (kam se kam 6 characters) daal kar **Sign Up** karein — yehi aapka business login hoga.
-5. Sign up hote hi, aapki poori Excel wali data (customers, products, invoices, payments, ledger — JOKERWAL BROTHERS) automatically cloud mein load ho jayegi.
+4. Apna email aur ek password (kam se kam 6 characters) daal kar **Sign Up** karein — yehi aapka business login hoga. Naya account hamesha ek khaali company ("My Business") ke saath shuru hota hai — koi purani/demo data automatically nahi aati, taaki har alag login/company ka data sirf usi ka rahe.
+5. Apni asli JOKERWAL BROTHERS ki Excel history (customers, products, invoices, payments, ledger) load karne ke liye: **Settings** kholein → neeche **"Import JOKERWAL BROTHERS Excel History"** button dabayein → confirm karein. Yeh sirf ek baar, ek khaali/nayi company mein use karein.
 
 **Bas ho gaya — ab yeh ek proper cloud app hai.**
 
 - Kisi bhi doosre phone/computer par wahi link kholiye, wahi email-password se login kijiye — poora data turant wahan bhi dikhega.
 - Phone kho jaaye/kharab ho jaaye to koi tension nahi — data Google ke Firebase cloud mein safe hai, naye phone se login karte hi wapas mil jayega.
-- Naya team member add karna ho (jaise ek aur staff jo billing kare), unhe bhi wahi email-password de sakte hain — ya alag Firebase project bana kar unko alag access de sakte hain.
+- **Multi-company (alag business):** Ek hi login se Settings → "Add New Company" se dusri company bana sakte hain (har company ka data poori tarah alag hota hai), YA phir bilkul alag email se naya Sign Up karke ek doosra independent account bana sakte hain — dono tarike se ek company ka data doosri company mein kabhi nahi dikhega.
+- **GST bills:** Settings → GST card mein "GST" ON karein aur Default GST % daalein. Fir Products mein har product ka HSN Code aur GST % set karein. Bill banate waqt GST automatically judega, aur print invoice par HSN, GST%, CGST/SGST breakup dikhega.
+- **Invoice customization:** Settings → Invoice Customization mein apna khud ka Footer Note (jaise "Thank you!" ya koi terms) aur Bank Details (bank transfer ke liye) daal sakte hain — yeh print hone wale invoice par dikhega.
 
 ---
 
