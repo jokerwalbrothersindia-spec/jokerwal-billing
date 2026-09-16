@@ -73,7 +73,9 @@ a{color:var(--credit);}
 .icon-btn{
   width:36px; height:36px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2);
   display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;
+  transition:transform .12s ease, box-shadow .15s ease, background-color .15s ease;
 }
+@media (hover:hover){ .icon-btn:hover{background:var(--accent-soft); box-shadow:0 3px 10px -4px rgba(30,24,10,.25);} }
 .icon-btn:active{transform:scale(.94);}
 
 /* ---------- Layout shell ---------- */
@@ -137,8 +139,14 @@ textarea{resize:vertical; min-height:64px;}
 .btn{
   display:inline-flex; align-items:center; justify-content:center; gap:7px; border-radius:10px; border:1px solid var(--border);
   background:var(--surface-2); padding:10px 15px; font-weight:600; font-size:13.5px; cursor:pointer; white-space:nowrap;
+  transition:transform .12s ease, box-shadow .15s ease, filter .15s ease, background-color .15s ease;
 }
-.btn:active{transform:scale(.98);}
+@media (hover:hover){
+  .btn:hover{transform:translateY(-1px); box-shadow:0 4px 14px -4px rgba(30,24,10,.22); filter:brightness(1.04);}
+  .btn-ghost:hover{background:var(--surface-2); box-shadow:none; filter:none;}
+  .btn-danger:hover{background:var(--danger-soft);}
+}
+.btn:active{transform:scale(.98); box-shadow:none; filter:none;}
 .btn-primary{background:var(--accent); border-color:var(--accent); color:var(--accent-contrast);}
 .btn-success{background:var(--success); border-color:var(--success); color:#fff;}
 .btn-danger{background:transparent; border-color:var(--danger); color:var(--danger);}
@@ -146,6 +154,7 @@ textarea{resize:vertical; min-height:64px;}
 .btn-sm{padding:6px 10px; font-size:12.5px; border-radius:8px;}
 .btn-block{width:100%;}
 .btn[disabled]{opacity:.5; cursor:not-allowed;}
+.btn[disabled]:hover{transform:none; box-shadow:none; filter:none;}
 
 .pill{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.02em;}
 .pill-success{background:var(--success-soft); color:var(--success);}
@@ -199,7 +208,8 @@ tr:last-child td{border-bottom:none;}
 .item-row .amt{font-size:12.5px; font-weight:600; text-align:right; padding-right:4px;}
 
 .linklike{background:none; border:none; padding:0; color:var(--credit); font-weight:600; cursor:pointer; font-size:inherit;}
-.list-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 4px; border-top:1px solid var(--border); cursor:pointer;}
+.list-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 4px; border-top:1px solid var(--border); cursor:pointer; margin:0 -8px; padding-left:8px; padding-right:8px; border-radius:8px; transition:background-color .15s ease;}
+@media (hover:hover){ .list-row:hover{background:var(--surface-2);} }
 .list-row:first-child{border-top:none;}
 .list-row:active{background:var(--surface-2);}
 .avatar{width:36px; height:36px; border-radius:10px; background:var(--accent-soft); color:var(--accent-ink); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex:none;}
@@ -236,6 +246,8 @@ tr:last-child td{border-bottom:none;}
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 window.__JB_SEED__ = {"company": {"id": "co_jokerwal", "name": "JOKERWAL BROTHERS", "tagline": "we makes love", "address1": "Gala No.101, Atmanand Apartment, Juchandra Talav", "address2": "Naigaon East, Palghar - 401208", "mobile": "8511916363", "email": "jokerwalbrothers@gmail.com", "website": "www.jokerwalbrothers.com", "gstin": "", "invoicePrefix": "INV", "productPrefix": "JB", "lowStockDefault": 10}, "data": {"customers": [{"id": "CUS000001", "mobile": "9950325316", "name": "Naresh", "balance": 17640, "creditLimit": 0, "createdAt": "2026-08-01"}, {"id": "CUS000002", "mobile": "9876543210", "name": "Amrit Kumawat", "balance": 1640, "creditLimit": 0, "createdAt": "2026-08-01"}, {"id": "CUS000003", "mobile": "9602453737", "name": "Savita", "balance": 245, "creditLimit": 0, "createdAt": "2026-08-01"}, {"id": "CUS000004", "mobile": "9024370220", "name": "Vinod", "balance": 12570, "creditLimit": 0, "createdAt": "2026-08-01"}, {"id": "CUS000005", "mobile": "8591616363", "name": "Amrit Kumawat", "balance": 0, "creditLimit": 0, "createdAt": "2026-08-01"}], "products": [{"id": "JB000001", "productCode": "JB000001", "name": "Coin Combo", "rate": 245, "stock": 235, "qtyType": "PIECE", "lowStockLimit": 275, "createdAt": "2026-08-01"}, {"id": "JB000002", "productCode": "JB000002", "name": "CHOCKI CHOKER", "rate": 150, "stock": 480, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000003", "productCode": "JB000003", "name": "JALI COMBO", "rate": 320, "stock": 469, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000004", "productCode": "JB000004", "name": "REGULAR COMBO", "rate": 350, "stock": 499, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000005", "productCode": "JB000005", "name": "PAN COMBO", "rate": 380, "stock": 500, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000006", "productCode": "JB000006", "name": "GOLD PLATE", "rate": 450, "stock": 100, "qtyType": "WEIGHT", "lowStockLimit": 100, "createdAt": "2026-08-01"}, {"id": "JB000007", "productCode": "JB000007", "name": "MATTE GOLD", "rate": 450, "stock": 100, "qtyType": "WEIGHT", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000008", "productCode": "JB000008", "name": "MAHENDI GOLD", "rate": 450, "stock": 100, "qtyType": "WEIGHT", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000009", "productCode": "JB000009", "name": "Owel Chick", "rate": 90, "stock": 100, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000010", "productCode": "JB000010", "name": "peacock chick", "rate": 85, "stock": 500, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000011", "productCode": "JB000011", "name": "Rajwadi Gold", "rate": 500, "stock": 1000, "qtyType": "WEIGHT", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000012", "productCode": "JB000012", "name": "4040 Bridal", "rate": 950, "stock": 1000, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}], "invoices": [{"id": "b40af3c1-d047-4c2e-8273-bcde867f0e71", "invoiceNo": "JB000001", "date": "2026-08-03", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "paymentMode": "CREDIT", "billTotal": 7350, "previousBalance": 0, "currentBill": 7350, "totalPayable": 7350, "receivedAmount": 0, "balanceDue": 7350, "status": "COMPLETED", "createdAt": "2026-08-03"}, {"id": "aafeab65-423e-4c45-9c91-ca54ff9c480a", "invoiceNo": "JB000002", "date": "2026-08-05", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "paymentMode": "CREDIT", "billTotal": 6370, "previousBalance": 7350, "currentBill": 6370, "totalPayable": 13720, "receivedAmount": 0, "balanceDue": 13720, "status": "COMPLETED", "createdAt": "2026-08-05"}, {"id": "8681e10c-df91-4a4e-b6a9-42dc8688de87", "invoiceNo": "INV/26-27/000001", "date": "2026-08-09", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "paymentMode": "CREDIT", "billTotal": 2450, "previousBalance": 13720, "currentBill": 2450, "totalPayable": 16170, "receivedAmount": 0, "balanceDue": 16170, "status": "COMPLETED", "createdAt": "2026-08-09"}, {"id": "65cc597e-6cfb-40ec-9546-72c014304908", "invoiceNo": "INV/26-27/000002", "date": "2026-08-10", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "paymentMode": "CREDIT", "billTotal": 1470, "previousBalance": 16170, "currentBill": 1470, "totalPayable": 17640, "receivedAmount": 0, "balanceDue": 17640, "status": "COMPLETED", "createdAt": "2026-08-10"}, {"id": "0d2c4fe5-aa8e-4068-81dd-3976d0158672", "invoiceNo": "INV/26-27/000003", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CREDIT", "billTotal": 320, "previousBalance": 0, "currentBill": 320, "totalPayable": 320, "receivedAmount": 100, "balanceDue": 220, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "81e680dd-545e-4d2b-94ae-1b7687fe5bc6", "invoiceNo": "INV/26-27/000004", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 320, "previousBalance": 220, "currentBill": 320, "totalPayable": 540, "receivedAmount": 0, "balanceDue": 540, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "dfbbe3f1-b652-4de4-8f72-efd207f24a1b", "invoiceNo": "INV/26-27/000005", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 565, "previousBalance": 220, "currentBill": 565, "totalPayable": 785, "receivedAmount": 0, "balanceDue": 785, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "e0205de4-9b8f-4f79-966f-6c1165171fa4", "invoiceNo": "INV/26-27/000006", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 565, "previousBalance": 220, "currentBill": 565, "totalPayable": 785, "receivedAmount": 0, "balanceDue": 785, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "09ff568e-3815-49d0-85e9-6d2a1d3869ad", "invoiceNo": "INV/26-27/000007", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 245, "previousBalance": 220, "currentBill": 245, "totalPayable": 465, "receivedAmount": 0, "balanceDue": 465, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "94b9c8f3-dd30-46e4-b08b-c7538868da8d", "invoiceNo": "INV/26-27/000008", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 395, "previousBalance": 220, "currentBill": 395, "totalPayable": 615, "receivedAmount": 0, "balanceDue": 615, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "f7e3116d-bd57-4f62-923c-9ebe5576503f", "invoiceNo": "INV/26-27/000009", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 980, "previousBalance": 220, "currentBill": 980, "totalPayable": 1200, "receivedAmount": 0, "balanceDue": 1200, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "04ad32a9-68dc-4e30-bad5-06469ac15181", "invoiceNo": "INV/26-27/000010", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 245, "previousBalance": 220, "currentBill": 245, "totalPayable": 465, "receivedAmount": 0, "balanceDue": 465, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "83f0a15d-990a-46f6-a812-87526b1d5e8f", "invoiceNo": "INV/26-27/000011", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 245, "previousBalance": 220, "currentBill": 245, "totalPayable": 465, "receivedAmount": 0, "balanceDue": 465, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "a8a68c87-9a93-4d5d-9693-54d35fc9f662", "invoiceNo": "INV/26-27/000012", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 320, "previousBalance": 220, "currentBill": 320, "totalPayable": 540, "receivedAmount": 0, "balanceDue": 540, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "24b87418-dc42-4dcc-a124-5e4e3a00a24f", "invoiceNo": "INV/26-27/000014", "date": "2026-08-14", "customerId": "CUS000002", "customerName": "Amrit Kumawat", "mobile": "9876543210", "paymentMode": "CASH", "billTotal": 395, "previousBalance": 1640, "currentBill": 395, "totalPayable": 2035, "receivedAmount": 2035, "balanceDue": 0, "status": "MODIFIED", "createdAt": "2026-08-14"}, {"id": "941593e4-10dc-435f-b7d9-f9468dacd161", "invoiceNo": "INV/26-27/000014", "date": "2026-08-14", "customerId": "CUS000002", "customerName": "Amrit Kumawat", "mobile": "9876543210", "paymentMode": "CASH", "billTotal": 715, "previousBalance": 1640, "currentBill": 715, "totalPayable": 2355, "receivedAmount": 2355, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-14"}, {"id": "2eeed7a9-6fec-455d-9e22-99052a1fe343", "invoiceNo": "INV/26-27/000015", "date": "2026-08-14", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 960, "previousBalance": 220, "currentBill": 960, "totalPayable": 1180, "receivedAmount": 0, "balanceDue": 1180, "status": "COMPLETED", "createdAt": "2026-08-14"}, {"id": "d4924e4b-dda9-4bc3-926c-214e53926668", "invoiceNo": "INV/26-27/000016", "date": "2026-08-14", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 0, "previousBalance": 220, "currentBill": 0, "totalPayable": 220, "receivedAmount": 220, "balanceDue": 0, "status": "MODIFIED", "createdAt": "2026-08-14"}, {"id": "da662c63-988c-4bc8-966a-6305a76385cc", "invoiceNo": "INV/26-27/000016", "date": "2026-08-14", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 960, "previousBalance": 220, "currentBill": 960, "totalPayable": 1180, "receivedAmount": 1180, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-14"}, {"id": "9e5d18e9-204c-4702-bf0d-537c24be09d9", "invoiceNo": "INV/26-27/000017", "date": "2026-08-16", "customerId": "CUS000004", "customerName": "Vinod", "mobile": "9024370220", "paymentMode": "CASH", "billTotal": 245, "previousBalance": 12570, "currentBill": 245, "totalPayable": 12815, "receivedAmount": 12815, "balanceDue": 0, "status": "MODIFIED", "createdAt": "2026-08-16"}, {"id": "22cbab0a-f4d8-4a8e-9f2b-e62113f05053", "invoiceNo": "INV/26-27/000017", "date": "2026-08-16", "customerId": "CUS000004", "customerName": "Vinod", "mobile": "9024370220", "paymentMode": "CASH", "billTotal": 490, "previousBalance": 12570, "currentBill": 490, "totalPayable": 13060, "receivedAmount": 13060, "balanceDue": 0, "status": "MODIFIED", "createdAt": "2026-08-16"}, {"id": "288ed123-1709-4cac-ad75-a28dd7446026", "invoiceNo": "INV/26-27/000017", "date": "2026-08-16", "customerId": "CUS000004", "customerName": "Vinod", "mobile": "9024370220", "paymentMode": "CASH", "billTotal": 980, "previousBalance": 12570, "currentBill": 980, "totalPayable": 13550, "receivedAmount": 13550, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-16"}, {"id": "acad2482-88ba-4160-8109-b15d0aba4018", "invoiceNo": "INV/26-27/000018", "date": "2026-08-20", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 2450, "previousBalance": 220, "currentBill": 2450, "totalPayable": 2670, "receivedAmount": 220, "balanceDue": 2450, "status": "COMPLETED", "createdAt": "2026-08-20"}, {"id": "e77def68-f8be-402c-801f-c4fddbe515bc", "invoiceNo": "INV/26-27/000019", "date": "2026-08-20", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 245, "previousBalance": 220, "currentBill": 245, "totalPayable": 465, "receivedAmount": 245, "balanceDue": 220, "status": "COMPLETED", "createdAt": "2026-08-20"}, {"id": "dd9e36df-cd81-4df5-ba95-c452bfce039e", "invoiceNo": "INV/26-27/000020", "date": "2026-08-21", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 150, "previousBalance": 220, "currentBill": 150, "totalPayable": 370, "receivedAmount": 370, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-21"}, {"id": "cc93ad3e-827a-4fe6-a0e5-9389b67ab085", "invoiceNo": "INV/26-27/000021", "date": "2026-08-21", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 320, "previousBalance": 220, "currentBill": 320, "totalPayable": 540, "receivedAmount": 540, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-21"}, {"id": "6897d6dc-c8de-4478-b89a-1ba48b0c8793", "invoiceNo": "INV/26-27/000022", "date": "2026-08-21", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 320, "previousBalance": 220, "currentBill": 320, "totalPayable": 540, "receivedAmount": 540, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-21"}], "saleItems": [{"id": "8a80ea82-5338-42ff-a56f-976a7c577945", "invoiceNo": "b40af3c1-d047-4c2e-8273-bcde867f0e71", "productCode": "JB000001", "productName": "Coin Combo", "qty": 30, "rate": 245, "amount": 7350}, {"id": "707b6172-f99a-4685-941b-00dfbd0a21ea", "invoiceNo": "aafeab65-423e-4c45-9c91-ca54ff9c480a", "productCode": "JB000001", "productName": "Coin Combo", "qty": 26, "rate": 245, "amount": 6370}, {"id": "2c50eb03-3078-41ed-afbf-7bf2928bcee2", "invoiceNo": "8681e10c-df91-4a4e-b6a9-42dc8688de87", "productCode": "JB000001", "productName": "Coin Combo", "qty": 10, "rate": 245, "amount": 2450}, {"id": "1a6a4a3c-e955-4d0c-81ba-3013fb8c4443", "invoiceNo": "65cc597e-6cfb-40ec-9546-72c014304908", "productCode": "JB000001", "productName": "Coin Combo", "qty": 6, "rate": 245, "amount": 1470}, {"id": "8df41e0c-6886-435a-9228-e10247707a34", "invoiceNo": "0d2c4fe5-aa8e-4068-81dd-3976d0158672", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "8081b219-f27b-41be-8ef2-bbe35f7558a5", "invoiceNo": "81e680dd-545e-4d2b-94ae-1b7687fe5bc6", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "2e8d5426-7f5c-4e5e-9d81-189fa6cb75a8", "invoiceNo": "dfbbe3f1-b652-4de4-8f72-efd207f24a1b", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "21ef64e1-7a8e-4d34-8f7d-f5ea3e1f4011", "invoiceNo": "dfbbe3f1-b652-4de4-8f72-efd207f24a1b", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "83aa1c1d-7114-41ae-9379-4de7200d7ca7", "invoiceNo": "e0205de4-9b8f-4f79-966f-6c1165171fa4", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "4a2cc05b-7568-46c8-bf5a-b06e3023ebf2", "invoiceNo": "e0205de4-9b8f-4f79-966f-6c1165171fa4", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "8cb94602-5fe2-4d5d-8c0c-8f351456ec3f", "invoiceNo": "09ff568e-3815-49d0-85e9-6d2a1d3869ad", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "6e534588-38bc-4fb2-9b17-0d6d79ba317a", "invoiceNo": "94b9c8f3-dd30-46e4-b08b-c7538868da8d", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "0dc375ab-e111-4368-a11f-2979e344a17c", "invoiceNo": "94b9c8f3-dd30-46e4-b08b-c7538868da8d", "productCode": "JB000002", "productName": "CHOCKI CHOKER", "qty": 1, "rate": 150, "amount": 150}, {"id": "39c64cbb-db11-4f39-84a1-b445c8a58417", "invoiceNo": "f7e3116d-bd57-4f62-923c-9ebe5576503f", "productCode": "JB000001", "productName": "Coin Combo", "qty": 4, "rate": 245, "amount": 980}, {"id": "cd86c901-2874-4455-816f-07baeb526cae", "invoiceNo": "04ad32a9-68dc-4e30-bad5-06469ac15181", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "4de28809-d2e9-42d1-8f64-07b283cbd885", "invoiceNo": "83f0a15d-990a-46f6-a812-87526b1d5e8f", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "9511f12b-035b-48f5-8998-d09fba149847", "invoiceNo": "a8a68c87-9a93-4d5d-9693-54d35fc9f662", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "54cbbaec-ef3a-483b-b8d9-2431e7eb9ca9", "invoiceNo": "24b87418-dc42-4dcc-a124-5e4e3a00a24f", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "5ff630c0-b19a-4124-8540-ddae698dbdbb", "invoiceNo": "24b87418-dc42-4dcc-a124-5e4e3a00a24f", "productCode": "JB000002", "productName": "CHOCKI CHOKER", "qty": 1, "rate": 150, "amount": 150}, {"id": "18054f0d-3c11-4305-9b6d-351a787e78f1", "invoiceNo": "941593e4-10dc-435f-b7d9-f9468dacd161", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "01f35659-622c-4562-ba1b-554826392619", "invoiceNo": "941593e4-10dc-435f-b7d9-f9468dacd161", "productCode": "JB000002", "productName": "CHOCKI CHOKER", "qty": 1, "rate": 150, "amount": 150}, {"id": "19b055de-21df-4a9e-b038-a58d2d4bd2b2", "invoiceNo": "941593e4-10dc-435f-b7d9-f9468dacd161", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "ecb883eb-d6d9-4764-9e1d-ff1bdd792ae2", "invoiceNo": "2eeed7a9-6fec-455d-9e22-99052a1fe343", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 3, "rate": 320, "amount": 960}, {"id": "0880275c-03a8-4906-ae6a-31606df82401", "invoiceNo": "d4924e4b-dda9-4bc3-926c-214e53926668", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 0, "rate": 320, "amount": 0}, {"id": "43ec4101-f5be-408b-8090-8604cfaf0c1a", "invoiceNo": "da662c63-988c-4bc8-966a-6305a76385cc", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 3, "rate": 320, "amount": 960}, {"id": "7bba7adb-8632-4e37-b9f4-a8940d26bd23", "invoiceNo": "9e5d18e9-204c-4702-bf0d-537c24be09d9", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "2e069b3c-967d-49a9-bff6-38028db1ef29", "invoiceNo": "22cbab0a-f4d8-4a8e-9f2b-e62113f05053", "productCode": "JB000001", "productName": "Coin Combo", "qty": 2, "rate": 245, "amount": 490}, {"id": "d77d1208-5b5e-4264-b3a6-e8057a1c31d5", "invoiceNo": "288ed123-1709-4cac-ad75-a28dd7446026", "productCode": "JB000001", "productName": "Coin Combo", "qty": 2, "rate": 245, "amount": 490}, {"id": "5fb8be2e-769e-4b99-842e-e55a018b1e06", "invoiceNo": "288ed123-1709-4cac-ad75-a28dd7446026", "productCode": "JB000001", "productName": "Coin Combo", "qty": 2, "rate": 245, "amount": 490}, {"id": "19036894-2f31-4793-b28a-bdd307f5d846", "invoiceNo": "acad2482-88ba-4160-8109-b15d0aba4018", "productCode": "JB000001", "productName": "Coin Combo", "qty": 10, "rate": 245, "amount": 2450}, {"id": "7a9b7f55-c59d-4828-9a3d-69eda548248f", "invoiceNo": "e77def68-f8be-402c-801f-c4fddbe515bc", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "80624290-c0a4-48e2-9fbc-b0110307e82d", "invoiceNo": "dd9e36df-cd81-4df5-ba95-c452bfce039e", "productCode": "JB000002", "productName": "CHOCKI CHOKER", "qty": 1, "rate": 150, "amount": 150}, {"id": "fcd6ae44-8c0f-454b-9697-a5ee5526c967", "invoiceNo": "cc93ad3e-827a-4fe6-a0e5-9389b67ab085", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "ae5fda4c-e21f-4348-a6f0-d3365698319c", "invoiceNo": "6897d6dc-c8de-4478-b89a-1ba48b0c8793", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}], "payments": [{"id": "RC000001", "date": "2026-08-09", "customerId": "CUS000002", "customerName": "Amrit Kumawat", "mobile": "9876543210", "paymentMode": "CASH", "amountReceived": 500, "previousBalance": 2140, "balanceAfter": 1640, "remarks": "hello", "status": "RECEIVED", "receivedBy": "admin"}], "ledger": [{"id": "aa64b4ce-7f0c-4ee4-8259-ba1e53e5619e", "date": "2026-08-03", "invoiceNo": "JB000001", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "debit": 7350, "credit": 0, "balance": 7350, "remarks": ""}, {"id": "9bdc7185-0d1f-444d-b5b1-7d89cf1dcd92", "date": "2026-08-05", "invoiceNo": "JB000002", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "debit": 6370, "credit": 0, "balance": 13720, "remarks": ""}, {"id": "9791516a-33be-416c-a567-76b38e13bf20", "date": "2026-08-09", "invoiceNo": "INV/26-27/000001", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "debit": 2450, "credit": 0, "balance": 16170, "remarks": ""}, {"id": "1ba57a38-8a15-4caa-9127-30adff5b8a03", "date": "2026-08-10", "invoiceNo": "INV/26-27/000002", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "debit": 1470, "credit": 0, "balance": 17640, "remarks": ""}, {"id": "e18019f6-f4a2-43b9-8ff4-077888e905cc", "date": "2026-08-13", "invoiceNo": "INV/26-27/000003", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "debit": 220, "credit": 0, "balance": 220, "remarks": ""}]}};
 </script>
@@ -312,8 +324,26 @@ function financialYear(d){
 }
 
 /* ---------------- Firebase (cloud database + login) ---------------- */
+// Built-in project config, embedded once by the developer — so every device
+// that opens the app link connects straight to the same cloud project
+// automatically. No device is ever asked to paste an API key: the one-time
+// "Cloud Setup" screen only appears as a manual override (see
+// renderSetupScreen -> "Firebase project badlein"), never on first load.
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDv4rU4Rps080UVKcd-a-v1y3dHPzR-XP4",
+  authDomain: "jokerwal-billing.firebaseapp.com",
+  projectId: "jokerwal-billing",
+  storageBucket: "jokerwal-billing.firebasestorage.app",
+  messagingSenderId: "721441447075",
+  appId: "1:721441447075:web:33e36a291de63e3832f316",
+  measurementId: "G-03BQMZBLS3"
+};
 const FB_CONFIG_KEY = 'jberp_fb_config_v1';
-function loadFirebaseConfig(){ try{ return JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'null'); }catch(e){ return null; } }
+const FORCE_SETUP_KEY = 'jberp_force_setup_v1';
+function loadFirebaseConfig(){
+  try{ const saved = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'null'); if(saved) return saved; }catch(e){}
+  return DEFAULT_FIREBASE_CONFIG;
+}
 function saveFirebaseConfig(cfg){ localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(cfg)); }
 function clearFirebaseConfig(){ localStorage.removeItem(FB_CONFIG_KEY); }
 let fbAuth=null, fbDb=null;
@@ -439,7 +469,7 @@ async function switchCompany(companyId){
   App.store = new Store(fbDb, App.uid, companyId);
   const DEFAULT_PROFILE = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
     mobile:'', email:'', website:'', gstin:'', invoicePrefix:'INV', productPrefix:'PRD', lowStockDefault:5, pin:'',
-    gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:''};
+    gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', logoDataUrl:'', upiId:''};
   let profile = await App.store.get('settings','profile');
   if(!profile){
     profile = Object.assign({}, DEFAULT_PROFILE);
@@ -910,13 +940,6 @@ function whatsappLink(mobile, message){
   if(phone.length===10) phone = '91'+phone;
   return 'https://wa.me/'+phone+'?text='+encodeURIComponent(message);
 }
-function sendInvoiceWhatsApp(invoice){
-  if(!invoice.mobile){ toast('Mobile number nahi hai.','err'); return; }
-  const msg = 'Dear '+invoice.customerName+',\n\nThank you for shopping with '+App.company.name+'.\n'+
-    'Invoice No: '+invoice.invoiceNo+'\nAmount: '+fmtMoney(invoice.billTotal)+'\nBalance Due: '+fmtMoney(invoice.balanceDue)+'\n\n'+
-    'Thank you for your valuable purchase.';
-  window.open(whatsappLink(invoice.mobile, msg), '_blank');
-}
 function sendReceiptWhatsApp(payment){
   if(!payment.mobile){ toast('Mobile number nahi hai.','err'); return; }
   const msg = 'Dear '+payment.customerName+',\n\nWe received your payment.\nReceipt No: '+payment.id+'\nAmount Received: '+fmtMoney(payment.amountReceived)+'\nBalance Due: '+fmtMoney(clamp0(payment.balanceAfter))+'\n\nThank you — '+App.company.name;
@@ -924,46 +947,217 @@ function sendReceiptWhatsApp(payment){
 }
 
 /* ---------------- Print views ---------------- */
-function printInvoice(invoice, items){
-  const area = $('#print-area');
+/* ---------------- Premium PDF invoice (jsPDF) ---------------- */
+function buildUpiUri(invoice){
+  const vpa = (App.company.upiId||'').trim();
+  if(!vpa) return null;
+  const params = new URLSearchParams({
+    pa: vpa, pn: App.company.name||'Merchant',
+    am: (Number(invoice.balanceDue)||0).toFixed(2), cu:'INR',
+    tn: 'Invoice '+invoice.invoiceNo,
+  });
+  return 'upi://pay?'+params.toString();
+}
+function makeQrDataUrl(text, size){
+  return new Promise((resolve)=>{
+    if(typeof QRCode==='undefined' || !text){ resolve(null); return; }
+    const holder = document.createElement('div');
+    holder.style.cssText='position:fixed;left:-9999px;top:-9999px;';
+    document.body.appendChild(holder);
+    try{
+      new QRCode(holder, {text, width:size, height:size, correctLevel: QRCode.CorrectLevel.M});
+      setTimeout(()=>{
+        try{
+          const canvas = holder.querySelector('canvas');
+          const img = holder.querySelector('img');
+          let dataUrl = null;
+          if(canvas) dataUrl = canvas.toDataURL('image/png');
+          else if(img && img.src && img.src.indexOf('data:')===0) dataUrl = img.src;
+          resolve(dataUrl);
+        }catch(e){ resolve(null); }
+        finally{ holder.remove(); }
+      }, 80);
+    }catch(e){ holder.remove(); resolve(null); }
+  });
+}
+async function generateInvoicePdf(invoice, items){
+  if(typeof window.jspdf==='undefined') throw new Error('PDF library load nahi ho payi. Internet check karke dobara try karein.');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const pageW = 210, pageH = 297, marginX = 15;
   const gstOn = !!invoice.gstEnabled;
-  const rowsHtml = items.map((it,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(it.productCode)}</td><td>${escapeHtml(it.productName)}</td>${gstOn?`<td>${escapeHtml(it.hsn||'')}</td><td class="right">${Number(it.gstRate)||0}%</td>`:''}<td class="right">${fmtNum(it.qty)}</td><td class="right">${fmtMoney(it.rate)}</td><td class="right">${fmtMoney(it.amount)}</td></tr>`).join('');
-  const gstTotal = Number(invoice.gstTotal)||0;
-  const halfGst = gstTotal/2;
-  const gstRowsHtml = gstOn ? `
-      <div class="spread"><span>Taxable Amount</span><span>${fmtMoney(invoice.taxableTotal)}</span></div>
-      <div class="spread small"><span>CGST</span><span>${fmtMoney(halfGst)}</span></div>
-      <div class="spread small"><span>SGST</span><span>${fmtMoney(halfGst)}</span></div>` : '';
-  const bankHtml = App.company.invoiceBankDetails ? `<div style="margin-top:14px;font-size:11px;color:#555;white-space:pre-line;border-top:1px dashed #ccc;padding-top:8px;"><b>Bank Details:</b><br>${escapeHtml(App.company.invoiceBankDetails)}</div>` : '';
-  const footerNote = App.company.invoiceNote || 'Thank you for your business!';
-  area.innerHTML = `<div class="invoice-doc">
-    <div style="text-align:center;border-bottom:2px solid #a2732c;padding-bottom:10px;margin-bottom:14px;">
-      <h2 style="margin:0;font-size:22px;">${escapeHtml(App.company.name)}</h2>
-      <div style="font-size:12px;color:#555;">${escapeHtml(App.company.address1||'')} ${escapeHtml(App.company.address2||'')}</div>
-      <div style="font-size:12px;color:#555;">${App.company.mobile?('Mobile: '+escapeHtml(App.company.mobile)+'  '):''}${App.company.email?('Email: '+escapeHtml(App.company.email)):''}</div>
-      ${App.company.gstin?`<div style="font-size:12px;color:#555;">GSTIN: ${escapeHtml(App.company.gstin)}</div>`:''}
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:10px;">
-      <div><b>Bill To:</b><br>${escapeHtml(invoice.customerName)}<br>Mobile: ${escapeHtml(invoice.mobile)}</div>
-      <div style="text-align:right;"><b>Invoice No:</b> ${escapeHtml(invoice.invoiceNo)}<br><b>Date:</b> ${fmtDate(invoice.date)}<br><b>Payment Mode:</b> ${escapeHtml(invoice.paymentMode)}</div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
-      <thead><tr><th>#</th><th>Code</th><th>Item</th>${gstOn?'<th>HSN</th><th class="right">GST%</th>':''}<th class="right">Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-    <div style="margin-left:auto;max-width:260px;font-size:13px;">
-      ${gstRowsHtml}
-      <div class="spread"><span>Bill Total</span><b>${fmtMoney(invoice.billTotal)}</b></div>
-      <div class="spread"><span>Previous Balance</span><span>${fmtMoney(invoice.previousBalance)}</span></div>
-      <div class="spread"><span>Total Payable</span><span>${fmtMoney(invoice.totalPayable)}</span></div>
-      <div class="spread"><span>Received</span><span>${fmtMoney(invoice.receivedAmount)}</span></div>
-      <div class="spread" style="border-top:1px solid #ccc;margin-top:4px;padding-top:4px;"><b>Balance Due</b><b>${fmtMoney(invoice.balanceDue)}</b></div>
-    </div>
-    <div style="margin-top:14px;font-size:11.5px;font-style:italic;">Amount in words: ${amountInWordsIndian(invoice.totalPayable)}</div>
-    ${bankHtml}
-    <div style="margin-top:22px;text-align:center;font-size:11.5px;color:#777;">${escapeHtml(footerNote)}${App.company.website?(' &nbsp;•&nbsp; '+escapeHtml(App.company.website)):''}</div>
-  </div>`;
-  window.print();
+  const accent=[162,115,44], accentDark=[92,64,20], gray=[100,95,85], lineGray=[224,218,204];
+  const c = App.company;
+
+  doc.setFillColor(...accent); doc.rect(0,0,pageW,26,'F');
+  let logoW = 0;
+  if(c.logoDataUrl){
+    try{ doc.addImage(c.logoDataUrl,'PNG', marginX, 5, 16, 16); logoW = 20; }catch(e){}
+  }
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(17);
+  doc.text(c.name||'My Business', marginX+logoW, 13);
+  if(c.tagline){ doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.text(c.tagline, marginX+logoW, 19.5); }
+
+  let y = 34;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...gray);
+  const addrLines = [
+    [c.address1,c.address2].filter(Boolean).join(', '),
+    [c.mobile?('Mobile: '+c.mobile):'', c.email?('Email: '+c.email):''].filter(Boolean).join('   '),
+    c.gstin ? ('GSTIN: '+c.gstin) : '',
+  ].filter(Boolean);
+  addrLines.forEach((line,i)=> doc.text(line, marginX, y+i*4.6, {maxWidth:105}));
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...accentDark);
+  doc.text('INVOICE', pageW-marginX, y, {align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(20,20,20);
+  doc.text('No: '+invoice.invoiceNo, pageW-marginX, y+6, {align:'right'});
+  doc.text('Date: '+fmtDate(invoice.date), pageW-marginX, y+11, {align:'right'});
+  doc.text('Payment: '+invoice.paymentMode, pageW-marginX, y+16, {align:'right'});
+
+  y += 24;
+  doc.setDrawColor(...lineGray); doc.setFillColor(250,248,243);
+  doc.rect(marginX, y, 180, 16, 'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...gray);
+  doc.text('BILL TO', marginX+4, y+5.5);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20,20,20);
+  doc.text(String(invoice.customerName||''), marginX+4, y+11.5, {maxWidth:110});
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(...gray);
+  doc.text('Mobile: '+(invoice.mobile||''), pageW-marginX-4, y+11.5, {align:'right'});
+
+  y += 22;
+  const colsDef = gstOn
+    ? [{k:'i',w:8,label:'#',align:'left'},{k:'name',w:52,label:'Item',align:'left'},{k:'hsn',w:20,label:'HSN',align:'left'},{k:'gst',w:16,label:'GST%',align:'right'},{k:'qty',w:18,label:'Qty',align:'right'},{k:'rate',w:30,label:'Rate',align:'right'},{k:'amt',w:36,label:'Amount',align:'right'}]
+    : [{k:'i',w:10,label:'#',align:'left'},{k:'name',w:88,label:'Item',align:'left'},{k:'qty',w:24,label:'Qty',align:'right'},{k:'rate',w:28,label:'Rate',align:'right'},{k:'amt',w:30,label:'Amount',align:'right'}];
+  const colX = []; { let cx=marginX; colsDef.forEach(cd=>{ colX.push(cx); cx+=cd.w; }); }
+  const headerH = 8;
+  const maxTableH = 95;
+  let rowH = 7;
+  if(items.length*rowH + headerH > maxTableH) rowH = Math.max(4.8, (maxTableH-headerH)/Math.max(items.length,1));
+  const fontSize = rowH < 6 ? 7.3 : 8.3;
+
+  doc.setFillColor(241,227,200); doc.rect(marginX, y, 180, headerH, 'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...accentDark);
+  colsDef.forEach((cd,idx)=>{ const tx = cd.align==='right' ? colX[idx]+cd.w-2 : colX[idx]+2; doc.text(cd.label, tx, y+headerH-2.6, {align:cd.align}); });
+  y += headerH;
+  doc.setFont('helvetica','normal'); doc.setFontSize(fontSize); doc.setTextColor(20,20,20);
+  items.forEach((it,i)=>{
+    if(i%2===1){ doc.setFillColor(250,248,243); doc.rect(marginX,y,180,rowH,'F'); }
+    const rowVals = gstOn
+      ? {i:String(i+1), name:it.productName, hsn:it.hsn||'-', gst:(Number(it.gstRate)||0)+'%', qty:fmtNum(it.qty), rate:fmtMoney(it.rate), amt:fmtMoney(it.amount)}
+      : {i:String(i+1), name:it.productName, qty:fmtNum(it.qty), rate:fmtMoney(it.rate), amt:fmtMoney(it.amount)};
+    colsDef.forEach((cd,idx)=>{
+      const tx = cd.align==='right' ? colX[idx]+cd.w-2 : colX[idx]+2;
+      doc.text(String(rowVals[cd.k]==null?'':rowVals[cd.k]), tx, y+rowH-(rowH<6?1.6:2.2), {align:cd.align, maxWidth:cd.w-3});
+    });
+    y += rowH;
+  });
+  doc.setDrawColor(...lineGray); doc.line(marginX, y, marginX+180, y);
+  y += 7;
+
+  // If we're already deep on the page, continue totals/footer on a fresh page
+  // instead of letting a long bill overlap the bottom margin.
+  if(y > 200){ doc.addPage(); y = 20; }
+
+  const totalsX = pageW-marginX-72;
+  function totalLine(label, value, opts){
+    opts = opts||{};
+    doc.setFont('helvetica', opts.bold?'bold':'normal'); doc.setFontSize(opts.size||9.5);
+    doc.setTextColor(...(opts.color||[20,20,20]));
+    doc.text(label, totalsX, y);
+    doc.text(value, pageW-marginX, y, {align:'right'});
+    y += opts.gap||5.6;
+  }
+  if(gstOn){
+    totalLine('Taxable Amount', fmtMoney(invoice.taxableTotal));
+    totalLine('CGST', fmtMoney((Number(invoice.gstTotal)||0)/2), {size:8.5,color:gray,gap:4.8});
+    totalLine('SGST', fmtMoney((Number(invoice.gstTotal)||0)/2), {size:8.5,color:gray,gap:4.8});
+  }
+  totalLine('Bill Total', fmtMoney(invoice.billTotal), {bold:true});
+  totalLine('Previous Balance', fmtMoney(invoice.previousBalance));
+  totalLine('Total Payable', fmtMoney(invoice.totalPayable));
+  totalLine('Received', fmtMoney(invoice.receivedAmount));
+  doc.setDrawColor(...lineGray); doc.line(totalsX, y-3.5, pageW-marginX, y-3.5);
+  totalLine('Balance Due', fmtMoney(invoice.balanceDue), {bold:true, size:11.5, color: Number(invoice.balanceDue)>0?[181,64,47]:[47,125,84]});
+
+  y += 2;
+  doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(...gray);
+  doc.text('Amount in words: '+amountInWordsIndian(invoice.totalPayable), marginX, y, {maxWidth:180});
+  y += 10;
+
+  if(y > 250){ doc.addPage(); y = 20; }
+
+  let qrDataUrl = null;
+  if(c.upiId && Number(invoice.balanceDue)>0){
+    try{ qrDataUrl = await makeQrDataUrl(buildUpiUri(invoice), 240); }catch(e){}
+  }
+  const blockTop = y;
+  if(qrDataUrl){
+    try{
+      doc.addImage(qrDataUrl,'PNG', marginX, y, 26, 26);
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...accentDark);
+      doc.text('Scan & Pay via UPI', marginX, y+30);
+    }catch(e){ qrDataUrl = null; }
+  }
+  if(c.invoiceBankDetails){
+    const bankX = qrDataUrl ? marginX+35 : marginX;
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(20,20,20);
+    doc.text('Bank Details', bankX, y+4);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...gray);
+    doc.text(doc.splitTextToSize(c.invoiceBankDetails, 180-(bankX-marginX)), bankX, y+9);
+  }
+  y = blockTop + (qrDataUrl ? 34 : 4);
+
+  const footerY = Math.max(y+8, pageH-22);
+  doc.setDrawColor(...lineGray); doc.line(marginX, footerY-6, pageW-marginX, footerY-6);
+  doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(...gray);
+  doc.text(c.invoiceNote || 'Thank you for your business!', marginX, footerY);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(20,20,20);
+  doc.line(pageW-marginX-40, footerY-4, pageW-marginX, footerY-4);
+  doc.text('Authorized Signatory', pageW-marginX, footerY, {align:'right'});
+  if(c.website){ doc.setFontSize(8); doc.setTextColor(...gray); doc.text(c.website, marginX, footerY+5); }
+
+  return doc;
+}
+function printInvoice(invoice, items){
+  generateInvoicePdf(invoice, items).then(doc=>{
+    window.open(doc.output('bloburl'), '_blank');
+  }).catch(e=>{ toast(e.message,'err'); });
+}
+async function shareInvoicePdfWhatsApp(invoice, items){
+  if(!invoice.mobile){ toast('Mobile number nahi hai.','err'); return; }
+  const msg = 'Dear '+invoice.customerName+',\n\nThank you for shopping with '+App.company.name+'.\n'+
+    'Invoice No: '+invoice.invoiceNo+'\nAmount: '+fmtMoney(invoice.billTotal)+'\nBalance Due: '+fmtMoney(invoice.balanceDue)+'\n\n'+
+    'Thank you for your valuable purchase.';
+  let doc;
+  try{ doc = await generateInvoicePdf(invoice, items); }
+  catch(e){ toast(e.message,'err'); window.open(whatsappLink(invoice.mobile, msg), '_blank'); return; }
+  const filename = 'Invoice_'+invoice.invoiceNo.replace(/[^a-z0-9]+/gi,'_')+'.pdf';
+  const blob = doc.output('blob');
+  try{
+    const file = new File([blob], filename, {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:filename, text:msg});
+      toast('WhatsApp mein PDF ke saath share karein.','ok');
+      return;
+    }
+  }catch(e){ /* user cancelled share sheet, or unsupported — fall through */ }
+  // Fallback: download the PDF, then open WhatsApp text chat so it can be attached manually.
+  try{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  }catch(e){}
+  toast('PDF download ho gaya — WhatsApp chat mein manually attach kar dein (yeh phone ka feature hai, apne aap attach nahi ho sakta).');
+  window.open(whatsappLink(invoice.mobile, msg), '_blank');
+}
+function sendInvoiceWhatsApp(invoice, items){
+  if(items){ shareInvoicePdfWhatsApp(invoice, items); return; }
+  if(!invoice.mobile){ toast('Mobile number nahi hai.','err'); return; }
+  const msg = 'Dear '+invoice.customerName+',\n\nThank you for shopping with '+App.company.name+'.\n'+
+    'Invoice No: '+invoice.invoiceNo+'\nAmount: '+fmtMoney(invoice.billTotal)+'\nBalance Due: '+fmtMoney(invoice.balanceDue)+'\n\n'+
+    'Thank you for your valuable purchase.';
+  window.open(whatsappLink(invoice.mobile, msg), '_blank');
 }
 function printReceipt(payment){
   const area = $('#print-area');
@@ -1256,7 +1450,7 @@ async function showPostSaveOptions(invoice){
   const body = el('div',{class:'stack'},[
     el('div',{},['Invoice ', el('b',{},[invoice.invoiceNo]), ' saved. ', fmtMoney(invoice.billTotal), ' total.']),
     el('button',{class:'btn btn-block', onclick:()=>printInvoice(invoice, items)},[iconPrint(),'Print Invoice']),
-    el('button',{class:'btn btn-block', onclick:()=>sendInvoiceWhatsApp(invoice)},[iconWhatsapp(),'Send on WhatsApp']),
+    el('button',{class:'btn btn-block', onclick:()=>sendInvoiceWhatsApp(invoice, items)},[iconWhatsapp(),'Send PDF on WhatsApp']),
     el('button',{class:'btn btn-primary btn-block', onclick:async ()=>{ closeModal(); billDraft = freshDraft(await DB.nextInvoiceNo()); renderRoute(); }},['New Bill']),
   ]);
   openModal('Bill Saved', body, {persist:true});
@@ -1301,7 +1495,7 @@ function openInvoiceDetail(inv){
       el('div',{class:'spread'},[el('span',{},['Balance Due']), el('span',{class:'num'},[fmtMoney(inv.balanceDue)])]),
       el('div',{class:'row wrap'},[
         el('button',{class:'btn', onclick:()=>printInvoice(inv,items)},[iconPrint(),'Print']),
-        el('button',{class:'btn', onclick:()=>sendInvoiceWhatsApp(inv)},[iconWhatsapp(),'WhatsApp']),
+        el('button',{class:'btn', onclick:()=>sendInvoiceWhatsApp(inv, items)},[iconWhatsapp(),'WhatsApp']),
       ]),
     ]);
     openModal('Invoice', body);
@@ -1751,10 +1945,45 @@ async function viewSettings(root){
 
   const invCard = el('div',{class:'card pad stack'});
   invCard.appendChild(el('div',{class:'bold'},['Invoice Customization']));
+
+  const logoPreviewWrap = el('div',{class:'row', style:'align-items:center;gap:12px;'});
+  function renderLogoPreview(){
+    logoPreviewWrap.innerHTML='';
+    if(c.logoDataUrl){
+      logoPreviewWrap.appendChild(el('img',{src:c.logoDataUrl, style:'width:56px;height:56px;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:#fff;'}));
+      logoPreviewWrap.appendChild(el('button',{class:'btn btn-sm btn-ghost', onclick: async ()=>{ c.logoDataUrl=''; await App.store.put('settings',c); toast('Logo removed.'); renderRoute(); }},['Remove Logo']));
+    } else {
+      logoPreviewWrap.appendChild(el('div',{class:'small muted'},['Koi logo set nahi hai.']));
+    }
+  }
+  renderLogoPreview();
+  const logoFileI = el('input',{type:'file', accept:'image/*'});
+  logoFileI.addEventListener('change', ()=>{
+    const file = logoFileI.files[0];
+    if(!file) return;
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = ()=>{ img.onload = async ()=>{
+      const maxDim = 300;
+      let {width:w, height:h} = img;
+      if(w>maxDim || h>maxDim){ const scale = maxDim/Math.max(w,h); w=Math.round(w*scale); h=Math.round(h*scale); }
+      const canvas = document.createElement('canvas'); canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      c.logoDataUrl = canvas.toDataURL('image/png');
+      await App.store.put('settings', c);
+      toast('Logo saved.','ok'); renderRoute();
+    }; img.src = reader.result; };
+    reader.readAsDataURL(file);
+  });
+  invCard.appendChild(el('label',{class:'field'},['Company Logo', logoFileI]));
+  invCard.appendChild(logoPreviewWrap);
+
   const noteI = el('input',{value:c.invoiceNote||'', placeholder:'e.g. Thank you for your business!'}); fields.invoiceNote = noteI;
   invCard.appendChild(el('label',{class:'field'},['Footer Note', noteI]));
   const bankI = el('textarea',{placeholder:'e.g. Bank: HDFC Bank, A/c: 1234567890, IFSC: HDFC0001234'}); bankI.value = c.invoiceBankDetails||''; fields.invoiceBankDetails = bankI;
   invCard.appendChild(el('label',{class:'field'},['Bank Details (optional — bill par print hoga)', bankI]));
+  const upiI = el('input',{value:c.upiId||'', placeholder:'e.g. jokerwalbrothers@okhdfcbank'}); fields.upiId = upiI;
+  invCard.appendChild(el('label',{class:'field'},['UPI ID (optional — bill par Scan & Pay QR banega)', upiI]));
 
   const saveAllProfile = async ()=>{
     for(const k in fields){
@@ -1959,7 +2188,7 @@ function renderAuthScreen(mode){
         el('div',{class:'muted small'},['Jokerwal Billing — cloud account (multi-device sync)']),
       ]),
       el('div',{class:'card pad'},[stack]),
-      el('button',{class:'linklike small', style:'text-align:center;', onclick:()=>{ if(confirm('Firebase project badalna hai?')){ clearFirebaseConfig(); location.reload(); } }},['Firebase project badlein']),
+      el('button',{class:'linklike small', style:'text-align:center;', onclick:()=>{ if(confirm('Firebase project badalna hai?')){ clearFirebaseConfig(); localStorage.setItem(FORCE_SETUP_KEY,'1'); location.reload(); } }},['Firebase project badlein']),
     ]),
   ]));
 }
@@ -2039,6 +2268,7 @@ async function bootApp(){
 
 /* ---------------- Startup: load Firebase config, then auth, then app ---------------- */
 function startup(){
+  if(localStorage.getItem(FORCE_SETUP_KEY)){ localStorage.removeItem(FORCE_SETUP_KEY); renderSetupScreen(); return; }
   const cfg = loadFirebaseConfig();
   if(!cfg){ renderSetupScreen(); return; }
   try{
