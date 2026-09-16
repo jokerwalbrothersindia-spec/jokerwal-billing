@@ -1,0 +1,17 @@
+{
+  "name": "Jokerwal Billing",
+  "short_name": "JB Billing",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#f5f3ee",
+  "theme_color": "#a2732c",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

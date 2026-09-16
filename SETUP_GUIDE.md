@@ -1,0 +1,93 @@
+# Jokerwal Billing — Cloud Setup Guide (Hinglish)
+
+Yeh guide aapko 2 kaam free mein karwayegi:
+1. **Apna khud ka cloud database** banana (Firebase) — jisme aapka data safe rahega, phone lost hone par bhi.
+2. **Isko internet par host karna** (GitHub Pages) — taaki ek link ban jaye jo kisi bhi phone/computer se khul sake.
+
+Dono FREE hain, koi credit card nahi chahiye.
+
+---
+
+## PART 1 — Apna Firebase Cloud Database Banayein
+
+1. Browser mein jaayein: **console.firebase.google.com** aur apne Google account (Gmail) se login karein.
+2. **"Add project"** (ya "Create a project") par click karein.
+3. Project ka naam daalein — jaise `jokerwal-billing` — aur **Continue** dabayein.
+4. Google Analytics ka option aayega — usko **OFF/skip** kar sakte hain (zaroori nahi hai). **Create project** dabayein aur wait karein.
+5. Project ready hone ke baad, left side menu mein **Build → Authentication** par jaayein.
+   - **Get started** dabayein.
+   - **Email/Password** provider par click karein → **Enable** karein → **Save**.
+6. Left menu mein **Build → Firestore Database** par jaayein.
+   - **Create database** dabayein.
+   - Location choose karein (koi bhi nearby region, e.g. `asia-south1 (Mumbai)`).
+   - **Start in production mode** select karein → **Create**.
+7. Firestore ban jaane ke baad, **Rules** tab par jaayein aur neeche di gayi Rules paste kar dein (purani sab hata kar):
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
+```
+
+   Yeh rule ensure karta hai ki **sirf aap** (login kiya hua account) apna data dekh/badal sakte hain, koi aur nahi. **Publish** dabayein.
+
+8. Ab left menu mein gear icon (⚙️) → **Project settings** par jaayein.
+   - Neeche scroll karein "Your apps" section tak.
+   - **`</>`** (Web) icon par click karein.
+   - App ka nickname daalein (jaise `jb-billing-web`) → **Register app**.
+   - Ek code dikhega jisme `firebaseConfig = {...}` hoga — isme 6 values hongi:
+     - `apiKey`
+     - `authDomain`
+     - `projectId`
+     - `storageBucket`
+     - `messagingSenderId`
+     - `appId`
+   - Yeh 6 values kahin note kar lein (ya tab khula rakhein) — app kholte hi pehli baar yeh values maangega.
+
+Bas, Firebase ka kaam ho gaya!
+
+---
+
+## PART 2 — App ko Internet par Host Karein (GitHub Pages)
+
+1. **github.com** par jaayein aur free account banayein (agar pehle se nahi hai).
+2. Login karne ke baad, top-right **"+"** icon → **New repository** par click karein.
+3. Repository ka naam daalein — jaise `jokerwal-billing` → **Public** select karein → **Create repository**.
+4. Naye repository page par, **"uploading an existing file"** link par click karein (ya "Add file → Upload files").
+5. Is folder ki saari files (`index.html`, `manifest.json`, `sw.js`, `icon.svg`) ek saath drag-drop karein.
+6. Neeche **Commit changes** dabayein.
+7. Ab **Settings** tab (repository ke andar, top mein) par jaayein → left menu mein **Pages** par click karein.
+8. "Branch" mein **main** select karein, folder **`/ (root)`** rakhein → **Save**.
+9. 1-2 minute wait karein, phir yeh page refresh karein — upar ek green box mein aapka live link milega, jaisे:
+   `https://yourusername.github.io/jokerwal-billing/`
+
+Yeh link hi aapki app hai — isko phone ke browser mein kholein, aur **"Add to Home Screen"** kar lein (ek app icon ban jayega, bilkul real app ki tarah).
+
+---
+
+## PART 3 — Pehli Baar App Kholna
+
+1. Upar wala link phone/computer ke browser mein kholein.
+2. **"Cloud Setup"** screen aayegi — Part 1 mein note ki hui 6 values yahan paste karein → **Save & Continue**.
+3. Ab **Login screen** aayega — pehli baar hai, isliye **"Naya account banayein"** par click karein.
+4. Apna email aur ek password (kam se kam 6 characters) daal kar **Sign Up** karein — yehi aapka business login hoga.
+5. Sign up hote hi, aapki poori Excel wali data (customers, products, invoices, payments, ledger — JOKERWAL BROTHERS) automatically cloud mein load ho jayegi.
+
+**Bas ho gaya — ab yeh ek proper cloud app hai.**
+
+- Kisi bhi doosre phone/computer par wahi link kholiye, wahi email-password se login kijiye — poora data turant wahan bhi dikhega.
+- Phone kho jaaye/kharab ho jaaye to koi tension nahi — data Google ke Firebase cloud mein safe hai, naye phone se login karte hi wapas mil jayega.
+- Naya team member add karna ho (jaise ek aur staff jo billing kare), unhe bhi wahi email-password de sakte hain — ya alag Firebase project bana kar unko alag access de sakte hain.
+
+---
+
+## Notes
+
+- Yeh Firebase ka **free (Spark) plan** hai — ek chhoti billing shop ke liye yeh limit kabhi khatam nahi hogi (roughly 50,000 reads/day free milte hain).
+- "Firebase project badlein" button (login screen ke neeche) se aap kabhi bhi doosra Firebase project connect kar sakte hain agar zarurat pade.
+- Settings page mein "Export Backup" se extra safety ke liye kabhi-kabhi ek JSON backup file bhi download kar sakte hain.

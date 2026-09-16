@@ -1,0 +1,1958 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#a2732c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="JB Billing">
+<meta name="description" content="Jokerwal Billing — cloud-synced multi-company billing &amp; inventory app">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Jokerwal Billing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f3ee; --surface:#ffffff; --surface-2:#faf8f3; --border:#e6e1d4;
+  --text:#211d16; --text-muted:#736b5a; --text-faint:#a49a84;
+  --accent:#a2732c; --accent-ink:#5c4014; --accent-soft:#f1e3c8; --accent-contrast:#fffaf0;
+  --success:#2f7d54; --success-soft:#e1f0e6; --warning:#a5680c; --warning-soft:#faedd2;
+  --danger:#b5402f; --danger-soft:#f8e2de; --credit:#2f6b8a; --credit-soft:#e2eef3;
+  --shadow: 0 1px 2px rgba(30,24,10,.06), 0 6px 20px -8px rgba(30,24,10,.12);
+  --radius:14px; --radius-sm:9px;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#171410; --surface:#211d16; --surface-2:#292319; --border:#3a3226;
+    --text:#f2ede1; --text-muted:#b3a891; --text-faint:#7d735d;
+    --accent:#d9a24b; --accent-ink:#2a1d0a; --accent-soft:#3a2d15; --accent-contrast:#241a06;
+    --success:#5cbf8b; --success-soft:#193226; --warning:#e0ab4a; --warning-soft:#3a2c10;
+    --danger:#e2796a; --danger-soft:#3a201c; --credit:#7cc0e0; --credit-soft:#132a34;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 24px -8px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171410; --surface:#211d16; --surface-2:#292319; --border:#3a3226;
+  --text:#f2ede1; --text-muted:#b3a891; --text-faint:#7d735d;
+  --accent:#d9a24b; --accent-ink:#2a1d0a; --accent-soft:#3a2d15; --accent-contrast:#241a06;
+  --success:#5cbf8b; --success-soft:#193226; --warning:#e0ab4a; --warning-soft:#3a2c10;
+  --danger:#e2796a; --danger-soft:#3a201c; --credit:#7cc0e0; --credit-soft:#132a34;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 24px -8px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;}
+body{background:var(--bg); color:var(--text); font-family:'Inter',system-ui,sans-serif;}
+.brandfont{font-family:'Fraunces',Georgia,serif;}
+h1,h2,h3{font-family:'Fraunces',Georgia,serif; text-wrap:balance; margin:0;}
+button,input,select,textarea{font-family:inherit; font-size:inherit; color:inherit;}
+::selection{background:var(--accent-soft);}
+.num{font-variant-numeric:tabular-nums;}
+a{color:var(--credit);}
+
+#app{min-height:100%; display:flex; flex-direction:column;}
+
+/* ---------- Top bar ---------- */
+.topbar{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px; padding:10px 14px;
+}
+.topbar .brand{display:flex; align-items:center; gap:9px; min-width:0; flex:1;}
+.brand-badge{
+  width:34px; height:34px; border-radius:9px; background:linear-gradient(155deg,var(--accent),var(--accent-ink));
+  color:var(--accent-contrast); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex:none;
+  font-family:'Fraunces',serif;
+}
+.brand-name{font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.brand-sub{font-size:11.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.icon-btn{
+  width:36px; height:36px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;
+}
+.icon-btn:active{transform:scale(.94);}
+
+/* ---------- Layout shell ---------- */
+.shell{display:flex; flex:1; min-height:0;}
+.sidenav{
+  width:216px; flex:none; border-right:1px solid var(--border); background:var(--surface);
+  padding:14px 10px; display:none; flex-direction:column; gap:2px;
+}
+.main{flex:1; min-width:0; padding:16px 16px 96px; max-width:980px; margin:0 auto; width:100%;}
+@media (min-width:860px){
+  .sidenav{display:flex;}
+  .main{padding:24px 28px 40px;}
+  .bottomnav{display:none !important;}
+}
+.navitem{
+  display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px; cursor:pointer;
+  color:var(--text-muted); font-size:13.5px; font-weight:500; border:1px solid transparent;
+}
+.navitem svg{flex:none; opacity:.85;}
+.navitem.active{background:var(--accent-soft); color:var(--accent-ink); font-weight:700;}
+.navitem:hover:not(.active){background:var(--surface-2);}
+.navgroup-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-faint); padding:14px 11px 4px;}
+
+.bottomnav{
+  position:sticky; bottom:0; z-index:20; background:var(--surface); border-top:1px solid var(--border);
+  display:flex; padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));
+}
+.bottomnav .navitem{flex:1; flex-direction:column; gap:3px; text-align:center; font-size:10.5px; padding:6px 2px; border-radius:10px;}
+.bottomnav .navitem.active{background:transparent; color:var(--accent-ink);}
+.bottomnav svg{width:20px; height:20px;}
+
+/* ---------- Primitives ---------- */
+.card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow);}
+.pad{padding:16px;}
+.stack{display:flex; flex-direction:column; gap:12px;}
+.row{display:flex; align-items:center; gap:10px;}
+.wrap{flex-wrap:wrap;}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+@media (max-width:520px){.grid3{grid-template-columns:1fr 1fr;}}
+.spread{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.muted{color:var(--text-muted);}
+.faint{color:var(--text-faint);}
+.small{font-size:12px;}
+.tiny{font-size:11px;}
+.bold{font-weight:700;}
+.section-title{font-size:19px; font-weight:600; margin-bottom:2px;}
+.section-sub{color:var(--text-muted); font-size:13px;}
+.divider{height:1px; background:var(--border); border:none; margin:2px 0;}
+.scroll-x{overflow-x:auto;}
+
+label.field{display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:var(--text-muted); font-weight:500;}
+input,select,textarea{
+  background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:9px 11px;
+  color:var(--text); width:100%; outline:none;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+textarea{resize:vertical; min-height:64px;}
+.inline-input{width:auto;}
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px; border-radius:10px; border:1px solid var(--border);
+  background:var(--surface-2); padding:10px 15px; font-weight:600; font-size:13.5px; cursor:pointer; white-space:nowrap;
+}
+.btn:active{transform:scale(.98);}
+.btn-primary{background:var(--accent); border-color:var(--accent); color:var(--accent-contrast);}
+.btn-success{background:var(--success); border-color:var(--success); color:#fff;}
+.btn-danger{background:transparent; border-color:var(--danger); color:var(--danger);}
+.btn-ghost{background:transparent; border-color:transparent;}
+.btn-sm{padding:6px 10px; font-size:12.5px; border-radius:8px;}
+.btn-block{width:100%;}
+.btn[disabled]{opacity:.5; cursor:not-allowed;}
+
+.pill{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.02em;}
+.pill-success{background:var(--success-soft); color:var(--success);}
+.pill-warning{background:var(--warning-soft); color:var(--warning);}
+.pill-danger{background:var(--danger-soft); color:var(--danger);}
+.pill-credit{background:var(--credit-soft); color:var(--credit);}
+.pill-neutral{background:var(--surface-2); color:var(--text-muted); border:1px solid var(--border);}
+
+table{width:100%; border-collapse:collapse; font-size:13px;}
+th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); padding:0 8px 8px; font-weight:600;}
+td{padding:9px 8px; border-top:1px solid var(--border); vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+.right{text-align:right;}
+.center{text-align:center;}
+
+.stat-tile{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; display:flex; flex-direction:column; gap:6px;}
+.stat-num{font-size:21px; font-weight:700; font-family:'Fraunces',serif;}
+.stat-label{font-size:11.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;}
+
+.modal-backdrop{position:fixed; inset:0; background:rgba(20,16,8,.45); z-index:100; display:flex; align-items:flex-end; justify-content:center;}
+@media (min-width:640px){.modal-backdrop{align-items:center;}}
+.modal{background:var(--surface); width:100%; max-width:480px; max-height:88vh; overflow-y:auto; border-radius:18px 18px 0 0; box-shadow:0 -8px 30px rgba(0,0,0,.25); padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));}
+@media (min-width:640px){.modal{border-radius:16px;}}
+.modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+
+.empty{padding:34px 14px; text-align:center; color:var(--text-muted);}
+.empty svg{opacity:.4; margin-bottom:8px;}
+
+.toast-wrap{position:fixed; left:0; right:0; bottom:calc(84px + env(safe-area-inset-bottom,0px)); z-index:200; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none;}
+@media (min-width:860px){.toast-wrap{bottom:24px;}}
+.toast{background:var(--text); color:var(--bg); padding:10px 16px; border-radius:10px; font-size:13px; box-shadow:var(--shadow); max-width:90vw;}
+.toast.err{background:var(--danger);}
+.toast.ok{background:var(--success);}
+
+.clock{font-family:'Fraunces',serif; text-align:right; flex:none; white-space:nowrap;}
+.clock .time{font-size:13.5px; font-weight:600;}
+.clock .date{font-size:9.5px; color:var(--text-muted);}
+@media (max-width:360px){.clock .date{display:none;}}
+
+.bar-chart{display:flex; align-items:flex-end; gap:6px; height:110px; padding-top:6px;}
+.bar-chart .bar-col{flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; justify-content:flex-end; height:100%;}
+.bar-chart .bar{width:100%; max-width:26px; background:var(--accent); border-radius:5px 5px 2px 2px; min-height:2px;}
+.bar-chart .bar-label{font-size:9.5px; color:var(--text-faint); white-space:nowrap;}
+
+.searchbox{position:relative;}
+.searchbox input{padding-left:34px;}
+.searchbox svg{position:absolute; left:10px; top:50%; transform:translateY(-50%); opacity:.55;}
+
+.item-row{display:grid; grid-template-columns:1fr 52px 78px 78px 30px; gap:6px; align-items:center;}
+.item-row input{padding:7px 8px; font-size:12.5px;}
+.item-row .amt{font-size:12.5px; font-weight:600; text-align:right; padding-right:4px;}
+
+.linklike{background:none; border:none; padding:0; color:var(--credit); font-weight:600; cursor:pointer; font-size:inherit;}
+.list-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 4px; border-top:1px solid var(--border); cursor:pointer;}
+.list-row:first-child{border-top:none;}
+.list-row:active{background:var(--surface-2);}
+.avatar{width:36px; height:36px; border-radius:10px; background:var(--accent-soft); color:var(--accent-ink); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex:none;}
+
+.print-sheet{display:none;}
+@media print{
+  body *{visibility:hidden;}
+  #print-area, #print-area *{visibility:visible;}
+  #print-area{position:absolute; left:0; top:0; width:100%; padding:0;}
+  .no-print{display:none !important;}
+}
+.invoice-doc{background:#fff; color:#111; padding:26px; font-family:'Inter',sans-serif; max-width:680px; margin:0 auto;}
+.invoice-doc h2{font-family:'Fraunces',serif;}
+.invoice-doc table{font-size:12.5px;}
+.invoice-doc td, .invoice-doc th{border-color:#ddd; color:#111;}
+
+.kbd-hint{font-size:11px; color:var(--text-faint);}
+[hidden]{display:none !important;}
+.scanline{display:flex; gap:8px;}
+.scanline input{flex:1;}
+.lock-screen{min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:24px; background:var(--bg);}
+.pin-dots{display:flex; gap:12px; justify-content:center; margin:18px 0;}
+.pin-dot{width:14px; height:14px; border-radius:50%; border:2px solid var(--border);}
+.pin-dot.filled{background:var(--accent); border-color:var(--accent);}
+.keypad{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:260px; margin:0 auto;}
+.keypad button{padding:16px; font-size:18px; border-radius:12px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast-root" class="toast-wrap"></div>
+<div id="modal-root"></div>
+<div id="print-area"></div>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script>
+window.__JB_SEED__ = {"company": {"id": "co_jokerwal", "name": "JOKERWAL BROTHERS", "tagline": "we makes love", "address1": "Gala No.101, Atmanand Apartment, Juchandra Talav", "address2": "Naigaon East, Palghar - 401208", "mobile": "8511916363", "email": "jokerwalbrothers@gmail.com", "website": "www.jokerwalbrothers.com", "gstin": "", "invoicePrefix": "INV", "productPrefix": "JB", "lowStockDefault": 10}, "data": {"customers": [{"id": "CUS000001", "mobile": "9950325316", "name": "Naresh", "balance": 17640, "creditLimit": 0, "createdAt": "2026-08-01"}, {"id": "CUS000002", "mobile": "9876543210", "name": "Amrit Kumawat", "balance": 1640, "creditLimit": 0, "createdAt": "2026-08-01"}, {"id": "CUS000003", "mobile": "9602453737", "name": "Savita", "balance": 245, "creditLimit": 0, "createdAt": "2026-08-01"}, {"id": "CUS000004", "mobile": "9024370220", "name": "Vinod", "balance": 12570, "creditLimit": 0, "createdAt": "2026-08-01"}, {"id": "CUS000005", "mobile": "8591616363", "name": "Amrit Kumawat", "balance": 0, "creditLimit": 0, "createdAt": "2026-08-01"}], "products": [{"id": "JB000001", "productCode": "JB000001", "name": "Coin Combo", "rate": 245, "stock": 235, "qtyType": "PIECE", "lowStockLimit": 275, "createdAt": "2026-08-01"}, {"id": "JB000002", "productCode": "JB000002", "name": "CHOCKI CHOKER", "rate": 150, "stock": 480, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000003", "productCode": "JB000003", "name": "JALI COMBO", "rate": 320, "stock": 469, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000004", "productCode": "JB000004", "name": "REGULAR COMBO", "rate": 350, "stock": 499, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000005", "productCode": "JB000005", "name": "PAN COMBO", "rate": 380, "stock": 500, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000006", "productCode": "JB000006", "name": "GOLD PLATE", "rate": 450, "stock": 100, "qtyType": "WEIGHT", "lowStockLimit": 100, "createdAt": "2026-08-01"}, {"id": "JB000007", "productCode": "JB000007", "name": "MATTE GOLD", "rate": 450, "stock": 100, "qtyType": "WEIGHT", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000008", "productCode": "JB000008", "name": "MAHENDI GOLD", "rate": 450, "stock": 100, "qtyType": "WEIGHT", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000009", "productCode": "JB000009", "name": "Owel Chick", "rate": 90, "stock": 100, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000010", "productCode": "JB000010", "name": "peacock chick", "rate": 85, "stock": 500, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000011", "productCode": "JB000011", "name": "Rajwadi Gold", "rate": 500, "stock": 1000, "qtyType": "WEIGHT", "lowStockLimit": 0, "createdAt": "2026-08-01"}, {"id": "JB000012", "productCode": "JB000012", "name": "4040 Bridal", "rate": 950, "stock": 1000, "qtyType": "PIECE", "lowStockLimit": 0, "createdAt": "2026-08-01"}], "invoices": [{"id": "b40af3c1-d047-4c2e-8273-bcde867f0e71", "invoiceNo": "JB000001", "date": "2026-08-03", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "paymentMode": "CREDIT", "billTotal": 7350, "previousBalance": 0, "currentBill": 7350, "totalPayable": 7350, "receivedAmount": 0, "balanceDue": 7350, "status": "COMPLETED", "createdAt": "2026-08-03"}, {"id": "aafeab65-423e-4c45-9c91-ca54ff9c480a", "invoiceNo": "JB000002", "date": "2026-08-05", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "paymentMode": "CREDIT", "billTotal": 6370, "previousBalance": 7350, "currentBill": 6370, "totalPayable": 13720, "receivedAmount": 0, "balanceDue": 13720, "status": "COMPLETED", "createdAt": "2026-08-05"}, {"id": "8681e10c-df91-4a4e-b6a9-42dc8688de87", "invoiceNo": "INV/26-27/000001", "date": "2026-08-09", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "paymentMode": "CREDIT", "billTotal": 2450, "previousBalance": 13720, "currentBill": 2450, "totalPayable": 16170, "receivedAmount": 0, "balanceDue": 16170, "status": "COMPLETED", "createdAt": "2026-08-09"}, {"id": "65cc597e-6cfb-40ec-9546-72c014304908", "invoiceNo": "INV/26-27/000002", "date": "2026-08-10", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "paymentMode": "CREDIT", "billTotal": 1470, "previousBalance": 16170, "currentBill": 1470, "totalPayable": 17640, "receivedAmount": 0, "balanceDue": 17640, "status": "COMPLETED", "createdAt": "2026-08-10"}, {"id": "0d2c4fe5-aa8e-4068-81dd-3976d0158672", "invoiceNo": "INV/26-27/000003", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CREDIT", "billTotal": 320, "previousBalance": 0, "currentBill": 320, "totalPayable": 320, "receivedAmount": 100, "balanceDue": 220, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "81e680dd-545e-4d2b-94ae-1b7687fe5bc6", "invoiceNo": "INV/26-27/000004", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 320, "previousBalance": 220, "currentBill": 320, "totalPayable": 540, "receivedAmount": 0, "balanceDue": 540, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "dfbbe3f1-b652-4de4-8f72-efd207f24a1b", "invoiceNo": "INV/26-27/000005", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 565, "previousBalance": 220, "currentBill": 565, "totalPayable": 785, "receivedAmount": 0, "balanceDue": 785, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "e0205de4-9b8f-4f79-966f-6c1165171fa4", "invoiceNo": "INV/26-27/000006", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 565, "previousBalance": 220, "currentBill": 565, "totalPayable": 785, "receivedAmount": 0, "balanceDue": 785, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "09ff568e-3815-49d0-85e9-6d2a1d3869ad", "invoiceNo": "INV/26-27/000007", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 245, "previousBalance": 220, "currentBill": 245, "totalPayable": 465, "receivedAmount": 0, "balanceDue": 465, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "94b9c8f3-dd30-46e4-b08b-c7538868da8d", "invoiceNo": "INV/26-27/000008", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 395, "previousBalance": 220, "currentBill": 395, "totalPayable": 615, "receivedAmount": 0, "balanceDue": 615, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "f7e3116d-bd57-4f62-923c-9ebe5576503f", "invoiceNo": "INV/26-27/000009", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 980, "previousBalance": 220, "currentBill": 980, "totalPayable": 1200, "receivedAmount": 0, "balanceDue": 1200, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "04ad32a9-68dc-4e30-bad5-06469ac15181", "invoiceNo": "INV/26-27/000010", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 245, "previousBalance": 220, "currentBill": 245, "totalPayable": 465, "receivedAmount": 0, "balanceDue": 465, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "83f0a15d-990a-46f6-a812-87526b1d5e8f", "invoiceNo": "INV/26-27/000011", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 245, "previousBalance": 220, "currentBill": 245, "totalPayable": 465, "receivedAmount": 0, "balanceDue": 465, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "a8a68c87-9a93-4d5d-9693-54d35fc9f662", "invoiceNo": "INV/26-27/000012", "date": "2026-08-13", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 320, "previousBalance": 220, "currentBill": 320, "totalPayable": 540, "receivedAmount": 0, "balanceDue": 540, "status": "COMPLETED", "createdAt": "2026-08-13"}, {"id": "24b87418-dc42-4dcc-a124-5e4e3a00a24f", "invoiceNo": "INV/26-27/000014", "date": "2026-08-14", "customerId": "CUS000002", "customerName": "Amrit Kumawat", "mobile": "9876543210", "paymentMode": "CASH", "billTotal": 395, "previousBalance": 1640, "currentBill": 395, "totalPayable": 2035, "receivedAmount": 2035, "balanceDue": 0, "status": "MODIFIED", "createdAt": "2026-08-14"}, {"id": "941593e4-10dc-435f-b7d9-f9468dacd161", "invoiceNo": "INV/26-27/000014", "date": "2026-08-14", "customerId": "CUS000002", "customerName": "Amrit Kumawat", "mobile": "9876543210", "paymentMode": "CASH", "billTotal": 715, "previousBalance": 1640, "currentBill": 715, "totalPayable": 2355, "receivedAmount": 2355, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-14"}, {"id": "2eeed7a9-6fec-455d-9e22-99052a1fe343", "invoiceNo": "INV/26-27/000015", "date": "2026-08-14", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 960, "previousBalance": 220, "currentBill": 960, "totalPayable": 1180, "receivedAmount": 0, "balanceDue": 1180, "status": "COMPLETED", "createdAt": "2026-08-14"}, {"id": "d4924e4b-dda9-4bc3-926c-214e53926668", "invoiceNo": "INV/26-27/000016", "date": "2026-08-14", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 0, "previousBalance": 220, "currentBill": 0, "totalPayable": 220, "receivedAmount": 220, "balanceDue": 0, "status": "MODIFIED", "createdAt": "2026-08-14"}, {"id": "da662c63-988c-4bc8-966a-6305a76385cc", "invoiceNo": "INV/26-27/000016", "date": "2026-08-14", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 960, "previousBalance": 220, "currentBill": 960, "totalPayable": 1180, "receivedAmount": 1180, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-14"}, {"id": "9e5d18e9-204c-4702-bf0d-537c24be09d9", "invoiceNo": "INV/26-27/000017", "date": "2026-08-16", "customerId": "CUS000004", "customerName": "Vinod", "mobile": "9024370220", "paymentMode": "CASH", "billTotal": 245, "previousBalance": 12570, "currentBill": 245, "totalPayable": 12815, "receivedAmount": 12815, "balanceDue": 0, "status": "MODIFIED", "createdAt": "2026-08-16"}, {"id": "22cbab0a-f4d8-4a8e-9f2b-e62113f05053", "invoiceNo": "INV/26-27/000017", "date": "2026-08-16", "customerId": "CUS000004", "customerName": "Vinod", "mobile": "9024370220", "paymentMode": "CASH", "billTotal": 490, "previousBalance": 12570, "currentBill": 490, "totalPayable": 13060, "receivedAmount": 13060, "balanceDue": 0, "status": "MODIFIED", "createdAt": "2026-08-16"}, {"id": "288ed123-1709-4cac-ad75-a28dd7446026", "invoiceNo": "INV/26-27/000017", "date": "2026-08-16", "customerId": "CUS000004", "customerName": "Vinod", "mobile": "9024370220", "paymentMode": "CASH", "billTotal": 980, "previousBalance": 12570, "currentBill": 980, "totalPayable": 13550, "receivedAmount": 13550, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-16"}, {"id": "acad2482-88ba-4160-8109-b15d0aba4018", "invoiceNo": "INV/26-27/000018", "date": "2026-08-20", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 2450, "previousBalance": 220, "currentBill": 2450, "totalPayable": 2670, "receivedAmount": 220, "balanceDue": 2450, "status": "COMPLETED", "createdAt": "2026-08-20"}, {"id": "e77def68-f8be-402c-801f-c4fddbe515bc", "invoiceNo": "INV/26-27/000019", "date": "2026-08-20", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 245, "previousBalance": 220, "currentBill": 245, "totalPayable": 465, "receivedAmount": 245, "balanceDue": 220, "status": "COMPLETED", "createdAt": "2026-08-20"}, {"id": "dd9e36df-cd81-4df5-ba95-c452bfce039e", "invoiceNo": "INV/26-27/000020", "date": "2026-08-21", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 150, "previousBalance": 220, "currentBill": 150, "totalPayable": 370, "receivedAmount": 370, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-21"}, {"id": "cc93ad3e-827a-4fe6-a0e5-9389b67ab085", "invoiceNo": "INV/26-27/000021", "date": "2026-08-21", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 320, "previousBalance": 220, "currentBill": 320, "totalPayable": 540, "receivedAmount": 540, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-21"}, {"id": "6897d6dc-c8de-4478-b89a-1ba48b0c8793", "invoiceNo": "INV/26-27/000022", "date": "2026-08-21", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "paymentMode": "CASH", "billTotal": 320, "previousBalance": 220, "currentBill": 320, "totalPayable": 540, "receivedAmount": 540, "balanceDue": 0, "status": "COMPLETED", "createdAt": "2026-08-21"}], "saleItems": [{"id": "8a80ea82-5338-42ff-a56f-976a7c577945", "invoiceNo": "b40af3c1-d047-4c2e-8273-bcde867f0e71", "productCode": "JB000001", "productName": "Coin Combo", "qty": 30, "rate": 245, "amount": 7350}, {"id": "707b6172-f99a-4685-941b-00dfbd0a21ea", "invoiceNo": "aafeab65-423e-4c45-9c91-ca54ff9c480a", "productCode": "JB000001", "productName": "Coin Combo", "qty": 26, "rate": 245, "amount": 6370}, {"id": "2c50eb03-3078-41ed-afbf-7bf2928bcee2", "invoiceNo": "8681e10c-df91-4a4e-b6a9-42dc8688de87", "productCode": "JB000001", "productName": "Coin Combo", "qty": 10, "rate": 245, "amount": 2450}, {"id": "1a6a4a3c-e955-4d0c-81ba-3013fb8c4443", "invoiceNo": "65cc597e-6cfb-40ec-9546-72c014304908", "productCode": "JB000001", "productName": "Coin Combo", "qty": 6, "rate": 245, "amount": 1470}, {"id": "8df41e0c-6886-435a-9228-e10247707a34", "invoiceNo": "0d2c4fe5-aa8e-4068-81dd-3976d0158672", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "8081b219-f27b-41be-8ef2-bbe35f7558a5", "invoiceNo": "81e680dd-545e-4d2b-94ae-1b7687fe5bc6", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "2e8d5426-7f5c-4e5e-9d81-189fa6cb75a8", "invoiceNo": "dfbbe3f1-b652-4de4-8f72-efd207f24a1b", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "21ef64e1-7a8e-4d34-8f7d-f5ea3e1f4011", "invoiceNo": "dfbbe3f1-b652-4de4-8f72-efd207f24a1b", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "83aa1c1d-7114-41ae-9379-4de7200d7ca7", "invoiceNo": "e0205de4-9b8f-4f79-966f-6c1165171fa4", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "4a2cc05b-7568-46c8-bf5a-b06e3023ebf2", "invoiceNo": "e0205de4-9b8f-4f79-966f-6c1165171fa4", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "8cb94602-5fe2-4d5d-8c0c-8f351456ec3f", "invoiceNo": "09ff568e-3815-49d0-85e9-6d2a1d3869ad", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "6e534588-38bc-4fb2-9b17-0d6d79ba317a", "invoiceNo": "94b9c8f3-dd30-46e4-b08b-c7538868da8d", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "0dc375ab-e111-4368-a11f-2979e344a17c", "invoiceNo": "94b9c8f3-dd30-46e4-b08b-c7538868da8d", "productCode": "JB000002", "productName": "CHOCKI CHOKER", "qty": 1, "rate": 150, "amount": 150}, {"id": "39c64cbb-db11-4f39-84a1-b445c8a58417", "invoiceNo": "f7e3116d-bd57-4f62-923c-9ebe5576503f", "productCode": "JB000001", "productName": "Coin Combo", "qty": 4, "rate": 245, "amount": 980}, {"id": "cd86c901-2874-4455-816f-07baeb526cae", "invoiceNo": "04ad32a9-68dc-4e30-bad5-06469ac15181", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "4de28809-d2e9-42d1-8f64-07b283cbd885", "invoiceNo": "83f0a15d-990a-46f6-a812-87526b1d5e8f", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "9511f12b-035b-48f5-8998-d09fba149847", "invoiceNo": "a8a68c87-9a93-4d5d-9693-54d35fc9f662", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "54cbbaec-ef3a-483b-b8d9-2431e7eb9ca9", "invoiceNo": "24b87418-dc42-4dcc-a124-5e4e3a00a24f", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "5ff630c0-b19a-4124-8540-ddae698dbdbb", "invoiceNo": "24b87418-dc42-4dcc-a124-5e4e3a00a24f", "productCode": "JB000002", "productName": "CHOCKI CHOKER", "qty": 1, "rate": 150, "amount": 150}, {"id": "18054f0d-3c11-4305-9b6d-351a787e78f1", "invoiceNo": "941593e4-10dc-435f-b7d9-f9468dacd161", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "01f35659-622c-4562-ba1b-554826392619", "invoiceNo": "941593e4-10dc-435f-b7d9-f9468dacd161", "productCode": "JB000002", "productName": "CHOCKI CHOKER", "qty": 1, "rate": 150, "amount": 150}, {"id": "19b055de-21df-4a9e-b038-a58d2d4bd2b2", "invoiceNo": "941593e4-10dc-435f-b7d9-f9468dacd161", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "ecb883eb-d6d9-4764-9e1d-ff1bdd792ae2", "invoiceNo": "2eeed7a9-6fec-455d-9e22-99052a1fe343", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 3, "rate": 320, "amount": 960}, {"id": "0880275c-03a8-4906-ae6a-31606df82401", "invoiceNo": "d4924e4b-dda9-4bc3-926c-214e53926668", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 0, "rate": 320, "amount": 0}, {"id": "43ec4101-f5be-408b-8090-8604cfaf0c1a", "invoiceNo": "da662c63-988c-4bc8-966a-6305a76385cc", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 3, "rate": 320, "amount": 960}, {"id": "7bba7adb-8632-4e37-b9f4-a8940d26bd23", "invoiceNo": "9e5d18e9-204c-4702-bf0d-537c24be09d9", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "2e069b3c-967d-49a9-bff6-38028db1ef29", "invoiceNo": "22cbab0a-f4d8-4a8e-9f2b-e62113f05053", "productCode": "JB000001", "productName": "Coin Combo", "qty": 2, "rate": 245, "amount": 490}, {"id": "d77d1208-5b5e-4264-b3a6-e8057a1c31d5", "invoiceNo": "288ed123-1709-4cac-ad75-a28dd7446026", "productCode": "JB000001", "productName": "Coin Combo", "qty": 2, "rate": 245, "amount": 490}, {"id": "5fb8be2e-769e-4b99-842e-e55a018b1e06", "invoiceNo": "288ed123-1709-4cac-ad75-a28dd7446026", "productCode": "JB000001", "productName": "Coin Combo", "qty": 2, "rate": 245, "amount": 490}, {"id": "19036894-2f31-4793-b28a-bdd307f5d846", "invoiceNo": "acad2482-88ba-4160-8109-b15d0aba4018", "productCode": "JB000001", "productName": "Coin Combo", "qty": 10, "rate": 245, "amount": 2450}, {"id": "7a9b7f55-c59d-4828-9a3d-69eda548248f", "invoiceNo": "e77def68-f8be-402c-801f-c4fddbe515bc", "productCode": "JB000001", "productName": "Coin Combo", "qty": 1, "rate": 245, "amount": 245}, {"id": "80624290-c0a4-48e2-9fbc-b0110307e82d", "invoiceNo": "dd9e36df-cd81-4df5-ba95-c452bfce039e", "productCode": "JB000002", "productName": "CHOCKI CHOKER", "qty": 1, "rate": 150, "amount": 150}, {"id": "fcd6ae44-8c0f-454b-9697-a5ee5526c967", "invoiceNo": "cc93ad3e-827a-4fe6-a0e5-9389b67ab085", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}, {"id": "ae5fda4c-e21f-4348-a6f0-d3365698319c", "invoiceNo": "6897d6dc-c8de-4478-b89a-1ba48b0c8793", "productCode": "JB000003", "productName": "JALI COMBO", "qty": 1, "rate": 320, "amount": 320}], "payments": [{"id": "RC000001", "date": "2026-08-09", "customerId": "CUS000002", "customerName": "Amrit Kumawat", "mobile": "9876543210", "paymentMode": "CASH", "amountReceived": 500, "previousBalance": 2140, "balanceAfter": 1640, "remarks": "hello", "status": "RECEIVED", "receivedBy": "admin"}], "ledger": [{"id": "aa64b4ce-7f0c-4ee4-8259-ba1e53e5619e", "date": "2026-08-03", "invoiceNo": "JB000001", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "debit": 7350, "credit": 0, "balance": 7350, "remarks": ""}, {"id": "9bdc7185-0d1f-444d-b5b1-7d89cf1dcd92", "date": "2026-08-05", "invoiceNo": "JB000002", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "debit": 6370, "credit": 0, "balance": 13720, "remarks": ""}, {"id": "9791516a-33be-416c-a567-76b38e13bf20", "date": "2026-08-09", "invoiceNo": "INV/26-27/000001", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "debit": 2450, "credit": 0, "balance": 16170, "remarks": ""}, {"id": "1ba57a38-8a15-4caa-9127-30adff5b8a03", "date": "2026-08-10", "invoiceNo": "INV/26-27/000002", "customerId": "CUS000001", "customerName": "Naresh", "mobile": "9950325316", "debit": 1470, "credit": 0, "balance": 17640, "remarks": ""}, {"id": "e18019f6-f4a2-43b9-8ff4-077888e905cc", "date": "2026-08-13", "invoiceNo": "INV/26-27/000003", "customerId": "CUS000005", "customerName": "Amrit Kumawat", "mobile": "8591616363", "debit": 220, "credit": 0, "balance": 220, "remarks": ""}]}};
+</script>
+<script>
+/* =========================================================
+   JOKERWAL BILLING — offline multi-company billing app
+   Ported from the "JOKERWAL BROTHERS" Excel/VBA billing ERP.
+   Vanilla JS, IndexedDB storage, no external runtime deps.
+========================================================= */
+(function(){
+"use strict";
+
+/* ---------------- tiny utils ---------------- */
+const $ = (sel,root)=> (root||document).querySelector(sel);
+const el = (tag,attrs,children)=>{
+  const n = document.createElement(tag);
+  if(attrs) for(const k in attrs){
+    if(k==='html') n.innerHTML = attrs[k];
+    else if(k.startsWith('on')) n.addEventListener(k.slice(2), attrs[k]);
+    else if(k==='class') n.className = attrs[k];
+    else if(attrs[k]!==undefined && attrs[k]!==null) n.setAttribute(k, attrs[k]);
+  }
+  (children||[]).forEach(c=>{ if(c!=null) n.appendChild(typeof c==='string'?document.createTextNode(c):c); });
+  return n;
+};
+const uid = ()=> 'id_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9);
+const escapeHtml = (s)=> String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp0 = (n)=> n<0 ? 0 : n;
+const todayISO = ()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const fmtMoney = (n)=>{ n = Number(n)||0; return '₹'+n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+const fmtNum = (n)=> Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:3});
+const fmtDate = (iso)=>{ if(!iso) return ''; const [y,m,d]=iso.split('-'); if(!d) return iso; const dt=new Date(+y,+m-1,+d); return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); };
+const fmtDateTime = (iso)=>{ if(!iso) return ''; const d = new Date(iso); if(isNaN(d)) return iso; return d.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); };
+const monthLabel = (ym)=>{ const [y,m]=ym.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('en-IN',{month:'short',year:'numeric'}); };
+function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+function toast(msg, kind){
+  const root = $('#toast-root');
+  const t = el('div',{class:'toast'+(kind?(' '+kind):'')},[msg]);
+  root.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 2600);
+}
+
+/* Indian amount-in-words (ported from modAmountWords.bas) */
+const ONES=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+const TENS=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+function twoDigits(n){ if(n<20) return ONES[n]; return TENS[Math.floor(n/10)] + (n%10? ' '+ONES[n%10] : ''); }
+function threeDigits(n){ let r=''; if(n>=100){ r = ONES[Math.floor(n/100)]+' Hundred'; if(n%100>0) r+=' '; } if(n%100>0) r += twoDigits(n%100); return r.trim(); }
+function convertBelowCrore(n){
+  let r='';
+  const crore=Math.floor(n/10000000); n%=10000000;
+  const lakh=Math.floor(n/100000); n%=100000;
+  const thousand=Math.floor(n/1000); n%=1000;
+  const hundred=Math.floor(n);
+  if(crore>0) r += threeDigits(crore)+' Crore ';
+  if(lakh>0) r += twoDigits(lakh)+' Lakh ';
+  if(thousand>0) r += threeDigits(thousand)+' Thousand ';
+  if(hundred>0) r += threeDigits(hundred);
+  return r.trim();
+}
+function amountInWordsIndian(amount){
+  amount = Math.max(0, Number(amount)||0);
+  const rupees = Math.floor(amount);
+  const paise = Math.round((amount-rupees)*100);
+  let result = rupees===0 ? 'Zero Rupees' : convertBelowCrore(rupees)+' Rupees';
+  if(paise>0) result += ' and '+twoDigits(paise)+' Paise';
+  return result+' Only';
+}
+
+function financialYear(d){
+  d = d || new Date();
+  const y = d.getMonth()>=3 ? d.getFullYear() : d.getFullYear()-1; // April(3)-March
+  return String(y).slice(-2)+'-'+String(y+1).slice(-2);
+}
+
+/* ---------------- Firebase (cloud database + login) ---------------- */
+const FB_CONFIG_KEY = 'jberp_fb_config_v1';
+function loadFirebaseConfig(){ try{ return JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'null'); }catch(e){ return null; } }
+function saveFirebaseConfig(cfg){ localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(cfg)); }
+function clearFirebaseConfig(){ localStorage.removeItem(FB_CONFIG_KEY); }
+let fbAuth=null, fbDb=null;
+function initFirebase(cfg){
+  if(!firebase.apps.length) firebase.initializeApp(cfg); else firebase.app();
+  fbAuth = firebase.auth();
+  fbDb = firebase.firestore();
+  try{ fbDb.enablePersistence({synchronizeTabs:true}).catch(()=>{}); }catch(e){}
+}
+function authErrorMsg(e){
+  const map = {
+    'auth/email-already-in-use':'Yeh email pehle se register hai. Login karein.',
+    'auth/invalid-email':'Email sahi format mein daalein.',
+    'auth/weak-password':'Password kam se kam 6 characters ka hona chahiye.',
+    'auth/user-not-found':'Is email se koi account nahi mila.',
+    'auth/wrong-password':'Password galat hai.',
+    'auth/invalid-credential':'Email ya password galat hai.',
+    'auth/invalid-login-credentials':'Email ya password galat hai.',
+    'auth/too-many-requests':'Bahut attempts ho gaye. Thodi der baad try karein.',
+    'auth/network-request-failed':'Internet connection check karein.',
+    'auth/api-key-not-valid.-please-pass-a-valid-api-key.':'Firebase API key galat hai. Setup dobara check karein.',
+    'auth/invalid-api-key':'Firebase API key galat hai. Setup dobara check karein.',
+    'auth/configuration-not-found':'Firebase Console mein Email/Password sign-in method ON karein.',
+  };
+  return map[e && e.code] || (e && e.message) || 'Kuch galat ho gaya, dobara try karein.';
+}
+
+/* ---------------- Firestore-backed data store (per company) ----------------
+   Same method interface as the earlier IndexedDB version, so all business
+   logic below (DB object, view functions) works unchanged. Data now lives
+   under  users/{uid}/companies/{companyId}/{storeName}/{docId}  in Cloud
+   Firestore — safe even if this device/phone is lost, and available
+   instantly on any other device after logging in with the same account. */
+class Store{
+  constructor(fs, uidVal, companyId){ this.fs=fs; this.uid=uidVal; this.companyId=companyId; }
+  col(store){ return this.fs.collection('users').doc(this.uid).collection('companies').doc(this.companyId).collection(store); }
+  async all(store){ const snap = await this.col(store).get(); return snap.docs.map(d=>d.data()); }
+  async get(store,key){ if(key==null) return undefined; const doc = await this.col(store).doc(String(key)).get(); return doc.exists ? doc.data() : undefined; }
+  async put(store,val){ await this.col(store).doc(String(val.id)).set(val); return val; }
+  async del(store,key){ await this.col(store).doc(String(key)).delete(); }
+  async byIndex(store, idx, val){ const snap = await this.col(store).where(idx,'==',val).get(); return snap.docs.map(d=>d.data()); }
+  async clear(store){
+    const snap = await this.col(store).get();
+    if(snap.empty) return;
+    const jobs=[]; let batch=this.fs.batch(); let n=0;
+    snap.docs.forEach(d=>{ batch.delete(d.ref); n++; if(n===450){ jobs.push(batch.commit()); batch=this.fs.batch(); n=0; } });
+    jobs.push(batch.commit());
+    await Promise.all(jobs);
+  }
+  async putAll(store, arr){
+    if(!arr || !arr.length) return;
+    const jobs=[]; let batch=this.fs.batch(); let n=0;
+    for(const val of arr){ batch.set(this.col(store).doc(String(val.id)), val); n++; if(n===450){ jobs.push(batch.commit()); batch=this.fs.batch(); n=0; } }
+    jobs.push(batch.commit());
+    await Promise.all(jobs);
+  }
+}
+
+/* ---------------- Global (cross-company) state ---------------- */
+const META_ACTIVE = 'jberp_active_company_v1';
+const META_THEME = 'jberp_theme_v1';
+
+const App = {
+  uid: null,           // logged-in Firebase user id (cloud account)
+  userEmail: null,
+  companies: [],
+  company: null,      // active company profile record {id,name,...}
+  store: null,         // Store bound to active company's cloud data
+  route: '#/dashboard',
+  unlocked: false,
+  clockTimer: null,
+};
+
+function companiesCol(){ return fbDb.collection('users').doc(App.uid).collection('companies'); }
+async function loadCompanies(){ const snap = await companiesCol().get(); return snap.docs.map(d=>d.data()); }
+async function saveCompanyMeta(co){ await companiesCol().doc(co.id).set(co, {merge:true}); }
+async function deleteCompanyCloudData(companyId){
+  const stores = ['settings','customers','products','invoices','saleItems','payments','ledger'];
+  for(const s of stores){ await new Store(fbDb, App.uid, companyId).clear(s); }
+  await companiesCol().doc(companyId).delete();
+}
+function getActiveCompanyId(){ return localStorage.getItem(META_ACTIVE+':'+App.uid); }
+function setActiveCompanyId(id){ localStorage.setItem(META_ACTIVE+':'+App.uid, id); }
+
+/* ---------------- Seed (first login on this account) ---------------- */
+async function ensureSeeded(){
+  const existing = await loadCompanies();
+  if(existing.length) return existing;
+  if(typeof window.__JB_SEED__ === 'undefined'){
+    const id = 'co_'+Date.now().toString(36);
+    const co = {id, name:'My Business'};
+    await saveCompanyMeta(co);
+    return [co];
+  }
+  const seed = window.__JB_SEED__;
+  const co = {id:seed.company.id, name:seed.company.name};
+  await saveCompanyMeta(co);
+  const store = new Store(fbDb, App.uid, seed.company.id);
+  await store.put('settings', Object.assign({}, seed.company, {id:'profile'}));
+  await store.putAll('customers', seed.data.customers);
+  await store.putAll('products', seed.data.products);
+  await store.putAll('invoices', seed.data.invoices);
+  await store.putAll('saleItems', seed.data.saleItems);
+  await store.putAll('payments', seed.data.payments);
+  await store.putAll('ledger', seed.data.ledger);
+  return [co];
+}
+
+async function switchCompany(companyId){
+  App.store = new Store(fbDb, App.uid, companyId);
+  let profile = await App.store.get('settings','profile');
+  if(!profile){
+    profile = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
+      mobile:'', email:'', website:'', gstin:'', invoicePrefix:'INV', productPrefix:'PRD', lowStockDefault:5, pin:''};
+    await App.store.put('settings', profile);
+  }
+  App.company = profile;
+  setActiveCompanyId(companyId);
+  App.unlocked = !profile.pin;
+}
+
+/* ---------------- Data-access / business logic layer ---------------- */
+const DB = {
+  async nextInvoiceNo(){
+    const fy = financialYear();
+    const prefix = App.company.invoicePrefix || 'INV';
+    const all = await App.store.all('invoices');
+    const re = new RegExp('^'+prefix.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/'+fy+'/(\\d+)$');
+    let max=0;
+    all.forEach(inv=>{ const m = re.exec(inv.invoiceNo||''); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
+    return prefix+'/'+fy+'/'+String(max+1).padStart(6,'0');
+  },
+  async nextCustomerId(){
+    const all = await App.store.all('customers');
+    let max=0;
+    all.forEach(c=>{ const m=/^CUS(\d+)$/.exec(c.id||''); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
+    return 'CUS'+String(max+1).padStart(6,'0');
+  },
+  async nextProductCode(){
+    const prefix = (App.company.productPrefix||'PRD').toUpperCase();
+    const all = await App.store.all('products');
+    let max=0;
+    const re = new RegExp('^'+prefix+'(\\d+)$');
+    all.forEach(p=>{ const m = re.exec((p.productCode||'').toUpperCase()); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
+    return prefix+String(max+1).padStart(6,'0');
+  },
+  async nextReceiptNo(){
+    const all = await App.store.all('payments');
+    let max=0;
+    all.forEach(p=>{ const m=/^RC(\d+)$/.exec(p.id||''); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
+    return 'RC'+String(max+1).padStart(6,'0');
+  },
+  async findCustomerByMobile(mobile){
+    mobile = String(mobile||'').trim();
+    if(!mobile) return null;
+    const all = await App.store.all('customers');
+    return all.find(c=>String(c.mobile||'').trim()===mobile) || null;
+  },
+  async searchCustomers(text){
+    const all = await App.store.all('customers');
+    text = (text||'').trim().toLowerCase();
+    if(!text) return all;
+    return all.filter(c=> (c.name||'').toLowerCase().includes(text) || String(c.mobile||'').includes(text) || (c.id||'').toLowerCase().includes(text));
+  },
+  async getOrCreateCustomer(mobile, name){
+    mobile = String(mobile||'').trim(); name = (name||'').trim();
+    let cust = await DB.findCustomerByMobile(mobile);
+    if(cust){
+      if(name && cust.name!==name){ cust.name = name; await App.store.put('customers', cust); }
+      return cust;
+    }
+    cust = {id: await DB.nextCustomerId(), mobile, name: name||'Walk-in Customer', balance:0, creditLimit:0, createdAt: new Date().toISOString()};
+    await App.store.put('customers', cust);
+    return cust;
+  },
+  async searchProducts(text){
+    const all = await App.store.all('products');
+    text = (text||'').trim().toLowerCase();
+    if(!text) return all;
+    return all.filter(p=> (p.name||'').toLowerCase().includes(text) || (p.productCode||'').toLowerCase().includes(text) || (p.id||'').toLowerCase().includes(text));
+  },
+  async findProductByCode(code){
+    code = String(code||'').trim().toUpperCase();
+    if(!code) return null;
+    const all = await App.store.all('products');
+    return all.find(p=> (p.id||'').toUpperCase()===code || (p.productCode||'').toUpperCase()===code) || null;
+  },
+  async currentInvoiceRow(invoiceNo){
+    const rows = await App.store.byIndex('invoices','invoiceNo', invoiceNo);
+    const active = rows.filter(r=>r.status==='COMPLETED');
+    if(active.length) return active.sort((a,b)=> (a.createdAt<b.createdAt?1:-1))[0];
+    if(rows.length) return rows.sort((a,b)=> (a.createdAt<b.createdAt?1:-1))[0];
+    return null;
+  },
+  async itemsForInvoiceRow(invoiceRowId){
+    return App.store.byIndex('saleItems','invoiceNo', invoiceRowId);
+  },
+  computeTotals(items, previousBalance, receivedAmount){
+    const billTotal = items.reduce((s,it)=> s + (Number(it.qty)||0)*(Number(it.rate)||0), 0);
+    const totalPayable = billTotal + (Number(previousBalance)||0);
+    const balanceDue = clamp0(totalPayable - (Number(receivedAmount)||0));
+    return {billTotal, totalPayable, balanceDue};
+  },
+  validateBill(b){
+    if(!b.customerName || !b.customerName.trim()) return 'Customer ka naam daalein.';
+    if(!b.mobile || !b.mobile.trim()) return 'Mobile number daalein.';
+    if(!b.items || !b.items.filter(it=>it.productCode).length) return 'Kam se kam ek product add karein.';
+    if(!b.paymentMode) return 'Payment mode select karein.';
+    if(b.paymentMode!=='CREDIT'){
+      if(b.receivedAmount===''||b.receivedAmount==null) return 'Received amount daalein.';
+      if(isNaN(Number(b.receivedAmount)) || Number(b.receivedAmount)<0) return 'Valid received amount daalein.';
+    }
+    return null;
+  },
+  // Save a brand-new bill. Returns {invoice, lowStock:[]}
+  async saveBill(b){
+    const err = DB.validateBill(b); if(err) throw new Error(err);
+    const items = b.items.filter(it=>it.productCode && Number(it.qty)>0);
+    const cust = await DB.getOrCreateCustomer(b.mobile, b.customerName);
+    const previousBalance = Number(cust.balance)||0;
+    const receivedAmount = b.paymentMode==='CREDIT' ? (Number(b.receivedAmount)||0) : Number(b.receivedAmount)||0;
+    const {billTotal,totalPayable,balanceDue} = DB.computeTotals(items, previousBalance, receivedAmount);
+    const invId = uid();
+    const invoice = {
+      id: invId, invoiceNo: b.invoiceNo, date: b.date, customerId: cust.id, customerName: cust.name,
+      mobile: cust.mobile, paymentMode: b.paymentMode, billTotal, previousBalance, currentBill: billTotal,
+      totalPayable, receivedAmount, balanceDue, status:'COMPLETED', createdAt: new Date().toISOString()
+    };
+    await App.store.put('invoices', invoice);
+    for(const it of items){
+      await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount:Number(it.qty)*Number(it.rate)});
+    }
+    // customer balance = new outstanding balance due (mirrors Excel UpdateCustomerBalance)
+    cust.balance = balanceDue;
+    await App.store.put('customers', cust);
+    if(b.paymentMode==='CREDIT'){
+      await App.store.put('ledger', {id:uid(), date:b.date, invoiceNo:b.invoiceNo, customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit: clamp0(billTotal-receivedAmount), credit:0, balance: balanceDue, remarks:''});
+    }
+    const lowStock = await DB.deductStock(items);
+    return {invoice, lowStock};
+  },
+  async deductStock(items){
+    const low = [];
+    for(const it of items){
+      const p = await DB.findProductByCode(it.productCode);
+      if(!p) continue;
+      p.stock = (Number(p.stock)||0) - (Number(it.qty)||0);
+      await App.store.put('products', p);
+      if(p.lowStockLimit>0 && p.stock<=p.lowStockLimit) low.push(p);
+    }
+    return low;
+  },
+  async restoreStockForInvoiceRow(invRow){
+    if(!invRow || invRow.status!=='COMPLETED') return;
+    const items = await DB.itemsForInvoiceRow(invRow.id);
+    for(const it of items){
+      const p = await DB.findProductByCode(it.productCode);
+      if(!p) continue;
+      p.stock = (Number(p.stock)||0) + (Number(it.qty)||0);
+      await App.store.put('products', p);
+    }
+  },
+  async cancelBill(invoiceNo){
+    const row = await DB.currentInvoiceRow(invoiceNo);
+    if(!row) throw new Error('Invoice nahi mila: '+invoiceNo);
+    if(row.status==='CANCELLED') throw new Error('Yeh invoice pehle se cancelled hai.');
+    await DB.restoreStockForInvoiceRow(row);
+    // reverse this bill's contribution to the customer's outstanding balance
+    const cust = await App.store.get('customers', row.customerId);
+    if(cust){
+      cust.balance = clamp0((Number(cust.balance)||0) - (Number(row.balanceDue)||0));
+      await App.store.put('customers', cust);
+      if(row.paymentMode==='CREDIT'){
+        await App.store.put('ledger', {id:uid(), date: todayISO(), invoiceNo: invoiceNo+' (CANCELLED)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit:0, credit: clamp0(row.billTotal-row.receivedAmount), balance: cust.balance, remarks:'Bill cancelled'});
+      }
+    }
+    row.status = 'CANCELLED';
+    await App.store.put('invoices', row);
+    return row;
+  },
+  async loadBillForModify(invoiceNo){
+    const row = await DB.currentInvoiceRow(invoiceNo);
+    if(!row) throw new Error('Invoice nahi mila: '+invoiceNo);
+    if(row.status==='CANCELLED') throw new Error('Cancelled invoice modify nahi ho sakta.');
+    const items = await DB.itemsForInvoiceRow(row.id);
+    return {row, items};
+  },
+  async modifyBill(oldInvoiceNo, b){
+    const err = DB.validateBill(b); if(err) throw new Error(err);
+    const oldRow = await DB.currentInvoiceRow(oldInvoiceNo);
+    if(!oldRow) throw new Error('Original invoice nahi mila.');
+    if(oldRow.status==='CANCELLED') throw new Error('Cancelled invoice modify nahi ho sakta.');
+    await DB.restoreStockForInvoiceRow(oldRow);
+    oldRow.status='MODIFIED';
+    await App.store.put('invoices', oldRow);
+    // Recompute against customer's balance with old contribution removed
+    const cust = await App.store.get('customers', oldRow.customerId);
+    if(cust){ cust.balance = clamp0((Number(cust.balance)||0) - (Number(oldRow.balanceDue)||0)); await App.store.put('customers', cust); }
+    const items = b.items.filter(it=>it.productCode && Number(it.qty)>0);
+    const previousBalance = cust ? Number(cust.balance)||0 : 0;
+    const receivedAmount = Number(b.receivedAmount)||0;
+    const {billTotal,totalPayable,balanceDue} = DB.computeTotals(items, previousBalance, receivedAmount);
+    const invId = uid();
+    const invoice = {
+      id: invId, invoiceNo: oldInvoiceNo, date: b.date, customerId: cust?cust.id:oldRow.customerId,
+      customerName: b.customerName, mobile: b.mobile, paymentMode: b.paymentMode, billTotal, previousBalance,
+      currentBill: billTotal, totalPayable, receivedAmount, balanceDue, status:'COMPLETED', createdAt: new Date().toISOString()
+    };
+    await App.store.put('invoices', invoice);
+    for(const it of items){
+      await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount:Number(it.qty)*Number(it.rate)});
+    }
+    if(cust){ cust.balance = balanceDue; cust.name = b.customerName; cust.mobile = b.mobile; await App.store.put('customers', cust); }
+    if(b.paymentMode==='CREDIT' && cust){
+      await App.store.put('ledger', {id:uid(), date:b.date, invoiceNo: oldInvoiceNo+' (MODIFIED)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit: clamp0(billTotal-receivedAmount), credit:0, balance: balanceDue, remarks:''});
+    }
+    const lowStock = await DB.deductStock(items);
+    return {invoice, lowStock};
+  },
+  async receivePayment(p){
+    const cust = await App.store.get('customers', p.customerId);
+    if(!cust) throw new Error('Customer nahi mila.');
+    const amount = Number(p.amount)||0;
+    if(amount<=0) throw new Error('Valid amount daalein.');
+    const previousBalance = Number(cust.balance)||0;
+    const balanceAfter = previousBalance - amount;
+    const receiptNo = await DB.nextReceiptNo();
+    const payment = {id:receiptNo, date: p.date||todayISO(), customerId:cust.id, customerName:cust.name, mobile:cust.mobile,
+      paymentMode: p.mode, amountReceived: amount, previousBalance, balanceAfter, remarks: p.remarks||'', status:'RECEIVED', receivedBy: App.company.name||'admin'};
+    await App.store.put('payments', payment);
+    cust.balance = clamp0(balanceAfter);
+    await App.store.put('customers', cust);
+    await App.store.put('ledger', {id:uid(), date:payment.date, invoiceNo: receiptNo, customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit:0, credit:amount, balance: cust.balance, remarks: p.remarks||''});
+    return payment;
+  },
+  async addStock(productCode, qty){
+    const p = await DB.findProductByCode(productCode);
+    if(!p) throw new Error('Product nahi mila.');
+    qty = Number(qty);
+    if(!(qty>0)) throw new Error('Valid quantity daalein.');
+    p.stock = (Number(p.stock)||0) + qty;
+    await App.store.put('products', p);
+    return p;
+  },
+  async lowStockList(){
+    const all = await App.store.all('products');
+    return all.filter(p=> p.lowStockLimit>0 && Number(p.stock)<=Number(p.lowStockLimit));
+  },
+  async currentInvoicesInRange(fromISO, toISO){
+    const all = await App.store.all('invoices');
+    const byNo = {};
+    all.forEach(r=>{ if(!byNo[r.invoiceNo] || r.createdAt>byNo[r.invoiceNo].createdAt) byNo[r.invoiceNo]=r; });
+    return Object.values(byNo).filter(r=> r.date>=fromISO && r.date<=toISO).sort((a,b)=> a.date<b.date?1:-1);
+  },
+  async ledgerForCustomer(customerId){
+    const rows = await App.store.byIndex('ledger','customerId', customerId);
+    return rows.sort((a,b)=> (a.date||'')<(b.date||'')?1:-1);
+  },
+};
+
+/* ---------------- Router ---------------- */
+const routes = {};
+function on(route, fn){ routes[route]=fn; }
+function navigate(route){ location.hash = route; }
+window.addEventListener('hashchange', renderRoute);
+function currentRoute(){ return location.hash || '#/dashboard'; }
+async function renderRoute(){
+  App.route = currentRoute();
+  const [path, qs] = App.route.split('?');
+  const parts = path.split('/').filter(Boolean); // ['#','dashboard'] etc -> after split '#' empty
+  const key = '#/'+(parts[1]||'dashboard');
+  const params = new URLSearchParams(qs||'');
+  renderShell();
+  const main = $('#view-root');
+  main.innerHTML = '';
+  const handler = routes[key] || routes['#/dashboard'];
+  try{
+    await handler(main, params);
+  }catch(e){
+    console.error(e);
+    main.appendChild(el('div',{class:'card pad'},['Error: '+e.message]));
+  }
+  highlightNav(key);
+  window.scrollTo(0,0);
+}
+
+/* ---------------- Shell (topbar + side/bottom nav) ---------------- */
+const NAV_ITEMS = [
+  {key:'#/dashboard', label:'Dashboard', icon:iconHome},
+  {key:'#/bill', label:'New Bill', icon:iconBill},
+  {key:'#/customers', label:'Customers', icon:iconUsers},
+  {key:'#/products', label:'Products', icon:iconBox},
+  {key:'#/stock', label:'Stock', icon:iconLayers},
+  {key:'#/payments', label:'Payments', icon:iconWallet},
+  {key:'#/sales-register', label:'Sales Register', icon:iconList},
+  {key:'#/reports/daily', label:'Daily Report', icon:iconChart},
+  {key:'#/reports/monthly', label:'Monthly Report', icon:iconCalendar},
+  {key:'#/settings', label:'Settings', icon:iconGear},
+];
+const BOTTOM_ITEMS = ['#/dashboard','#/bill','#/customers','#/products','#/settings'];
+const BOTTOM_LABELS = {'#/dashboard':'Home','#/bill':'New Bill','#/customers':'Customers','#/products':'Products','#/settings':'More'};
+
+function shellBuilt(){ return !!document.getElementById('view-root'); }
+function renderShell(){
+  if(shellBuilt()) { updateClock(); return; }
+  const app = $('#app');
+  app.innerHTML = '';
+  const topbar = el('div',{class:'topbar'},[
+    el('div',{class:'brand', onclick:()=>navigate('#/settings')},[
+      el('div',{class:'brand-badge'},[(App.company.name||'?').trim().charAt(0).toUpperCase()]),
+      el('div',{},[
+        el('div',{class:'brand-name'},[App.company.name||'My Business']),
+        el('div',{class:'brand-sub'},[App.company.tagline || 'Billing & Inventory']),
+      ]),
+    ]),
+    el('div',{id:'clock',class:'clock'},[]),
+    el('button',{class:'icon-btn', title:'Companies', onclick:()=>openCompanySwitcher()},[iconSwap()]),
+  ]);
+  const sidenav = el('div',{class:'sidenav'});
+  NAV_ITEMS.forEach(it=> sidenav.appendChild(navItem(it)));
+  const main = el('div',{class:'main', id:'view-root'});
+  const shell = el('div',{class:'shell'},[sidenav, main]);
+  const bottomnav = el('div',{class:'bottomnav'});
+  BOTTOM_ITEMS.forEach(k=>{
+    const item = NAV_ITEMS.find(n=>n.key===k);
+    const b = el('div',{class:'navitem', 'data-key':k, onclick:()=>navigate(k)},[item.icon(), el('span',{},[BOTTOM_LABELS[k]])]);
+    bottomnav.appendChild(b);
+  });
+  app.appendChild(topbar); app.appendChild(shell); app.appendChild(bottomnav);
+  updateClock();
+  if(App.clockTimer) clearInterval(App.clockTimer);
+  App.clockTimer = setInterval(updateClock, 1000);
+}
+function navItem(it){
+  return el('div',{class:'navitem','data-key':it.key, onclick:()=>navigate(it.key)},[it.icon(), el('span',{},[it.label])]);
+}
+function highlightNav(activeKey){
+  document.querySelectorAll('.navitem').forEach(n=>{
+    n.classList.toggle('active', n.getAttribute('data-key')===activeKey);
+  });
+}
+function updateClock(){
+  const c = $('#clock'); if(!c) return;
+  const now = new Date();
+  c.innerHTML='';
+  c.appendChild(el('div',{class:'time num'},[now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})]));
+  c.appendChild(el('div',{class:'date'},[now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',weekday:'short'})]));
+}
+
+/* ---------------- Icons (inline svg, currentColor) ---------------- */
+function svg(paths, extra){ const s=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`; const d=document.createElement('div'); d.innerHTML=s; return d.firstChild; }
+function iconHome(){ return svg('<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9h13v-9"/><path d="M9.5 19v-5h5v5"/>'); }
+function iconBill(){ return svg('<path d="M6 3h9l4 4v14H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>'); }
+function iconUsers(){ return svg('<circle cx="9" cy="8" r="3.2"/><path d="M2.8 19c.8-3.2 3.2-5 6.2-5s5.4 1.8 6.2 5"/><path d="M16 4.2c1.6.4 2.8 1.9 2.8 3.6 0 1.7-1.2 3.2-2.8 3.6"/><path d="M18.5 14.3c2 .6 3.3 2.2 3.7 4.7"/>'); }
+function iconBox(){ return svg('<path d="M3.5 7.5 12 3l8.5 4.5V16L12 20.5 3.5 16z"/><path d="M3.5 7.5 12 12l8.5-4.5"/><path d="M12 12v8.5"/>'); }
+function iconLayers(){ return svg('<path d="M12 3 3 8l9 5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/>'); }
+function iconWallet(){ return svg('<rect x="3" y="6" width="18" height="13" rx="2.2"/><path d="M3 10h18"/><circle cx="16.5" cy="14.2" r="1.1" fill="currentColor" stroke="none"/>'); }
+function iconList(){ return svg('<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="3.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="3.5" cy="18" r="1.1" fill="currentColor" stroke="none"/>'); }
+function iconChart(){ return svg('<path d="M4 19V9M11 19V4M18 19v-7"/><path d="M2.5 21h19"/>'); }
+function iconCalendar(){ return svg('<rect x="3.5" y="5" width="17" height="15.5" rx="2.2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/>'); }
+function iconGear(){ return svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V20a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H4a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 5.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 1 1 8.1 4.1l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.5V2.9a2 2 0 1 1 4 0V3a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'); }
+function iconSwap(){ return svg('<path d="M7 3 3 7l4 4"/><path d="M3 7h13a4 4 0 0 1 4 4v1"/><path d="M17 21l4-4-4-4"/><path d="M21 17H8a4 4 0 0 1-4-4v-1"/>'); }
+function iconSearch(){ return svg('<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>'); }
+function iconPlus(){ return svg('<path d="M12 5v14M5 12h14"/>'); }
+function iconTrash(){ return svg('<path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7m2 0-.7 12.3a2 2 0 0 1-2 1.9H9.7a2 2 0 0 1-2-1.9L7 7"/>'); }
+function iconWhatsapp(){ return svg('<path d="M6.5 17.5 4 20l2.6-.7A8 8 0 1 0 4 12a7.9 7.9 0 0 0 1.1 4z"/><path d="M9 10c.3 2 2 3.7 4 4 .5.1 1.4.2 1.7-.3.3-.4.2-1.3-.1-1.6-.3-.3-1-.5-1.3-.2l-.4.4c-.7-.3-1.6-1.1-1.9-1.9l.4-.4c.3-.3.1-1-.2-1.3-.3-.3-1.2-.4-1.6-.1-.3.3-.6.9-.6 1.4z" fill="currentColor" stroke="none"/>'); }
+function iconPrint(){ return svg('<path d="M6 9V3h12v6"/><rect x="5" y="9" width="14" height="8" rx="1.5"/><path d="M6 17v4h12v-4"/>'); }
+function iconClose(){ return svg('<path d="M6 6l12 12M18 6 6 18"/>'); }
+function iconCheck(){ return svg('<path d="M20 6 9 17l-5-5"/>'); }
+function iconEdit(){ return svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'); }
+function iconDownload(){ return svg('<path d="M12 3v13"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/>'); }
+function iconUpload(){ return svg('<path d="M12 21V8"/><path d="M7 13l5-5 5 5"/><path d="M5 21h14"/>'); }
+function iconLock(){ return svg('<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>'); }
+
+/* ---------------- Modal helper ---------------- */
+function openModal(title, bodyEl, opts){
+  opts = opts||{};
+  const root = $('#modal-root');
+  root.innerHTML='';
+  const back = el('div',{class:'modal-backdrop', onclick:(e)=>{ if(e.target===back && !opts.persist) closeModal(); }});
+  const modal = el('div',{class:'modal'},[
+    el('div',{class:'modal-head'},[ el('h3',{},[title]), el('button',{class:'icon-btn', onclick:closeModal},[iconClose()]) ]),
+  ]);
+  modal.appendChild(bodyEl);
+  back.appendChild(modal);
+  root.appendChild(back);
+}
+function closeModal(){ $('#modal-root').innerHTML=''; }
+
+function confirmDialog(msg, okLabel){
+  return new Promise(resolve=>{
+    const body = el('div',{class:'stack'},[
+      el('div',{},[msg]),
+      el('div',{class:'row', style:'justify-content:flex-end'},[
+        el('button',{class:'btn', onclick:()=>{closeModal(); resolve(false);}},['Cancel']),
+        el('button',{class:'btn btn-danger', onclick:()=>{closeModal(); resolve(true);}},[okLabel||'Confirm']),
+      ]),
+    ]);
+    openModal('Confirm', body, {persist:true});
+  });
+}
+
+/* ---------------- Reusable search picker ---------------- */
+function pickerModal(opts){
+  // opts: {title, placeholder, fetchItems(query)->Promise<arr>, renderRow(item)->el, onSelect(item), extraTop?}
+  const body = el('div',{class:'stack'});
+  const searchWrap = el('div',{class:'searchbox'},[iconSearch(), el('input',{placeholder:opts.placeholder||'Search...', id:'picker-input'})]);
+  const results = el('div',{id:'picker-results'},[]);
+  body.appendChild(searchWrap);
+  if(opts.extraTop) body.appendChild(opts.extraTop);
+  body.appendChild(results);
+  openModal(opts.title, body);
+  const input = $('#picker-input');
+  input.focus();
+  async function refresh(q){
+    const items = await opts.fetchItems(q);
+    results.innerHTML='';
+    if(!items.length){ results.appendChild(el('div',{class:'empty small'},['Kuch nahi mila.'])); return; }
+    items.slice(0,50).forEach(it=>{
+      const row = opts.renderRow(it);
+      row.classList.add('list-row');
+      row.addEventListener('click', ()=>{ closeModal(); opts.onSelect(it); });
+      results.appendChild(row);
+    });
+  }
+  input.addEventListener('input', debounce(()=>refresh(input.value),150));
+  refresh('');
+}
+
+function wrapRowSpread(c){
+  return el('div',{class:'spread'},[
+    el('div',{class:'row'},[
+      el('div',{class:'avatar'},[(c.name||'?').charAt(0).toUpperCase()]),
+      el('div',{},[ el('div',{class:'bold'},[c.name||'—']), el('div',{class:'small muted'},[c.mobile||'']) ]),
+    ]),
+    el('div',{class: (c.balance>0?'pill pill-warning':'pill pill-success')},[fmtMoney(c.balance||0)]),
+  ]);
+}
+function productPickerRow(p){
+  const low = p.lowStockLimit>0 && p.stock<=p.lowStockLimit;
+  return el('div',{class:'spread'},[
+    el('div',{},[ el('div',{class:'bold'},[p.name||'—']), el('div',{class:'small muted'},[p.productCode+' • '+fmtMoney(p.rate)+' / '+p.qtyType]) ]),
+    el('div',{class:'pill '+(low?'pill-danger':'pill-neutral')},[fmtNum(p.stock)+' '+ (p.qtyType==='WEIGHT'?'gm':'pcs')]),
+  ]);
+}
+
+function openCustomerPicker(onSelect, extraTop){
+  pickerModal({
+    title:'Select Customer', placeholder:'Naam ya mobile search karein',
+    fetchItems:(q)=>DB.searchCustomers(q),
+    renderRow: wrapRowSpread,
+    onSelect, extraTop,
+  });
+}
+function openProductPicker(onSelect){
+  pickerModal({
+    title:'Select Product', placeholder:'Product naam ya code search karein',
+    fetchItems:(q)=>DB.searchProducts(q),
+    renderRow: productPickerRow,
+    onSelect,
+  });
+}
+
+/* ---------------- WhatsApp helper ---------------- */
+function whatsappLink(mobile, message){
+  let phone = String(mobile||'').replace(/[^0-9]/g,'');
+  if(phone.length===10) phone = '91'+phone;
+  return 'https://wa.me/'+phone+'?text='+encodeURIComponent(message);
+}
+function sendInvoiceWhatsApp(invoice){
+  if(!invoice.mobile){ toast('Mobile number nahi hai.','err'); return; }
+  const msg = 'Dear '+invoice.customerName+',\n\nThank you for shopping with '+App.company.name+'.\n'+
+    'Invoice No: '+invoice.invoiceNo+'\nAmount: '+fmtMoney(invoice.billTotal)+'\nBalance Due: '+fmtMoney(invoice.balanceDue)+'\n\n'+
+    'Thank you for your valuable purchase.';
+  window.open(whatsappLink(invoice.mobile, msg), '_blank');
+}
+function sendReceiptWhatsApp(payment){
+  if(!payment.mobile){ toast('Mobile number nahi hai.','err'); return; }
+  const msg = 'Dear '+payment.customerName+',\n\nWe received your payment.\nReceipt No: '+payment.id+'\nAmount Received: '+fmtMoney(payment.amountReceived)+'\nBalance Due: '+fmtMoney(clamp0(payment.balanceAfter))+'\n\nThank you — '+App.company.name;
+  window.open(whatsappLink(payment.mobile, msg), '_blank');
+}
+
+/* ---------------- Print views ---------------- */
+function printInvoice(invoice, items){
+  const area = $('#print-area');
+  const rowsHtml = items.map((it,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(it.productCode)}</td><td>${escapeHtml(it.productName)}</td><td class="right">${fmtNum(it.qty)}</td><td class="right">${fmtMoney(it.rate)}</td><td class="right">${fmtMoney(it.amount)}</td></tr>`).join('');
+  area.innerHTML = `<div class="invoice-doc">
+    <div style="text-align:center;border-bottom:2px solid #a2732c;padding-bottom:10px;margin-bottom:14px;">
+      <h2 style="margin:0;font-size:22px;">${escapeHtml(App.company.name)}</h2>
+      <div style="font-size:12px;color:#555;">${escapeHtml(App.company.address1||'')} ${escapeHtml(App.company.address2||'')}</div>
+      <div style="font-size:12px;color:#555;">${App.company.mobile?('Mobile: '+escapeHtml(App.company.mobile)+'  '):''}${App.company.email?('Email: '+escapeHtml(App.company.email)):''}</div>
+      ${App.company.gstin?`<div style="font-size:12px;color:#555;">GSTIN: ${escapeHtml(App.company.gstin)}</div>`:''}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:10px;">
+      <div><b>Bill To:</b><br>${escapeHtml(invoice.customerName)}<br>Mobile: ${escapeHtml(invoice.mobile)}</div>
+      <div style="text-align:right;"><b>Invoice No:</b> ${escapeHtml(invoice.invoiceNo)}<br><b>Date:</b> ${fmtDate(invoice.date)}<br><b>Payment Mode:</b> ${escapeHtml(invoice.paymentMode)}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+      <thead><tr><th>#</th><th>Code</th><th>Item</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div style="margin-left:auto;max-width:260px;font-size:13px;">
+      <div class="spread"><span>Bill Total</span><b>${fmtMoney(invoice.billTotal)}</b></div>
+      <div class="spread"><span>Previous Balance</span><span>${fmtMoney(invoice.previousBalance)}</span></div>
+      <div class="spread"><span>Total Payable</span><span>${fmtMoney(invoice.totalPayable)}</span></div>
+      <div class="spread"><span>Received</span><span>${fmtMoney(invoice.receivedAmount)}</span></div>
+      <div class="spread" style="border-top:1px solid #ccc;margin-top:4px;padding-top:4px;"><b>Balance Due</b><b>${fmtMoney(invoice.balanceDue)}</b></div>
+    </div>
+    <div style="margin-top:14px;font-size:11.5px;font-style:italic;">Amount in words: ${amountInWordsIndian(invoice.totalPayable)}</div>
+    <div style="margin-top:22px;text-align:center;font-size:11.5px;color:#777;">Thank you for your business!${App.company.website?(' &nbsp;•&nbsp; '+escapeHtml(App.company.website)):''}</div>
+  </div>`;
+  window.print();
+}
+function printReceipt(payment){
+  const area = $('#print-area');
+  area.innerHTML = `<div class="invoice-doc" style="max-width:420px;">
+    <div style="text-align:center;border-bottom:2px solid #a2732c;padding-bottom:10px;margin-bottom:14px;">
+      <h2 style="margin:0;font-size:20px;">${escapeHtml(App.company.name)}</h2>
+      <div style="font-size:12px;color:#555;">PAYMENT RECEIPT</div>
+    </div>
+    <table style="width:100%;font-size:13px;">
+      <tr><td>Receipt No</td><td class="right"><b>${escapeHtml(payment.id)}</b></td></tr>
+      <tr><td>Date</td><td class="right">${fmtDate(payment.date)}</td></tr>
+      <tr><td>Customer</td><td class="right">${escapeHtml(payment.customerName)}</td></tr>
+      <tr><td>Mobile</td><td class="right">${escapeHtml(payment.mobile)}</td></tr>
+      <tr><td colspan="2"><hr></td></tr>
+      <tr><td>Previous Balance</td><td class="right">${fmtMoney(payment.previousBalance)}</td></tr>
+      <tr><td>Amount Received</td><td class="right"><b>${fmtMoney(payment.amountReceived)}</b></td></tr>
+      <tr><td>Payment Mode</td><td class="right">${escapeHtml(payment.paymentMode)}</td></tr>
+      <tr><td>Balance Due</td><td class="right">${fmtMoney(clamp0(payment.balanceAfter))}</td></tr>
+      ${payment.remarks?`<tr><td>Remarks</td><td class="right">${escapeHtml(payment.remarks)}</td></tr>`:''}
+    </table>
+    <div style="margin-top:20px;text-align:center;font-size:11.5px;color:#777;">Thank You!</div>
+  </div>`;
+  window.print();
+}
+
+/* ---------------- Dashboard ---------------- */
+async function viewDashboard(root){
+  const [invoices, customers, low] = await Promise.all([App.store.all('invoices'), App.store.all('customers'), DB.lowStockList()]);
+  const byNo = {}; invoices.forEach(r=>{ if(!byNo[r.invoiceNo] || r.createdAt>byNo[r.invoiceNo].createdAt) byNo[r.invoiceNo]=r; });
+  const current = Object.values(byNo);
+  const today = todayISO();
+  const todaysBills = current.filter(r=>r.date===today && r.status!=='CANCELLED');
+  const todaySales = todaysBills.reduce((s,r)=>s+Number(r.billTotal||0),0);
+  const totalReceivable = customers.reduce((s,c)=>s+clamp0(Number(c.balance||0)),0);
+  const recent = current.filter(r=>r.status!=='CANCELLED').sort((a,b)=> (a.createdAt<b.createdAt?1:-1)).slice(0,6);
+
+  // last 7 days sales for bar chart
+  const days = [];
+  for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); days.push(d); }
+  const dayKey = (d)=> d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const dayTotals = days.map(d=>{
+    const k = dayKey(d);
+    return current.filter(r=>r.date===k && r.status!=='CANCELLED').reduce((s,r)=>s+Number(r.billTotal||0),0);
+  });
+  const maxDay = Math.max(1, ...dayTotals);
+
+  root.appendChild(el('div',{class:'stack'},[
+    low.length ? el('div',{class:'card pad', style:'border-color:var(--warning);background:var(--warning-soft);'},[
+      el('div',{class:'row'},[iconLayers(), el('b',{},['Low Stock Alert']),]),
+      el('div',{class:'small', style:'margin-top:4px;'},[low.map(p=>p.name+' ('+fmtNum(p.stock)+')').join(', ')]),
+    ]) : null,
+    el('div',{class:'grid3'},[
+      statTile('Today Sales', fmtMoney(todaySales), 'success'),
+      statTile("Today's Bills", String(todaysBills.length), 'neutral'),
+      statTile('Total Receivable', fmtMoney(totalReceivable), 'warning'),
+    ]),
+    el('div',{class:'card pad'},[
+      el('div',{class:'spread', style:'margin-bottom:6px;'},[el('div',{class:'bold'},['Last 7 Days']), el('div',{class:'tiny muted'},['sales'])]),
+      el('div',{class:'bar-chart'}, days.map((d,i)=> el('div',{class:'bar-col'},[
+        el('div',{class:'tiny muted num'},[dayTotals[i]>0?fmtNum(dayTotals[i]):'']),
+        el('div',{class:'bar', style:'height:'+Math.max(4,(dayTotals[i]/maxDay*90))+'px'}),
+        el('div',{class:'bar-label'},[d.toLocaleDateString('en-IN',{weekday:'narrow'})]),
+      ]))),
+    ]),
+    el('div',{class:'grid2'},[
+      quickAction('New Bill', iconBill, ()=>navigate('#/bill')),
+      quickAction('Receive Payment', iconWallet, ()=>navigate('#/payments')),
+      quickAction('Add Customer', iconUsers, ()=>navigate('#/customers')),
+      quickAction('Add Product', iconBox, ()=>navigate('#/products')),
+    ]),
+    el('div',{class:'card pad'},[
+      el('div',{class:'spread'},[el('div',{class:'bold'},['Recent Invoices']), el('button',{class:'linklike', onclick:()=>navigate('#/sales-register')},['View all'])]),
+      recent.length ? el('div',{}, recent.map(invoiceListRow)) : el('div',{class:'empty small'},['Abhi tak koi bill nahi bana.']),
+    ]),
+  ]));
+}
+function statTile(label,val,tone){
+  const toneColor = tone==='success'?'var(--success)':tone==='warning'?'var(--warning)':'var(--text)';
+  return el('div',{class:'stat-tile'},[ el('div',{class:'stat-num num', style:'color:'+toneColor},[val]), el('div',{class:'stat-label'},[label]) ]);
+}
+function quickAction(label, icon, onclick){
+  return el('button',{class:'btn', style:'justify-content:flex-start;padding:14px;', onclick},[icon(), label]);
+}
+function statusPill(status){
+  const map = {COMPLETED:['pill-success','Completed'], MODIFIED:['pill-credit','Modified'], CANCELLED:['pill-danger','Cancelled']};
+  const [cls,label] = map[status] || ['pill-neutral', status];
+  return el('span',{class:'pill '+cls},[label]);
+}
+function invoiceListRow(inv){
+  const row = el('div',{class:'list-row', onclick:()=>openInvoiceDetail(inv)},[
+    el('div',{},[ el('div',{class:'bold small'},[inv.invoiceNo]), el('div',{class:'tiny muted'},[inv.customerName+' • '+fmtDate(inv.date)]) ]),
+    el('div',{style:'text-align:right;'},[ el('div',{class:'bold num'},[fmtMoney(inv.billTotal)]), statusPill(inv.status) ]),
+  ]);
+  return row;
+}
+
+/* ---------------- New Bill (POS) ---------------- */
+let billDraft = null;
+function freshDraft(invoiceNo){
+  return {invoiceNo, date: todayISO(), customerId:null, customerName:'', mobile:'', previousBalance:0, items:[], paymentMode:'CASH', receivedAmount:'', editingInvoiceNo:null};
+}
+async function viewBill(root){
+  if(!billDraft){ billDraft = freshDraft(await DB.nextInvoiceNo()); }
+  renderBillScreen(root);
+}
+function billTotals(){
+  return DB.computeTotals(billDraft.items, billDraft.previousBalance, billDraft.paymentMode==='CREDIT' ? (Number(billDraft.receivedAmount)||0) : (Number(billDraft.receivedAmount)||0));
+}
+function renderBillScreen(root){
+  root.innerHTML='';
+  const t = billTotals();
+  const wrap = el('div',{class:'stack'});
+
+  wrap.appendChild(el('div',{class:'card pad'},[
+    el('div',{class:'spread'},[
+      el('div',{},[el('div',{class:'tiny muted'},['Invoice No']), el('div',{class:'bold'},[billDraft.invoiceNo])]),
+      el('label',{class:'field', style:'width:150px;'},['Date', el('input',{type:'date', value:billDraft.date, onchange:(e)=>{billDraft.date=e.target.value;}})]),
+    ]),
+    billDraft.editingInvoiceNo ? el('div',{class:'pill pill-credit', style:'margin-top:8px;'},['Editing invoice '+billDraft.editingInvoiceNo]) : null,
+  ]));
+
+  const custCard = el('div',{class:'card pad stack'});
+  custCard.appendChild(el('div',{class:'bold'},['Customer']));
+  const custRow = el('div',{class:'row'});
+  const mobileInput = el('input',{placeholder:'Mobile number', value:billDraft.mobile, inputmode:'numeric'});
+  const nameInput = el('input',{placeholder:'Customer name', value:billDraft.customerName});
+  mobileInput.addEventListener('change', async ()=>{
+    billDraft.mobile = mobileInput.value.trim();
+    const cust = await DB.findCustomerByMobile(billDraft.mobile);
+    if(cust){ billDraft.customerId=cust.id; billDraft.customerName=cust.name; billDraft.previousBalance=Number(cust.balance)||0; nameInput.value=cust.name; toast('Customer mil gaya: '+cust.name); }
+    else { billDraft.customerId=null; billDraft.previousBalance=0; }
+    renderBillScreen(root);
+  });
+  nameInput.addEventListener('input', ()=>{ billDraft.customerName = nameInput.value; });
+  custRow.appendChild(mobileInput);
+  custRow.appendChild(el('button',{class:'icon-btn', onclick:()=>openCustomerPicker((c)=>{ billDraft.customerId=c.id; billDraft.customerName=c.name; billDraft.mobile=c.mobile; billDraft.previousBalance=Number(c.balance)||0; renderBillScreen(root); })},[iconSearch()]));
+  custCard.appendChild(custRow);
+  custCard.appendChild(nameInput);
+  custCard.appendChild(el('div',{class:'spread small muted'},[el('span',{},['Previous Balance']), el('span',{class:'num bold'},[fmtMoney(billDraft.previousBalance)])]));
+  wrap.appendChild(custCard);
+
+  const itemsCard = el('div',{class:'card pad stack'});
+  itemsCard.appendChild(el('div',{class:'bold'},['Items']));
+  const scan = el('div',{class:'scanline'});
+  const codeInput = el('input',{placeholder:'Product code scan/type karein aur Enter dabayein'});
+  scan.appendChild(codeInput);
+  scan.appendChild(el('button',{class:'btn btn-sm', onclick:()=>openProductPicker(addItemFromProduct)},[iconSearch()]));
+  codeInput.addEventListener('keydown', async (e)=>{
+    if(e.key==='Enter'){
+      e.preventDefault();
+      const code = codeInput.value.trim();
+      if(!code) return;
+      const p = await DB.findProductByCode(code);
+      if(p){ addItemFromProduct(p); codeInput.value=''; }
+      else{
+        const matches = await DB.searchProducts(code);
+        if(matches.length){ openProductPicker((prod)=>{ addItemFromProduct(prod); codeInput.value=''; }); }
+        else{
+          const goAdd = await confirmDialog('Product "'+escapeHtml(code)+'" nahi mila. Naya product add karein?', 'Add Product');
+          if(goAdd){ openProductForm(null, code); }
+          codeInput.value='';
+        }
+      }
+    }
+  });
+  itemsCard.appendChild(scan);
+
+  if(billDraft.items.length){
+    const tbl = el('div',{class:'stack', style:'gap:6px;'});
+    tbl.appendChild(el('div',{class:'item-row tiny muted'},[el('span',{},['Item']),el('span',{},['Qty']),el('span',{},['Rate']),el('span',{},['Amount']),el('span',{},[''])]));
+    billDraft.items.forEach((it,idx)=>{
+      const qtyInput = el('input',{type:'number', value:it.qty, min:'0', step:'any'});
+      const rateInput = el('input',{type:'number', value:it.rate, min:'0', step:'any'});
+      const amtEl = el('div',{class:'amt num'},[fmtNum(it.qty*it.rate)]);
+      qtyInput.addEventListener('input', ()=>{ it.qty = Number(qtyInput.value)||0; amtEl.textContent=fmtNum(it.qty*it.rate); refreshTotals(root); });
+      rateInput.addEventListener('input', ()=>{ it.rate = Number(rateInput.value)||0; amtEl.textContent=fmtNum(it.qty*it.rate); refreshTotals(root); });
+      const rm = el('button',{class:'icon-btn btn-sm', onclick:()=>{ billDraft.items.splice(idx,1); renderBillScreen(root); }},[iconTrash()]);
+      tbl.appendChild(el('div',{class:'item-row'},[ el('div',{class:'small'},[it.productName]), qtyInput, rateInput, amtEl, rm ]));
+    });
+    itemsCard.appendChild(tbl);
+  } else {
+    itemsCard.appendChild(el('div',{class:'empty small'},['Koi item add nahi hua.']));
+  }
+  wrap.appendChild(itemsCard);
+
+  const totalsCard = el('div',{class:'card pad stack'});
+  totalsCard.id='totals-card';
+  wrap.appendChild(totalsCard);
+
+  const actions = el('div',{class:'row wrap'},[
+    el('button',{class:'btn btn-primary btn-block', onclick:onSaveBill},[iconCheck(), billDraft.editingInvoiceNo?'Update Bill':'Save Bill']),
+  ]);
+  wrap.appendChild(actions);
+  const secondary = el('div',{class:'row wrap'},[
+    el('button',{class:'btn', onclick:async ()=>{ billDraft = freshDraft(await DB.nextInvoiceNo()); renderBillScreen(root); }},['New Bill']),
+    el('button',{class:'btn', onclick:openLoadInvoicePrompt},['Modify Invoice']),
+    el('button',{class:'btn btn-danger', onclick:openCancelInvoicePrompt},['Cancel Invoice']),
+  ]);
+  wrap.appendChild(secondary);
+
+  root.appendChild(wrap);
+  refreshTotals(root);
+
+  function addItemFromProduct(p){
+    const existing = billDraft.items.find(it=>it.productCode===p.productCode);
+    if(existing){ existing.qty = Number(existing.qty)+1; }
+    else{ billDraft.items.push({productCode:p.productCode, productName:p.name, qty:1, rate:Number(p.rate)||0}); }
+    renderBillScreen(root);
+  }
+}
+function refreshTotals(root){
+  const t = billTotals();
+  const card = $('#totals-card');
+  if(!card) return;
+  card.innerHTML='';
+  card.appendChild(el('div',{class:'spread'},[el('span',{},['Total']), el('span',{class:'bold num'},[fmtMoney(t.billTotal)])]));
+  card.appendChild(el('label',{class:'field'},['Payment Mode', (()=>{
+    const s = el('select',{},[
+      el('option',{value:'CASH'},['Cash']), el('option',{value:'UPI'},['UPI']), el('option',{value:'CREDIT'},['Credit']),
+    ]);
+    s.value = billDraft.paymentMode;
+    s.addEventListener('change', ()=>{ billDraft.paymentMode = s.value; refreshTotals(root); });
+    return s;
+  })()]));
+  if(billDraft.paymentMode!=='CREDIT'){
+    card.appendChild(el('label',{class:'field'},['Received Amount', (()=>{
+      const i = el('input',{type:'number', min:'0', step:'any', placeholder:'0.00', value: billDraft.receivedAmount});
+      i.addEventListener('input', ()=>{ billDraft.receivedAmount = i.value; refreshTotals(root); });
+      return i;
+    })()]));
+  } else {
+    card.appendChild(el('label',{class:'field'},['Advance Received (optional)', (()=>{
+      const i = el('input',{type:'number', min:'0', step:'any', placeholder:'0.00', value: billDraft.receivedAmount});
+      i.addEventListener('input', ()=>{ billDraft.receivedAmount = i.value; refreshTotals(root); });
+      return i;
+    })()]));
+  }
+  const t2 = billTotals();
+  card.appendChild(el('div',{class:'spread small muted'},[el('span',{},['Previous Balance']), el('span',{},[fmtMoney(billDraft.previousBalance)])]));
+  card.appendChild(el('div',{class:'spread'},[el('span',{},['Total Payable']), el('span',{class:'bold num'},[fmtMoney(t2.totalPayable)])]));
+  card.appendChild(el('div',{class:'spread', style:'color:var(--danger);'},[el('span',{class:'bold'},['Balance Due']), el('span',{class:'bold num'},[fmtMoney(t2.balanceDue)])]));
+  card.appendChild(el('div',{class:'tiny muted', style:'font-style:italic;'},[amountInWordsIndian(t2.totalPayable)]));
+}
+async function onSaveBill(){
+  try{
+    const b = {invoiceNo: billDraft.invoiceNo, date: billDraft.date, customerName: billDraft.customerName, mobile: billDraft.mobile, items: billDraft.items, paymentMode: billDraft.paymentMode, receivedAmount: billDraft.receivedAmount};
+    let result;
+    if(billDraft.editingInvoiceNo){ result = await DB.modifyBill(billDraft.editingInvoiceNo, b); }
+    else{ result = await DB.saveBill(b); }
+    if(result.lowStock.length) toast('Low stock: '+result.lowStock.map(p=>p.name).join(', '), 'err');
+    toast('Bill saved successfully.', 'ok');
+    showPostSaveOptions(result.invoice);
+  }catch(e){ toast(e.message,'err'); }
+}
+async function showPostSaveOptions(invoice){
+  const items = await DB.itemsForInvoiceRow(invoice.id);
+  const body = el('div',{class:'stack'},[
+    el('div',{},['Invoice ', el('b',{},[invoice.invoiceNo]), ' saved. ', fmtMoney(invoice.billTotal), ' total.']),
+    el('button',{class:'btn btn-block', onclick:()=>printInvoice(invoice, items)},[iconPrint(),'Print Invoice']),
+    el('button',{class:'btn btn-block', onclick:()=>sendInvoiceWhatsApp(invoice)},[iconWhatsapp(),'Send on WhatsApp']),
+    el('button',{class:'btn btn-primary btn-block', onclick:async ()=>{ closeModal(); billDraft = freshDraft(await DB.nextInvoiceNo()); renderRoute(); }},['New Bill']),
+  ]);
+  openModal('Bill Saved', body, {persist:true});
+}
+function openLoadInvoicePrompt(){
+  const body = el('div',{class:'stack'});
+  const input = el('input',{placeholder:'e.g. INV/26-27/000023'});
+  body.appendChild(el('label',{class:'field'},['Invoice Number', input]));
+  body.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+    try{
+      const {row, items} = await DB.loadBillForModify(input.value.trim());
+      billDraft = {invoiceNo: row.invoiceNo, date: row.date, customerId: row.customerId, customerName: row.customerName, mobile: row.mobile,
+        previousBalance: row.previousBalance, items: items.map(it=>({productCode:it.productCode, productName:it.productName, qty:it.qty, rate:it.rate})),
+        paymentMode: row.paymentMode, receivedAmount: row.receivedAmount, editingInvoiceNo: row.invoiceNo};
+      closeModal();
+      renderRoute();
+      toast('Invoice loaded. Changes karke Update Bill dabayein.');
+    }catch(e){ toast(e.message,'err'); }
+  }},['Load'])); 
+  openModal('Modify Invoice', body);
+}
+function openCancelInvoicePrompt(){
+  const body = el('div',{class:'stack'});
+  const input = el('input',{placeholder:'e.g. INV/26-27/000023'});
+  body.appendChild(el('label',{class:'field'},['Invoice Number', input]));
+  body.appendChild(el('div',{class:'small muted'},['Stock restore ho jayega aur customer balance update ho jayega.']));
+  body.appendChild(el('button',{class:'btn btn-danger btn-block', onclick: async ()=>{
+    const ok = await confirmDialog('Invoice cancel karein? Yeh undo nahi ho sakta.', 'Cancel Invoice');
+    if(!ok) return;
+    try{ await DB.cancelBill(input.value.trim()); closeModal(); toast('Invoice cancelled.','ok'); renderRoute(); }
+    catch(e){ toast(e.message,'err'); }
+  }},['Cancel Invoice']));
+  openModal('Cancel Invoice', body);
+}
+function openInvoiceDetail(inv){
+  DB.itemsForInvoiceRow(inv.id).then(items=>{
+    const body = el('div',{class:'stack'},[
+      el('div',{class:'spread'},[el('b',{},[inv.invoiceNo]), statusPill(inv.status)]),
+      el('div',{class:'small muted'},[inv.customerName+' • '+inv.mobile+' • '+fmtDate(inv.date)]),
+      el('div',{class:'card pad', style:'padding:10px;'}, items.map(it=> el('div',{class:'spread small', style:'padding:3px 0;'},[el('span',{},[it.productName+' x'+fmtNum(it.qty)]), el('span',{class:'num'},[fmtMoney(it.amount)])]))),
+      el('div',{class:'spread'},[el('span',{},['Total']), el('span',{class:'bold num'},[fmtMoney(inv.billTotal)])]),
+      el('div',{class:'spread'},[el('span',{},['Balance Due']), el('span',{class:'num'},[fmtMoney(inv.balanceDue)])]),
+      el('div',{class:'row wrap'},[
+        el('button',{class:'btn', onclick:()=>printInvoice(inv,items)},[iconPrint(),'Print']),
+        el('button',{class:'btn', onclick:()=>sendInvoiceWhatsApp(inv)},[iconWhatsapp(),'WhatsApp']),
+      ]),
+    ]);
+    openModal('Invoice', body);
+  });
+}
+
+/* ---------------- Customers ---------------- */
+async function viewCustomers(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{class:'spread'},[
+    el('div',{},[el('div',{class:'section-title'},['Customers']), el('div',{class:'section-sub'},['Search, add aur balance track karein'])]),
+    el('button',{class:'btn btn-primary', onclick:()=>openCustomerForm(null)},[iconPlus(),'Add']),
+  ]));
+  const searchWrap = el('div',{class:'searchbox'},[iconSearch(), el('input',{id:'cust-search', placeholder:'Naam ya mobile search karein'})]);
+  wrap.appendChild(searchWrap);
+  const list = el('div',{class:'card pad', id:'cust-list'});
+  wrap.appendChild(list);
+  root.appendChild(wrap);
+  async function refresh(){
+    const items = await DB.searchCustomers($('#cust-search').value);
+    items.sort((a,b)=> (b.balance||0)-(a.balance||0));
+    list.innerHTML='';
+    if(!items.length){ list.appendChild(el('div',{class:'empty'},['Koi customer nahi mila.'])); return; }
+    items.forEach(c=>{
+      const row = el('div',{class:'list-row', onclick:()=>openCustomerDetail(c)},[
+        el('div',{class:'row'},[ el('div',{class:'avatar'},[(c.name||'?').charAt(0).toUpperCase()]), el('div',{},[ el('div',{class:'bold'},[c.name]), el('div',{class:'small muted'},[c.mobile]) ]) ]),
+        el('div',{class: (c.balance>0?'pill pill-warning':'pill pill-success')},[fmtMoney(c.balance||0)]),
+      ]);
+      list.appendChild(row);
+    });
+  }
+  $('#cust-search').addEventListener('input', debounce(refresh,150));
+  refresh();
+}
+function openCustomerForm(cust){
+  const isNew = !cust;
+  const nameI = el('input',{value: cust?cust.name:''});
+  const mobileI = el('input',{value: cust?cust.mobile:''});
+  const creditI = el('input',{type:'number', value: cust?cust.creditLimit:0});
+  const balanceI = el('input',{type:'number', value: cust?cust.balance:0});
+  const body = el('div',{class:'stack'},[
+    el('label',{class:'field'},['Name', nameI]),
+    el('label',{class:'field'},['Mobile', mobileI]),
+    el('label',{class:'field'},['Credit Limit', creditI]),
+    isNew ? el('label',{class:'field'},['Opening Balance', balanceI]) : el('label',{class:'field'},['Balance (manual correction)', balanceI]),
+    el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+      const name = nameI.value.trim(), mobile = mobileI.value.trim();
+      if(!name||!mobile){ toast('Naam aur mobile dono zaroori hain.','err'); return; }
+      const rec = cust || {id: await DB.nextCustomerId(), createdAt: new Date().toISOString()};
+      rec.name=name; rec.mobile=mobile; rec.creditLimit=Number(creditI.value)||0; rec.balance=Number(balanceI.value)||0;
+      await App.store.put('customers', rec);
+      closeModal(); toast('Customer saved.','ok'); renderRoute();
+    }},[isNew?'Add Customer':'Save Changes']),
+  ]);
+  openModal(isNew?'Add Customer':'Edit Customer', body);
+}
+async function openCustomerDetail(c){
+  const ledger = await DB.ledgerForCustomer(c.id);
+  const body = el('div',{class:'stack'},[
+    el('div',{class:'spread'},[ el('div',{},[el('div',{class:'bold'},[c.name]), el('div',{class:'small muted'},[c.mobile])]), el('div',{class:(c.balance>0?'pill pill-warning':'pill pill-success')},[fmtMoney(c.balance||0)]) ]),
+    el('div',{class:'row wrap'},[
+      el('button',{class:'btn btn-sm', onclick:()=>{ closeModal(); openCustomerForm(c); }},[iconEdit(),'Edit']),
+      el('button',{class:'btn btn-sm', onclick:()=>{ closeModal(); openReceivePaymentModal(c); }},[iconWallet(),'Receive Payment']),
+      el('button',{class:'btn btn-sm', onclick:()=>{ const msg='Dear '+c.name+', apka current balance '+fmtMoney(c.balance||0)+' hai. — '+App.company.name; window.open(whatsappLink(c.mobile,msg),'_blank'); }},[iconWhatsapp(),'WhatsApp']),
+    ]),
+    el('div',{class:'divider'}),
+    el('div',{class:'bold small'},['Ledger']),
+    ledger.length ? el('div',{class:'scroll-x'},[ ledgerTable(ledger) ]) : el('div',{class:'empty small'},['Koi transaction nahi.']),
+  ]);
+  openModal('Customer', body);
+}
+function ledgerTable(rows){
+  const tbl = el('table');
+  tbl.appendChild(el('thead',{},[el('tr',{},['Date','Ref','Debit','Credit','Balance'].map(h=>el('th',{},[h])))]));
+  const tb = el('tbody');
+  rows.forEach(r=> tb.appendChild(el('tr',{},[
+    el('td',{},[fmtDate(r.date)]), el('td',{},[r.invoiceNo||'']),
+    el('td',{class:'right num'},[r.debit?fmtMoney(r.debit):'']), el('td',{class:'right num'},[r.credit?fmtMoney(r.credit):'']),
+    el('td',{class:'right num bold'},[fmtMoney(r.balance)]),
+  ])));
+  tbl.appendChild(tb);
+  return tbl;
+}
+
+/* ---------------- Products ---------------- */
+async function viewProducts(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{class:'spread'},[
+    el('div',{},[el('div',{class:'section-title'},['Products']), el('div',{class:'section-sub'},['Rate, stock aur low-stock limit manage karein'])]),
+    el('button',{class:'btn btn-primary', onclick:()=>openProductForm(null)},[iconPlus(),'Add']),
+  ]));
+  wrap.appendChild(el('div',{class:'searchbox'},[iconSearch(), el('input',{id:'prod-search', placeholder:'Product naam ya code search karein'})]));
+  const list = el('div',{class:'card pad', id:'prod-list'});
+  wrap.appendChild(list);
+  root.appendChild(wrap);
+  async function refresh(){
+    const items = await DB.searchProducts($('#prod-search').value);
+    items.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+    list.innerHTML='';
+    if(!items.length){ list.appendChild(el('div',{class:'empty'},['Koi product nahi mila.'])); return; }
+    items.forEach(p=>{
+      const low = p.lowStockLimit>0 && p.stock<=p.lowStockLimit;
+      list.appendChild(el('div',{class:'list-row', onclick:()=>openProductForm(p)},[
+        el('div',{},[ el('div',{class:'bold'},[p.name]), el('div',{class:'small muted'},[p.productCode+' • '+fmtMoney(p.rate)]) ]),
+        el('div',{class:'pill '+(low?'pill-danger':'pill-neutral')},[fmtNum(p.stock)+' '+(p.qtyType==='WEIGHT'?'gm':'pcs')]),
+      ]));
+    });
+  }
+  $('#prod-search').addEventListener('input', debounce(refresh,150));
+  refresh();
+}
+async function openProductForm(p, prefillCode){
+  const isNew = !p;
+  const codeI = el('input',{value: p?p.id:(prefillCode||''), placeholder:'Auto-generate ke liye khaali chodein'});
+  const nameI = el('input',{value: p?p.name:''});
+  const rateI = el('input',{type:'number', value: p?p.rate:''});
+  const typeI = el('select',{},[el('option',{value:'PIECE'},['Piece']), el('option',{value:'WEIGHT'},['Weight (gm)'])]);
+  typeI.value = p?p.qtyType:'PIECE';
+  const stockI = el('input',{type:'number', value: p? p.stock : 0});
+  const lowI = el('input',{type:'number', value: p? (p.lowStockLimit||0) : (App.company.lowStockDefault||0)});
+  const body = el('div',{class:'stack'},[
+    el('label',{class:'field'},['QR / Product Code', codeI]),
+    el('label',{class:'field'},['Product Name', nameI]),
+    el('div',{class:'grid2'},[ el('label',{class:'field'},['Rate (₹)', rateI]), el('label',{class:'field'},['Qty Type', typeI]) ]),
+    el('div',{class:'grid2'},[ el('label',{class:'field'},[isNew?'Opening Stock':'Stock', stockI]), el('label',{class:'field'},['Low Stock Limit', lowI]) ]),
+    el('div',{class:'row'},[
+      el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+        const name = nameI.value.trim();
+        if(!name){ toast('Product naam daalein.','err'); return; }
+        let code = codeI.value.trim().toUpperCase();
+        if(!code) code = await DB.nextProductCode();
+        if(isNew){
+          const existing = await DB.findProductByCode(code);
+          if(existing){ toast('Yeh code pehle se hai.','err'); return; }
+        }
+        const rec = p || {id:code, createdAt:new Date().toISOString()};
+        rec.productCode = code; rec.name=name; rec.rate=Number(rateI.value)||0; rec.qtyType=typeI.value;
+        rec.stock=Number(stockI.value)||0; rec.lowStockLimit=Number(lowI.value)||0;
+        await App.store.put('products', rec);
+        closeModal(); toast('Product saved.','ok'); renderRoute();
+      }},[isNew?'Add Product':'Save Changes']),
+    ]),
+    !isNew ? el('button',{class:'btn btn-danger btn-block', onclick: async ()=>{
+      const ok = await confirmDialog('Product delete karein?','Delete');
+      if(ok){ await App.store.del('products', p.id); closeModal(); toast('Deleted.'); renderRoute(); }
+    }},[iconTrash(),'Delete Product']) : null,
+  ]);
+  openModal(isNew?'Add Product':'Edit Product', body);
+}
+
+/* ---------------- Stock Entry ---------------- */
+async function viewStock(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{},[el('div',{class:'section-title'},['Stock Entry']), el('div',{class:'section-sub'},['Naya stock add karein'])]));
+  let selected = null;
+  const card = el('div',{class:'card pad stack'});
+  const pickBtn = el('button',{class:'btn btn-block', onclick:()=>openProductPicker(p=>{ selected=p; renderInfo(); })},[iconSearch(),'Select Product']);
+  const info = el('div',{});
+  const qtyI = el('input',{type:'number', min:'0', step:'any', placeholder:'Quantity add karni hai'});
+  card.appendChild(pickBtn); card.appendChild(info);
+  card.appendChild(el('label',{class:'field'},['Add Quantity', qtyI]));
+  card.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+    if(!selected){ toast('Pehle product select karein.','err'); return; }
+    try{ const p = await DB.addStock(selected.id, qtyI.value); toast('Stock updated: '+p.name+' → '+fmtNum(p.stock),'ok'); selected=p; renderInfo(); qtyI.value=''; }
+    catch(e){ toast(e.message,'err'); }
+  }},['Add Stock']));
+  wrap.appendChild(card);
+  root.appendChild(wrap);
+  function renderInfo(){
+    info.innerHTML='';
+    if(!selected) return;
+    info.appendChild(el('div',{class:'spread', style:'padding:8px 0;'},[ el('div',{},[el('div',{class:'bold'},[selected.name]), el('div',{class:'small muted'},[selected.productCode])]), el('div',{class:'pill pill-neutral'},['Current: '+fmtNum(selected.stock)]) ]));
+  }
+}
+
+/* ---------------- Payments ---------------- */
+async function viewPayments(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{class:'spread'},[
+    el('div',{},[el('div',{class:'section-title'},['Payments']), el('div',{class:'section-sub'},['Customer se payment receive karein'])]),
+    el('button',{class:'btn btn-primary', onclick:()=>openReceivePaymentModal(null)},[iconPlus(),'Receive']),
+  ]));
+  const list = await App.store.all('payments');
+  list.sort((a,b)=> (a.date<b.date?1:-1));
+  const card = el('div',{class:'card pad'});
+  if(!list.length){ card.appendChild(el('div',{class:'empty'},['Koi payment record nahi.'])); }
+  else list.forEach(p=> card.appendChild(el('div',{class:'list-row', onclick:()=>{ const body=el('div',{class:'stack'},[
+      el('div',{class:'spread'},[el('b',{},[p.id]), el('span',{class:'small muted'},[fmtDate(p.date)])]),
+      el('div',{class:'small'},[p.customerName+' • '+p.mobile]),
+      el('div',{class:'spread'},[el('span',{},['Amount']), el('span',{class:'bold num'},[fmtMoney(p.amountReceived)])]),
+      el('div',{class:'row wrap'},[ el('button',{class:'btn btn-sm',onclick:()=>printReceipt(p)},[iconPrint(),'Print']), el('button',{class:'btn btn-sm',onclick:()=>sendReceiptWhatsApp(p)},[iconWhatsapp(),'WhatsApp']) ]),
+    ]); openModal('Receipt', body); } },[
+    el('div',{},[ el('div',{class:'bold'},[p.customerName]), el('div',{class:'small muted'},[p.id+' • '+fmtDate(p.date)]) ]),
+    el('div',{class:'pill pill-success'},[fmtMoney(p.amountReceived)]),
+  ])));
+  wrap.appendChild(card);
+  root.appendChild(wrap);
+}
+function openReceivePaymentModal(cust){
+  let selected = cust;
+  const body = el('div',{class:'stack'});
+  const pickBtn = el('button',{class:'btn btn-block', onclick:()=>openCustomerPicker(c=>{ selected=c; renderSel(); })},[iconSearch(), selected?('Customer: '+selected.name):'Select Customer']);
+  const selInfo = el('div',{});
+  const amtI = el('input',{type:'number', min:'0', step:'any', placeholder:'0.00'});
+  const modeI = el('select',{},[el('option',{value:'CASH'},['Cash']),el('option',{value:'UPI'},['UPI']),el('option',{value:'BANK'},['Bank Transfer'])]);
+  const remarksI = el('input',{placeholder:'Optional'});
+  body.appendChild(pickBtn); body.appendChild(selInfo);
+  body.appendChild(el('label',{class:'field'},['Amount Received', amtI]));
+  body.appendChild(el('label',{class:'field'},['Payment Mode', modeI]));
+  body.appendChild(el('label',{class:'field'},['Remarks', remarksI]));
+  body.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+    if(!selected){ toast('Customer select karein.','err'); return; }
+    try{
+      const payment = await DB.receivePayment({customerId:selected.id, amount:amtI.value, mode:modeI.value, remarks:remarksI.value});
+      closeModal(); toast('Payment received.','ok');
+      const body2 = el('div',{class:'stack'},[
+        el('div',{},['Receipt ', el('b',{},[payment.id]), ' saved.']),
+        el('button',{class:'btn btn-block', onclick:()=>printReceipt(payment)},[iconPrint(),'Print Receipt']),
+        el('button',{class:'btn btn-block', onclick:()=>sendReceiptWhatsApp(payment)},[iconWhatsapp(),'WhatsApp']),
+      ]);
+      openModal('Payment Saved', body2);
+      renderRoute();
+    }catch(e){ toast(e.message,'err'); }
+  }},['Save Payment']));
+  openModal('Receive Payment', body);
+  function renderSel(){ pickBtn.lastChild.textContent = 'Customer: '+selected.name; selInfo.innerHTML=''; selInfo.appendChild(el('div',{class:'small muted', style:'padding:4px 0;'},['Current Balance: '+fmtMoney(selected.balance||0)])); }
+  if(selected) renderSel();
+}
+
+/* ---------------- Sales Register ---------------- */
+async function viewSalesRegister(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{},[el('div',{class:'section-title'},['Sales Register']), el('div',{class:'section-sub'},['Saare invoices, ek jagah'])]));
+  const filterRow = el('div',{class:'row wrap'});
+  const fromI = el('input',{type:'date', value: (()=>{const d=new Date(); d.setDate(d.getDate()-30); return d.toISOString().slice(0,10);})()});
+  const toI = el('input',{type:'date', value: todayISO()});
+  const statusI = el('select',{},[el('option',{value:''},['All Status']),el('option',{value:'COMPLETED'},['Completed']),el('option',{value:'CANCELLED'},['Cancelled'])]);
+  filterRow.appendChild(el('label',{class:'field'},['From', fromI]));
+  filterRow.appendChild(el('label',{class:'field'},['To', toI]));
+  filterRow.appendChild(el('label',{class:'field'},['Status', statusI]));
+  wrap.appendChild(filterRow);
+  const list = el('div',{class:'card pad'});
+  wrap.appendChild(list);
+  root.appendChild(wrap);
+  async function refresh(){
+    let rows = await DB.currentInvoicesInRange(fromI.value, toI.value);
+    if(statusI.value) rows = rows.filter(r=>r.status===statusI.value);
+    list.innerHTML='';
+    if(!rows.length){ list.appendChild(el('div',{class:'empty'},['Is range mein koi invoice nahi.'])); return; }
+    rows.forEach(r=> list.appendChild(invoiceListRow(r)));
+  }
+  [fromI,toI,statusI].forEach(i=>i.addEventListener('change',refresh));
+  refresh();
+}
+
+/* ---------------- Reports ---------------- */
+async function viewDailyReport(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{},[el('div',{class:'section-title'},['Daily Sales Report'])]));
+  const dateI = el('input',{type:'date', value: todayISO()});
+  wrap.appendChild(el('label',{class:'field', style:'max-width:220px;'},['Date', dateI]));
+  const out = el('div',{class:'stack'});
+  wrap.appendChild(out);
+  root.appendChild(wrap);
+  async function refresh(){
+    const rows = await DB.currentInvoicesInRange(dateI.value, dateI.value);
+    const active = rows.filter(r=>r.status!=='CANCELLED');
+    const totalSales = active.reduce((s,r)=>s+Number(r.billTotal||0),0);
+    const totalReceived = active.reduce((s,r)=>s+Number(r.receivedAmount||0),0);
+    const totalCredit = active.reduce((s,r)=>s+Number(r.balanceDue||0),0);
+    const cash = active.filter(r=>r.paymentMode==='CASH').reduce((s,r)=>s+Number(r.billTotal||0),0);
+    const upi = active.filter(r=>r.paymentMode==='UPI').reduce((s,r)=>s+Number(r.billTotal||0),0);
+    out.innerHTML='';
+    out.appendChild(el('div',{class:'grid3'},[
+      statTile('Bills', String(active.length),'neutral'), statTile('Sales', fmtMoney(totalSales),'success'), statTile('Received', fmtMoney(totalReceived),'neutral'),
+      statTile('Credit Out', fmtMoney(totalCredit),'warning'), statTile('Cash', fmtMoney(cash),'neutral'), statTile('UPI', fmtMoney(upi),'neutral'),
+    ]));
+    const card = el('div',{class:'card pad'});
+    if(!rows.length) card.appendChild(el('div',{class:'empty'},['Is din koi bill nahi.']));
+    else rows.forEach(r=>card.appendChild(invoiceListRow(r)));
+    out.appendChild(card);
+  }
+  dateI.addEventListener('change',refresh);
+  refresh();
+}
+async function viewMonthlyReport(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{},[el('div',{class:'section-title'},['Monthly Sales Report'])]));
+  const now = new Date();
+  const monthI = el('input',{type:'month', value: now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')});
+  wrap.appendChild(el('label',{class:'field', style:'max-width:220px;'},['Month', monthI]));
+  const out = el('div',{class:'stack'});
+  wrap.appendChild(out);
+  root.appendChild(wrap);
+  async function refresh(){
+    const [y,m] = monthI.value.split('-').map(Number);
+    const first = y+'-'+String(m).padStart(2,'0')+'-01';
+    const lastDate = new Date(y,m,0).getDate();
+    const last = y+'-'+String(m).padStart(2,'0')+'-'+String(lastDate).padStart(2,'0');
+    const all = await DB.currentInvoicesInRange(first,last);
+    const rows = all.filter(r=>r.status==='COMPLETED');
+    const totalSales = rows.reduce((s,r)=>s+Number(r.billTotal||0),0);
+    const totalReceived = rows.reduce((s,r)=>s+Number(r.receivedAmount||0),0);
+    const totalCredit = rows.reduce((s,r)=>s+Number(r.balanceDue||0),0);
+    const cash = rows.filter(r=>r.paymentMode==='CASH').reduce((s,r)=>s+Number(r.billTotal||0),0);
+    const upi = rows.filter(r=>r.paymentMode==='UPI').reduce((s,r)=>s+Number(r.billTotal||0),0);
+    const dayTotals = {};
+    for(let d=1; d<=lastDate; d++){ dayTotals[d]=0; }
+    rows.forEach(r=>{ const d = Number(r.date.split('-')[2]); dayTotals[d]=(dayTotals[d]||0)+Number(r.billTotal||0); });
+    const maxDay = Math.max(1, ...Object.values(dayTotals));
+    out.innerHTML='';
+    out.appendChild(el('div',{class:'grid3'},[
+      statTile('Bills', String(rows.length),'neutral'), statTile('Sales', fmtMoney(totalSales),'success'), statTile('Received', fmtMoney(totalReceived),'neutral'),
+      statTile('Credit Out', fmtMoney(totalCredit),'warning'), statTile('Cash', fmtMoney(cash),'neutral'), statTile('UPI', fmtMoney(upi),'neutral'),
+    ]));
+    const chartCard = el('div',{class:'card pad'});
+    chartCard.appendChild(el('div',{class:'bold small', style:'margin-bottom:6px;'},['Daily Breakdown']));
+    const bar = el('div',{class:'bar-chart', style:'height:90px;'});
+    for(let d=1; d<=lastDate; d++){
+      bar.appendChild(el('div',{class:'bar-col'},[ el('div',{class:'bar', style:'height:'+Math.max(2,(dayTotals[d]/maxDay*70))+'px;'}), el('div',{class:'bar-label'},[String(d)]) ]));
+    }
+    chartCard.appendChild(bar);
+    out.appendChild(chartCard);
+    const card = el('div',{class:'card pad'});
+    if(!rows.length) card.appendChild(el('div',{class:'empty'},['Is mahine koi bill nahi.']));
+    else rows.forEach(r=>card.appendChild(invoiceListRow(r)));
+    out.appendChild(card);
+  }
+  monthI.addEventListener('change',refresh);
+  refresh();
+}
+
+/* ---------------- Backup / Restore ---------------- */
+async function gatherBackup(){
+  const [customers,products,invoices,saleItems,payments,ledger] = await Promise.all(
+    ['customers','products','invoices','saleItems','payments','ledger'].map(s=>App.store.all(s))
+  );
+  return {app:'jokerwal-billing', version:1, exportedAt:new Date().toISOString(), company: App.company,
+    data:{customers,products,invoices,saleItems,payments,ledger}};
+}
+async function exportBackup(){
+  const backup = await gatherBackup();
+  const json = JSON.stringify(backup, null, 2);
+  const filename = 'backup_'+(App.company.name||'company').replace(/[^a-z0-9]+/gi,'_')+'_'+todayISO()+'.json';
+  const blob = new Blob([json], {type:'application/json'});
+
+  // 1) Claude artifact "downloads" capability (works when viewed inside claude.ai)
+  try{
+    if(window.claude && window.claude.use){
+      const downloads = await window.claude.use('downloads');
+      if(downloads){
+        await downloads.save({filename, data: blob});
+        toast('Backup saved.','ok');
+        return;
+      }
+    }
+  }catch(e){ /* declined / unavailable — fall through to other methods */ }
+
+  // 2) Native share sheet (works well on Android, standalone or installed)
+  try{
+    if(navigator.canShare && navigator.share){
+      const file = new File([blob], filename, {type:'application/json'});
+      if(navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:filename}); toast('Backup shared.','ok'); return; }
+    }
+  }catch(e){ /* user cancelled or unsupported — fall through */ }
+
+  // 3) Plain browser download link (works when opened as a normal top-level page)
+  let downloaded = false;
+  try{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    downloaded = true;
+  }catch(e){ /* ignore, fallback below */ }
+
+  // 4) Guaranteed fallback: show the JSON so it can be copied/saved manually
+  showBackupTextModal(json, filename, downloaded);
+}
+function showBackupTextModal(json, filename, downloadTried){
+  const ta = el('textarea',{style:'height:200px;font-size:10.5px;'});
+  ta.value = json;
+  const body = el('div',{class:'stack'},[
+    el('div',{class:'small muted'},[downloadTried? 'Download shuru ho gaya hai (agar nahi hua to niche se copy/save karein).' : 'Neeche se pura backup copy karke kahin safe save kar lein.']),
+    ta,
+    el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{ try{ await navigator.clipboard.writeText(json); toast('Copied to clipboard.','ok'); }catch(e){ ta.select(); toast('Manually copy karein (Ctrl/Cmd+C).'); } }},['Copy to Clipboard']),
+  ]);
+  openModal('Backup: '+filename, body);
+}
+function openImportBackup(){
+  const fileI = el('input',{type:'file', accept:'application/json,.json'});
+  const body = el('div',{class:'stack'},[
+    el('div',{class:'small muted'},['Backup JSON file select karein. Yeh current company ka saara data REPLACE kar dega.']),
+    fileI,
+    el('button',{class:'btn btn-danger btn-block', onclick: async ()=>{
+      const f = fileI.files[0];
+      if(!f){ toast('File select karein.','err'); return; }
+      try{
+        const text = await f.text();
+        const parsed = JSON.parse(text);
+        const ok = await confirmDialog('Current company ka poora data replace ho jayega. Continue?','Restore');
+        if(!ok) return;
+        const d = parsed.data || parsed;
+        for(const s of ['customers','products','invoices','saleItems','payments','ledger']){
+          await App.store.clear(s);
+          if(d[s] && d[s].length) await App.store.putAll(s, d[s]);
+        }
+        closeModal(); toast('Backup restored.','ok'); navigate('#/dashboard'); renderRoute();
+      }catch(e){ toast('Invalid backup file.','err'); }
+    }},['Restore Backup']),
+  ]);
+  openModal('Import Backup', body);
+}
+
+/* ---------------- Settings ---------------- */
+async function viewSettings(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{},[el('div',{class:'section-title'},['Settings']), el('div',{class:'section-sub'},['Company profile, companies aur backup'])]));
+
+  const c = App.company;
+  const fields = {};
+  const profCard = el('div',{class:'card pad stack'});
+  profCard.appendChild(el('div',{class:'bold'},['Company Profile']));
+  const mk = (key,label,ph)=>{ const i = el('input',{value:c[key]||'', placeholder:ph||''}); fields[key]=i; return el('label',{class:'field'},[label,i]); };
+  profCard.appendChild(mk('name','Business Name'));
+  profCard.appendChild(mk('tagline','Tagline'));
+  profCard.appendChild(mk('address1','Address Line 1'));
+  profCard.appendChild(mk('address2','Address Line 2'));
+  profCard.appendChild(el('div',{class:'grid2'},[mk('mobile','Mobile'), mk('email','Email')]));
+  profCard.appendChild(el('div',{class:'grid2'},[mk('website','Website'), mk('gstin','GSTIN (optional)')]));
+  profCard.appendChild(el('div',{class:'grid2'},[mk('invoicePrefix','Invoice Prefix'), mk('productPrefix','Product Code Prefix')]));
+  const lowI = el('input',{type:'number', value:c.lowStockDefault||0}); fields.lowStockDefault=lowI;
+  profCard.appendChild(el('label',{class:'field'},['Default Low Stock Limit (naye products ke liye)', lowI]));
+  profCard.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+    for(const k in fields) c[k] = k==='lowStockDefault' ? (Number(fields[k].value)||0) : fields[k].value.trim();
+    await App.store.put('settings', c);
+    toast('Company profile saved.','ok'); renderRoute();
+  }},['Save Company Details']));
+  wrap.appendChild(profCard);
+
+  const pinCard = el('div',{class:'card pad stack'});
+  pinCard.appendChild(el('div',{class:'bold'},[iconLock(),' App Lock (PIN)']));
+  pinCard.appendChild(el('div',{class:'small muted'},['Optional 4-6 digit PIN — app kholte waqt maangega. Yeh sirf ek quick screen-lock hai, strong security nahi.']));
+  const pinI = el('input',{type:'tel', maxlength:'6', placeholder: c.pin? 'PIN set hai (badalne ke liye naya likhein)':'PIN set karein', inputmode:'numeric'});
+  pinCard.appendChild(el('label',{class:'field'},['PIN', pinI]));
+  pinCard.appendChild(el('div',{class:'row'},[
+    el('button',{class:'btn', onclick: async ()=>{ const v=pinI.value.trim(); if(v && !/^\d{4,6}$/.test(v)){ toast('4-6 digit PIN daalein.','err'); return; } c.pin=v; await App.store.put('settings',c); toast(v?'PIN set ho gaya.':'PIN hata diya.','ok'); }},['Save PIN']),
+    c.pin ? el('button',{class:'btn btn-ghost', onclick: async ()=>{ c.pin=''; await App.store.put('settings',c); toast('PIN removed.'); renderRoute(); }},['Remove PIN']) : null,
+  ]));
+  wrap.appendChild(pinCard);
+
+  const companyMgmt = el('div',{class:'card pad stack'});
+  companyMgmt.appendChild(el('div',{class:'bold'},['Companies']));
+  companyMgmt.appendChild(el('div',{class:'small muted'},['Multiple businesses ke liye alag-alag company banayein — har company ka data alag, cloud mein safe rehta hai.']));
+  const companies = await loadCompanies();
+  companies.forEach(co=>{
+    companyMgmt.appendChild(el('div',{class:'list-row'},[
+      el('div',{},[el('div',{class:'bold small'},[co.name]), co.id===getActiveCompanyId()?el('div',{class:'tiny muted'},['Active']):null]),
+      el('div',{class:'row'},[
+        co.id!==getActiveCompanyId() ? el('button',{class:'btn btn-sm', onclick: async ()=>{ await switchCompany(co.id); location.hash='#/dashboard'; renderShell2(); }},['Switch']) : null,
+        companies.length>1 ? el('button',{class:'icon-btn', onclick: async ()=>{
+          const ok = await confirmDialog('Company "'+co.name+'" aur uska poora cloud data delete ho jayega. Pakka?','Delete');
+          if(!ok) return;
+          toast('Delete ho raha hai...');
+          const remaining = companies.filter(x=>x.id!==co.id);
+          await deleteCompanyCloudData(co.id);
+          if(getActiveCompanyId()===co.id){ await switchCompany(remaining[0].id); }
+          toast('Company deleted.','ok'); renderRoute();
+        }},[iconTrash()]) : null,
+      ]),
+    ]));
+  });
+  companyMgmt.appendChild(el('button',{class:'btn btn-block', onclick:openAddCompany},[iconPlus(),'Add New Company']));
+  wrap.appendChild(companyMgmt);
+
+  const acctCard = el('div',{class:'card pad stack'});
+  acctCard.appendChild(el('div',{class:'bold'},[iconLock(),' Cloud Account']));
+  acctCard.appendChild(el('div',{class:'small muted'},['Aap logged in hain: ', el('b',{},[App.userEmail||''])]));
+  acctCard.appendChild(el('div',{class:'small muted'},['Data cloud (Firebase) mein safe save hota hai. Kisi bhi doosre phone/computer par isi email-password se login karke poora data turant mil jayega.']));
+  acctCard.appendChild(el('button',{class:'btn btn-ghost btn-block', onclick: async ()=>{
+    const ok = await confirmDialog('Log out karna hai?','Log Out');
+    if(!ok) return;
+    try{ await fbAuth.signOut(); }catch(e){}
+  }},['Log Out']));
+  wrap.appendChild(acctCard);
+
+  const backupCard = el('div',{class:'card pad stack'});
+  backupCard.appendChild(el('div',{class:'bold'},['Backup & Restore']));
+  backupCard.appendChild(el('div',{class:'small muted'},['Data cloud mein rehta hai, phir bhi extra safety ke liye kabhi-kabhi backup file bhi le sakte hain.']));
+  backupCard.appendChild(el('div',{class:'row wrap'},[
+    el('button',{class:'btn', onclick:exportBackup},[iconDownload(),'Export Backup']),
+    el('button',{class:'btn', onclick:openImportBackup},[iconUpload(),'Import Backup']),
+  ]));
+  wrap.appendChild(backupCard);
+
+  wrap.appendChild(el('div',{class:'faint tiny', style:'text-align:center;padding:8px;'},['Jokerwal Billing App — cloud-synced across your devices.']));
+
+  root.appendChild(wrap);
+}
+function renderShell2(){ const app=$('#app'); app.innerHTML=''; renderRoute(); }
+function openAddCompany(){
+  const nameI = el('input',{placeholder:'e.g. My Second Shop'});
+  const body = el('div',{class:'stack'},[
+    el('label',{class:'field'},['Business Name', nameI]),
+    el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+      const name = nameI.value.trim();
+      if(!name){ toast('Naam daalein.','err'); return; }
+      const id = 'co_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      await saveCompanyMeta({id,name});
+      await switchCompany(id);
+      App.company.name = name; await App.store.put('settings', App.company);
+      closeModal(); toast('Company added.','ok'); location.hash='#/settings'; renderShell2();
+    }},['Create Company']),
+  ]);
+  openModal('Add Company', body);
+}
+async function openCompanySwitcher(){
+  const companies = await loadCompanies();
+  const body = el('div',{class:'stack'});
+  companies.forEach(co=>{
+    body.appendChild(el('div',{class:'list-row', onclick: async ()=>{ if(co.id!==getActiveCompanyId()){ await switchCompany(co.id); } closeModal(); location.hash='#/dashboard'; renderShell2(); }},[
+      el('div',{},[el('div',{class:'bold'},[co.name])]),
+      co.id===getActiveCompanyId() ? el('span',{class:'pill pill-success'},['Active']) : null,
+    ]));
+  });
+  body.appendChild(el('button',{class:'btn btn-block', onclick:()=>{ closeModal(); openAddCompany(); }},[iconPlus(),'Add New Company']));
+  openModal('Switch Company', body);
+}
+
+/* ---------------- First-time cloud setup screen ---------------- */
+function renderSetupScreen(){
+  const app = $('#app'); app.innerHTML='';
+  const fields = {};
+  const mk = (key,label,ph)=>{ const i = el('input',{placeholder:ph||''}); fields[key]=i; return el('label',{class:'field'},[label,i]); };
+  const saveBtn = el('button',{class:'btn btn-primary btn-block'},['Save & Continue']);
+  saveBtn.addEventListener('click', ()=>{
+    const cfg={};
+    for(const k in fields) cfg[k] = fields[k].value.trim();
+    if(!cfg.apiKey || !cfg.projectId || !cfg.appId){ toast('API Key, Project ID aur App ID zaroori hain.','err'); return; }
+    try{
+      saveFirebaseConfig(cfg);
+      initFirebase(cfg);
+      startAuthFlow();
+    }catch(e){ toast('Setup mein error hui: '+e.message,'err'); }
+  });
+  const form = el('div',{class:'stack'},[
+    mk('apiKey','API Key','AIzaSy...'),
+    mk('authDomain','Auth Domain','yourproject.firebaseapp.com'),
+    mk('projectId','Project ID','yourproject'),
+    mk('storageBucket','Storage Bucket (optional)','yourproject.appspot.com'),
+    mk('messagingSenderId','Messaging Sender ID (optional)','123456789'),
+    mk('appId','App ID','1:123456789:web:abcdef'),
+    saveBtn,
+  ]);
+  app.appendChild(el('div',{class:'lock-screen'},[
+    el('div',{class:'stack', style:'max-width:420px;width:100%;'},[
+      el('div',{class:'stack', style:'align-items:center;text-align:center;'},[
+        el('div',{class:'brand-badge', style:'width:56px;height:56px;font-size:22px;'},['☁']),
+        el('h2',{},['Cloud Setup']),
+        el('div',{class:'muted small'},['Ek baar apna free Firebase project connect karein — data isi mein cloud par safe rahega aur kisi bhi device se login karke turant mil jayega.']),
+      ]),
+      el('div',{class:'card pad'},[form]),
+      el('div',{class:'small muted', style:'text-align:center;'},['Yeh 6 values Firebase Console → Project Settings mein milti hain. Poore steps ke liye saath di gayi SETUP GUIDE file dekhein.']),
+    ]),
+  ]));
+}
+
+/* ---------------- Login / Sign Up / Forgot Password screen ---------------- */
+function renderAuthScreen(mode){
+  mode = mode || 'login';
+  const app = $('#app'); app.innerHTML='';
+  const emailI = el('input',{type:'email', placeholder:'you@example.com', autocomplete:'email'});
+  const passI = el('input',{type:'password', placeholder:'Password', autocomplete: mode==='signup'?'new-password':'current-password'});
+  const title = mode==='signup' ? 'Naya Account Banayein' : mode==='reset' ? 'Password Reset' : 'Login Karein';
+
+  const stack = el('div',{class:'stack'});
+  stack.appendChild(el('label',{class:'field'},['Email', emailI]));
+  if(mode!=='reset') stack.appendChild(el('label',{class:'field'},['Password', passI]));
+
+  const primaryBtn = el('button',{class:'btn btn-primary btn-block'},[mode==='signup'?'Sign Up':mode==='reset'?'Reset Link Bhejein':'Login']);
+  primaryBtn.addEventListener('click', async ()=>{
+    const email = emailI.value.trim(); const pass = passI.value;
+    if(!email){ toast('Email daalein.','err'); return; }
+    primaryBtn.disabled = true;
+    try{
+      if(mode==='signup'){
+        if(!pass || pass.length<6){ toast('Password kam se kam 6 characters ka ho.','err'); primaryBtn.disabled=false; return; }
+        await fbAuth.createUserWithEmailAndPassword(email, pass);
+        toast('Account ban gaya! Aapka data ab cloud mein save hoga.','ok');
+      }else if(mode==='reset'){
+        await fbAuth.sendPasswordResetEmail(email);
+        toast('Password reset link email par bhej diya.','ok');
+        renderAuthScreen('login');
+        return;
+      }else{
+        await fbAuth.signInWithEmailAndPassword(email, pass);
+      }
+      // onAuthStateChanged listener (startAuthFlow) takes over from here.
+    }catch(e){
+      toast(authErrorMsg(e),'err');
+      primaryBtn.disabled = false;
+    }
+  });
+  stack.appendChild(primaryBtn);
+
+  const links = el('div',{class:'row wrap', style:'justify-content:center;gap:16px;'});
+  if(mode==='login'){
+    links.appendChild(el('button',{class:'linklike', onclick:()=>renderAuthScreen('signup')},['Naya account banayein']));
+    links.appendChild(el('button',{class:'linklike', onclick:()=>renderAuthScreen('reset')},['Password bhool gaye?']));
+  }else{
+    links.appendChild(el('button',{class:'linklike', onclick:()=>renderAuthScreen('login')},['Wapas Login par jaayein']));
+  }
+  stack.appendChild(links);
+
+  app.appendChild(el('div',{class:'lock-screen'},[
+    el('div',{class:'stack', style:'max-width:380px;width:100%;'},[
+      el('div',{class:'stack', style:'align-items:center;text-align:center;'},[
+        el('div',{class:'brand-badge', style:'width:56px;height:56px;font-size:22px;'},['JB']),
+        el('h2',{},[title]),
+        el('div',{class:'muted small'},['Jokerwal Billing — cloud account (multi-device sync)']),
+      ]),
+      el('div',{class:'card pad'},[stack]),
+      el('button',{class:'linklike small', style:'text-align:center;', onclick:()=>{ if(confirm('Firebase project badalna hai?')){ clearFirebaseConfig(); location.reload(); } }},['Firebase project badlein']),
+    ]),
+  ]));
+}
+
+function startAuthFlow(){
+  fbAuth.onAuthStateChanged(async (user)=>{
+    if(user){
+      App.uid = user.uid;
+      App.userEmail = user.email;
+      await bootApp();
+    }else{
+      App.uid = null; App.userEmail = null; App.company = null; App.store = null;
+      if(App.clockTimer){ clearInterval(App.clockTimer); App.clockTimer = null; }
+      renderAuthScreen('login');
+    }
+  }, (err)=>{ console.error(err); renderAuthScreen('login'); });
+}
+
+/* ---------------- PIN Lock screen ---------------- */
+function renderLockScreen(){
+  const app = $('#app'); app.innerHTML='';
+  let entered='';
+  const dots = el('div',{class:'pin-dots'});
+  function refreshDots(){ dots.innerHTML=''; for(let i=0;i<Math.max(4,App.company.pin.length);i++){ dots.appendChild(el('div',{class:'pin-dot'+(i<entered.length?' filled':'')})); } }
+  const keypad = el('div',{class:'keypad'});
+  ['1','2','3','4','5','6','7','8','9','','0','⌫'].forEach(k=>{
+    if(k===''){ keypad.appendChild(el('div',{})); return; }
+    keypad.appendChild(el('button',{class:'btn', onclick:()=>{
+      if(k==='⌫'){ entered = entered.slice(0,-1); }
+      else if(entered.length<6){ entered += k; }
+      refreshDots();
+      if(entered.length===App.company.pin.length){
+        if(entered===App.company.pin){ App.unlocked=true; app.innerHTML=''; renderRoute(); }
+        else{ toast('Galat PIN.','err'); entered=''; setTimeout(refreshDots,120); }
+      }
+    }},[k]));
+  });
+  app.appendChild(el('div',{class:'lock-screen'},[
+    el('div',{class:'stack', style:'align-items:center;max-width:280px;'},[
+      el('div',{class:'brand-badge', style:'width:56px;height:56px;font-size:22px;'},[(App.company.name||'?').charAt(0).toUpperCase()]),
+      el('h2',{},[App.company.name]),
+      el('div',{class:'muted small'},['PIN daalein']),
+      dots, keypad,
+    ]),
+  ]));
+  refreshDots();
+}
+
+/* ---------------- Routes ---------------- */
+on('#/dashboard', viewDashboard);
+on('#/bill', viewBill);
+on('#/customers', viewCustomers);
+on('#/products', viewProducts);
+on('#/stock', viewStock);
+on('#/payments', viewPayments);
+on('#/sales-register', viewSalesRegister);
+on('#/reports', viewDailyReport);
+on('#/settings', viewSettings);
+routes['#/reports/daily'] = viewDailyReport;
+routes['#/reports/monthly'] = viewMonthlyReport;
+
+/* ---------------- Boot (runs once user is logged in) ---------------- */
+async function bootApp(){
+  try{
+    const companies = await ensureSeeded();
+    let activeId = getActiveCompanyId();
+    if(!companies.find(c=>c.id===activeId)) activeId = companies[0].id;
+    await switchCompany(activeId);
+    if(App.company.pin && !App.unlocked){ renderLockScreen(); }
+    else{ renderRoute(); }
+  }catch(e){
+    console.error(e);
+    const app = $('#app'); app.innerHTML='';
+    app.appendChild(el('div',{class:'card pad', style:'margin:20px;'},['Startup error: '+e.message]));
+  }
+}
+
+/* ---------------- Startup: load Firebase config, then auth, then app ---------------- */
+function startup(){
+  const cfg = loadFirebaseConfig();
+  if(!cfg){ renderSetupScreen(); return; }
+  try{
+    initFirebase(cfg);
+    startAuthFlow();
+  }catch(e){
+    console.error(e);
+    toast('Firebase se connect nahi ho paaya. Setup dobara try karein.','err');
+    clearFirebaseConfig();
+    renderSetupScreen();
+  }
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', startup); else startup();
+
+})();
+
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+</script>
+</body>
+</html>
