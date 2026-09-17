@@ -475,7 +475,7 @@ async function switchCompany(companyId){
   App.store = new Store(fbDb, App.uid, companyId);
   const DEFAULT_PROFILE = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
     mobile:'', email:'', website:'', gstin:'', invoicePrefix:'INV', productPrefix:'PRD', lowStockDefault:5, pin:'',
-    gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', logoDataUrl:'', upiId:''};
+    gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', invoiceTerms:'', logoDataUrl:'', upiId:''};
   let profile = await App.store.get('settings','profile');
   if(!profile){
     profile = Object.assign({}, DEFAULT_PROFILE);
@@ -995,6 +995,36 @@ async function generateInvoicePdf(invoice, items){
   const accent=[162,115,44], accentDark=[92,64,20], gray=[100,95,85], lineGray=[224,218,204];
   const c = App.company;
 
+  // Faint, centered logo watermark in the page background — makes the sheet
+  // feel branded/premium instead of leaving the lower half of the page bare
+  // on short bills. Sized to the logo's real aspect ratio so it isn't
+  // stretched. Silently skipped if there's no logo, or if this jsPDF build
+  // doesn't support GState opacity (e.g. very old versions).
+  let wmAspect = 1;
+  if(c.logoDataUrl){
+    try{
+      wmAspect = await new Promise((resolve)=>{
+        const img = new Image();
+        img.onload = ()=> resolve(img.naturalWidth && img.naturalHeight ? img.naturalWidth/img.naturalHeight : 1);
+        img.onerror = ()=> resolve(1);
+        img.src = c.logoDataUrl;
+      });
+    }catch(e){}
+  }
+  function paintWatermark(){
+    if(!c.logoDataUrl) return;
+    try{
+      const boxSize = 130;
+      let wmW = boxSize, wmH = boxSize;
+      if(wmAspect>1) wmH = boxSize/wmAspect; else wmW = boxSize*wmAspect;
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({opacity:0.06}));
+      doc.addImage(c.logoDataUrl,'PNG', (pageW-wmW)/2, 95+(boxSize-wmH)/2, wmW, wmH);
+      doc.restoreGraphicsState();
+    }catch(e){ /* GState not supported in this jsPDF build — skip watermark silently */ }
+  }
+  paintWatermark();
+
   doc.setFillColor(...accent); doc.rect(0,0,pageW,26,'F');
   let logoW = 0;
   if(c.logoDataUrl){
@@ -1074,10 +1104,14 @@ async function generateInvoicePdf(invoice, items){
   y += 7;
 
   // If we're already deep on the page, continue totals/footer on a fresh page
-  // instead of letting a long bill overlap the bottom margin.
-  if(y > 200){ doc.addPage(); y = 20; }
+  // instead of letting a long bill overlap the bottom margin. Threshold is
+  // conservative (200, not right up against the table) because the totals +
+  // terms box + QR/bank block + footer/signature strip below need a good
+  // ~90mm of room to never spill past the bottom margin.
+  if(y > 200){ doc.addPage(); paintWatermark(); y = 20; }
 
   const totalsX = pageW-marginX-72;
+  const totalsTopY = y;
   function totalLine(label, value, opts){
     opts = opts||{};
     doc.setFont('helvetica', opts.bold?'bold':'normal'); doc.setFontSize(opts.size||9.5);
@@ -1097,13 +1131,27 @@ async function generateInvoicePdf(invoice, items){
   totalLine('Received', fmtMoneyPdf(invoice.receivedAmount));
   doc.setDrawColor(...lineGray); doc.line(totalsX, y-3.5, pageW-marginX, y-3.5);
   totalLine('Balance Due', fmtMoneyPdf(invoice.balanceDue), {bold:true, size:11.5, color: Number(invoice.balanceDue)>0?[181,64,47]:[47,125,84]});
+  const totalsBottomY = y;
+
+  // Terms & Conditions box fills the space to the LEFT of the totals column
+  // (that column only ever used the right ~85mm of the page width, leaving
+  // the rest blank) — sized to match the totals block's own height.
+  if(c.invoiceTerms){
+    const boxX = marginX, boxY = totalsTopY-6, boxW = totalsX-marginX-8, boxH = Math.max(totalsBottomY-totalsTopY+8, 24);
+    doc.setDrawColor(...lineGray); doc.setFillColor(252,251,247);
+    doc.rect(boxX, boxY, boxW, boxH, 'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...accentDark);
+    doc.text('Terms & Conditions', boxX+4, boxY+6);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.3); doc.setTextColor(...gray);
+    doc.text(doc.splitTextToSize(c.invoiceTerms, boxW-8), boxX+4, boxY+11);
+  }
 
   y += 2;
   doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(...gray);
   doc.text('Amount in words: '+amountInWordsIndian(invoice.totalPayable), marginX, y, {maxWidth:180});
   y += 10;
 
-  if(y > 250){ doc.addPage(); y = 20; }
+  if(y > 200){ doc.addPage(); paintWatermark(); y = 20; }
 
   let qrDataUrl = null;
   if(c.upiId && Number(invoice.balanceDue)>0){
@@ -1126,14 +1174,25 @@ async function generateInvoicePdf(invoice, items){
   }
   y = blockTop + (qrDataUrl ? 34 : 4);
 
-  const footerY = Math.max(y+8, pageH-22);
-  doc.setDrawColor(...lineGray); doc.line(marginX, footerY-6, pageW-marginX, footerY-6);
+  // Footer note + signature strip are anchored near the very bottom of the
+  // page (not tied to how much content sits above) so there is always a
+  // proper, roomy blank gap for an actual pen signature — previously the
+  // line sat only 4mm above the "Authorized Signatory" label with nowhere
+  // to sign, and the whole strip could land mid-page on a short bill.
+  const dividerY = Math.max(y+10, pageH-48);
+  doc.setDrawColor(...lineGray); doc.line(marginX, dividerY, pageW-marginX, dividerY);
+
   doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(...gray);
-  doc.text(c.invoiceNote || 'Thank you for your business!', marginX, footerY);
+  doc.text(c.invoiceNote || 'Thank you for your business!', marginX, dividerY+9, {maxWidth:100});
+  if(c.website){ doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text(c.website, marginX, dividerY+15); }
+
+  const sigRight = pageW-marginX, sigLeft = sigRight-55;
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...gray);
+  doc.text('For '+(c.name||'Company'), sigRight, dividerY+9, {align:'right'});
+  const sigLineY = dividerY+32; // ~23mm of blank space above the line, reserved for the actual signature
+  doc.setDrawColor(...lineGray); doc.line(sigLeft, sigLineY, sigRight, sigLineY);
   doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(20,20,20);
-  doc.line(pageW-marginX-40, footerY-4, pageW-marginX, footerY-4);
-  doc.text('Authorized Signatory', pageW-marginX, footerY, {align:'right'});
-  if(c.website){ doc.setFontSize(8); doc.setTextColor(...gray); doc.text(c.website, marginX, footerY+5); }
+  doc.text('Authorized Signatory', sigRight, sigLineY+5, {align:'right'});
 
   return doc;
 }
@@ -2000,6 +2059,8 @@ async function viewSettings(root){
   invCard.appendChild(el('label',{class:'field'},['Footer Note', noteI]));
   const bankI = el('textarea',{placeholder:'e.g. Bank: HDFC Bank, A/c: 1234567890, IFSC: HDFC0001234'}); bankI.value = c.invoiceBankDetails||''; fields.invoiceBankDetails = bankI;
   invCard.appendChild(el('label',{class:'field'},['Bank Details (optional — bill par print hoga)', bankI]));
+  const termsI = el('textarea',{placeholder:'e.g. Goods once sold will not be taken back. Subject to local jurisdiction.'}); termsI.value = c.invoiceTerms||''; fields.invoiceTerms = termsI;
+  invCard.appendChild(el('label',{class:'field'},['Terms & Conditions (optional — invoice par totals ke bagal print hoga)', termsI]));
   const upiI = el('input',{value:c.upiId||'', placeholder:'e.g. jokerwalbrothers@okhdfcbank'}); fields.upiId = upiI;
   invCard.appendChild(el('label',{class:'field'},['UPI ID (optional — bill par Scan & Pay QR banega)', upiI]));
 

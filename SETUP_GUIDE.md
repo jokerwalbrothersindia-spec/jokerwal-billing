@@ -74,9 +74,11 @@ Yeh link hi aapki app hai — isko phone ke browser mein kholein, aur **"Add to 
 
 ## Naye Premium Invoice Features
 
-- **Company Logo:** Settings → Invoice Customization → "Company Logo" mein apna logo image upload karein — yeh automatically invoice PDF ke top-left corner mein dikhega.
+- **Company Logo:** Settings → Invoice Customization → "Company Logo" mein apna logo image upload karein — yeh invoice PDF ke top-left corner mein dikhega, aur ek halka watermark ki tarah page ke beech mein bhi print hoga (isse bill zyada premium/branded lagta hai aur khali jagah bhi nahi lagti).
 - **Scan & Pay QR Code:** Settings → Invoice Customization mein apna **UPI ID** (jaise `yourname@okhdfc`) daal dein. Ab jab bhi kisi bill ka **Balance Due zero se zyada** ho, invoice PDF par ek UPI QR code automatically ban jayega — customer seedha GPay/PhonePe/Paytm se scan karke pay kar sakta hai.
-- **Premium A4 Invoice:** "Print Invoice" ab ek proper **A4-size, single-page PDF** banata hai (gold header, company details, items table, GST breakup, amount in words, bank details, signature line) — pehle wale simple HTML print se kaafi behtar. Yeh naya browser tab mein khulta hai jahan se aap print ya save kar sakte hain.
+- **Terms & Conditions:** Settings → Invoice Customization mein "Terms & Conditions" mein apni shartein likh dein (jaise "Goods once sold will not be taken back") — yeh totals ke bagal, ek box mein print hoga.
+- **Signature ke liye jagah:** "Authorized Signatory" line ab bill ke bilkul bottom-right corner mein hai, aur line ke upar ek khaali jagah chodi gayi hai taaki asli pen se signature kiya ja sake.
+- **Premium A4 Invoice:** "Print Invoice" ab ek proper **A4-size, single-page PDF** banata hai (gold header, company details, items table, GST breakup, amount in words, bank details, terms box, signature space) — pehle wale simple HTML print se kaafi behtar. Yeh naya browser tab mein khulta hai jahan se aap print ya save kar sakte hain.
 - **Invoice customization:** Settings → Invoice Customization mein apna khud ka Footer Note (jaise "Thank you!" ya koi terms) aur Bank Details (bank transfer ke liye) daal sakte hain — yeh PDF invoice par dikhega.
 - **WhatsApp par PDF bhejna:** Bill save hone ke baad "Send PDF on WhatsApp" button dabayein.
   - **Mobile par (Android/iPhone):** ek share-sheet khulegi jisme WhatsApp choose karke ek tap mein PDF invoice seedha customer ko bhej sakte hain.
