@@ -1185,22 +1185,23 @@ async function generateInvoicePdf(invoice, items){
 
   // Terms & Conditions box fills the space to the LEFT of the totals column
   // (that column only ever used the right ~85mm of the page width, leaving
-  // the rest blank). Width is capped (was stretching almost to the totals
-  // column, which looked oversized) and height is sized to the ACTUAL
-  // wrapped text (not to the totals block's height) — matching the totals
-  // block's height was what made the box's bottom edge land exactly on top
-  // of the "Amount in words" line below it.
+  // the rest blank). Width is back to using the full space left of the
+  // totals column (like before); height is sized to the ACTUAL wrapped text
+  // — matching the totals block's height was what made the box's bottom
+  // edge land exactly on top of the "Amount in words" line below it — and
+  // kept as compact as the content allows. Background is transparent (only
+  // the border is drawn) instead of a filled box.
   let termsBottomY = totalsTopY - 6;
   if(c.invoiceTerms){
-    const boxX = marginX, boxY = totalsTopY-6, boxW = Math.min(totalsX-marginX-10, 80);
+    const boxX = marginX, boxY = totalsTopY-6, boxW = totalsX-marginX-8;
     const wrappedTerms = doc.splitTextToSize(c.invoiceTerms, boxW-8);
-    const boxH = Math.max(11 + wrappedTerms.length*3.6 + 3, 24);
-    doc.setDrawColor(...lineGray); doc.setFillColor(252,251,247);
-    doc.rect(boxX, boxY, boxW, boxH, 'FD');
+    const boxH = Math.max(9 + wrappedTerms.length*3.4, 18);
+    doc.setDrawColor(...lineGray);
+    doc.rect(boxX, boxY, boxW, boxH, 'D');
     doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...accentDark);
-    doc.text('Terms & Conditions', boxX+4, boxY+6);
+    doc.text('Terms & Conditions', boxX+4, boxY+5.5);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.3); doc.setTextColor(...gray);
-    doc.text(wrappedTerms, boxX+4, boxY+11);
+    doc.text(wrappedTerms, boxX+4, boxY+10);
     termsBottomY = boxY + boxH;
   }
 
