@@ -493,7 +493,7 @@ async function switchCompany(companyId){
   const DEFAULT_PROFILE = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
     mobile:'', email:'', website:'', gstin:'', pan:'', invoicePrefix:'INV', productPrefix:'PRD', lowStockDefault:5, pin:'',
     gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', invoiceTerms:'', logoDataUrl:'', upiId:'',
-    headerColor:'#a2732c', footerColor:'#a2732c'};
+    headerColor:'#a2732c', footerColor:'#a2732c', logoSizeMm:16};
   let profile = await App.store.get('settings','profile');
   if(!profile){
     profile = Object.assign({}, DEFAULT_PROFILE);
@@ -1055,12 +1055,16 @@ async function generateInvoicePdf(invoice, items){
   // Non-registered businesses (no GSTIN) get a small "(Non-Registered
   // Business)" tag under the name/tagline — the header band grows by a few
   // mm to fit that extra line instead of crowding it against the tagline.
+  // Logo size is customizable in Settings (Small/Medium/Large/Extra Large);
+  // the header band also grows to fit a bigger logo so it never spills out.
   const showUnregTag = !c.gstin;
-  const headerBandH = (c.tagline && showUnregTag) ? 32 : 26;
+  const logoSize = Math.min(Math.max(Number(c.logoSizeMm)||16, 10), 32);
+  const baseHeaderBandH = (c.tagline && showUnregTag) ? 32 : 26;
+  const headerBandH = c.logoDataUrl ? Math.max(baseHeaderBandH, logoSize+10) : baseHeaderBandH;
   doc.setFillColor(...accent); doc.rect(0,0,pageW,headerBandH,'F');
   let logoW = 0;
   if(c.logoDataUrl){
-    try{ doc.addImage(c.logoDataUrl,'PNG', marginX, 5, 16, 16); logoW = 20; }catch(e){}
+    try{ doc.addImage(c.logoDataUrl,'PNG', marginX, (headerBandH-logoSize)/2, logoSize, logoSize); logoW = logoSize+4; }catch(e){}
   }
   doc.setTextColor(255,255,255);
   doc.setFont('helvetica','bold'); doc.setFontSize(17);
@@ -1194,6 +1198,14 @@ async function generateInvoicePdf(invoice, items){
   let termsBottomY = totalsTopY - 6;
   if(c.invoiceTerms){
     const boxX = marginX, boxY = totalsTopY-6, boxW = totalsX-marginX-8;
+    // splitTextToSize measures using whatever font/size is CURRENTLY set on
+    // the doc — it must be set to the body font (7.3pt normal) before this
+    // call, not after. Calling it while the previous (much larger, bold)
+    // totals font was still active made jsPDF think each character was
+    // wider than it really is, so it wrapped far too early — leaving the
+    // box mostly empty on the right with the text squeezed into a narrow
+    // column instead of using the full box width.
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.3);
     const wrappedTerms = doc.splitTextToSize(c.invoiceTerms, boxW-8);
     const boxH = Math.max(9 + wrappedTerms.length*3.4, 18);
     doc.setDrawColor(...lineGray);
@@ -1352,10 +1364,12 @@ async function generateLedgerPdf(customer, filtered, openingBalance, closingBala
   paintWatermark();
 
   const showUnregTag = !c.gstin;
-  const headerBandH = (c.tagline && showUnregTag) ? 32 : 26;
+  const logoSize = Math.min(Math.max(Number(c.logoSizeMm)||16, 10), 32);
+  const baseHeaderBandH = (c.tagline && showUnregTag) ? 32 : 26;
+  const headerBandH = c.logoDataUrl ? Math.max(baseHeaderBandH, logoSize+10) : baseHeaderBandH;
   doc.setFillColor(...accent); doc.rect(0,0,pageW,headerBandH,'F');
   let logoW = 0;
-  if(c.logoDataUrl){ try{ doc.addImage(c.logoDataUrl,'PNG', marginX, 5, 16, 16); logoW = 20; }catch(e){} }
+  if(c.logoDataUrl){ try{ doc.addImage(c.logoDataUrl,'PNG', marginX, (headerBandH-logoSize)/2, logoSize, logoSize); logoW = logoSize+4; }catch(e){} }
   doc.setTextColor(255,255,255);
   doc.setFont('helvetica','bold'); doc.setFontSize(17);
   doc.text(c.name||'My Business', marginX+logoW, 13);
@@ -2361,6 +2375,15 @@ async function viewSettings(root){
   });
   invCard.appendChild(el('label',{class:'field'},['Company Logo', logoFileI]));
   invCard.appendChild(logoPreviewWrap);
+  const logoSizeSel = el('select',{},[
+    el('option',{value:'12'},['Chota (Small)']),
+    el('option',{value:'16'},['Medium (default)']),
+    el('option',{value:'22'},['Bada (Large)']),
+    el('option',{value:'28'},['Extra Bada (Extra Large)']),
+  ]);
+  logoSizeSel.value = String([12,16,22,28].includes(Number(c.logoSizeMm)) ? Number(c.logoSizeMm) : 16);
+  fields.logoSizeMm = logoSizeSel;
+  invCard.appendChild(el('label',{class:'field'},['Logo Size (invoice/ledger PDF ke header mein)', logoSizeSel]));
 
   const noteI = el('input',{value:c.invoiceNote||'', placeholder:'e.g. Thank you for your business!'}); fields.invoiceNote = noteI;
   invCard.appendChild(el('label',{class:'field'},['Footer Note', noteI]));
@@ -2383,6 +2406,7 @@ async function viewSettings(root){
       const f = fields[k];
       if(f.type==='checkbox') c[k] = f.checked;
       else if(k==='lowStockDefault' || k==='defaultGstRate') c[k] = Number(f.value)||0;
+      else if(k==='logoSizeMm') c[k] = Number(f.value)||16;
       else c[k] = f.value;
     }
     await App.store.put('settings', c);
