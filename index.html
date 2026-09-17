@@ -278,6 +278,12 @@ const escapeHtml = (s)=> String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp
 const clamp0 = (n)=> n<0 ? 0 : n;
 const todayISO = ()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 const fmtMoney = (n)=>{ n = Number(n)||0; return '₹'+n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+// jsPDF's built-in fonts (helvetica/times/courier) only support the standard
+// WinAnsi character set, which does NOT include the ₹ rupee glyph — printing
+// it there renders as a garbled/broken character. So every amount drawn
+// inside the PDF invoice (generateInvoicePdf) uses "Rs." instead of ₹, while
+// the on-screen HTML UI keeps using fmtMoney() with the real ₹ symbol.
+const fmtMoneyPdf = (n)=>{ n = Number(n)||0; return 'Rs. '+n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); };
 const fmtNum = (n)=> Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:3});
 const fmtDate = (iso)=>{ if(!iso) return ''; const [y,m,d]=iso.split('-'); if(!d) return iso; const dt=new Date(+y,+m-1,+d); return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); };
 const fmtDateTime = (iso)=>{ if(!iso) return ''; const d = new Date(iso); if(isNaN(d)) return iso; return d.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); };
@@ -1000,13 +1006,24 @@ async function generateInvoicePdf(invoice, items){
   if(c.tagline){ doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.text(c.tagline, marginX+logoW, 19.5); }
 
   let y = 34;
+  // Each address/contact line is measured with splitTextToSize first and the
+  // cursor is advanced by however many lines it actually wrapped to — a
+  // fixed per-line step here would let a long address's wrapped 2nd line
+  // overlap the next block (this caused the address to run into the Mobile/
+  // Email line on longer addresses).
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...gray);
-  const addrLines = [
+  const addrLineDefs = [
     [c.address1,c.address2].filter(Boolean).join(', '),
     [c.mobile?('Mobile: '+c.mobile):'', c.email?('Email: '+c.email):''].filter(Boolean).join('   '),
     c.gstin ? ('GSTIN: '+c.gstin) : '',
   ].filter(Boolean);
-  addrLines.forEach((line,i)=> doc.text(line, marginX, y+i*4.6, {maxWidth:105}));
+  const addrMaxW = 105, addrLineH = 4.6;
+  let leftY = y;
+  addrLineDefs.forEach((line)=>{
+    const wrapped = doc.splitTextToSize(line, addrMaxW);
+    doc.text(wrapped, marginX, leftY);
+    leftY += wrapped.length * addrLineH;
+  });
 
   doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...accentDark);
   doc.text('INVOICE', pageW-marginX, y, {align:'right'});
@@ -1014,8 +1031,9 @@ async function generateInvoicePdf(invoice, items){
   doc.text('No: '+invoice.invoiceNo, pageW-marginX, y+6, {align:'right'});
   doc.text('Date: '+fmtDate(invoice.date), pageW-marginX, y+11, {align:'right'});
   doc.text('Payment: '+invoice.paymentMode, pageW-marginX, y+16, {align:'right'});
+  const rightY = y + 16;
 
-  y += 24;
+  y = Math.max(leftY, rightY) + 8;
   doc.setDrawColor(...lineGray); doc.setFillColor(250,248,243);
   doc.rect(marginX, y, 180, 16, 'FD');
   doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...gray);
@@ -1044,8 +1062,8 @@ async function generateInvoicePdf(invoice, items){
   items.forEach((it,i)=>{
     if(i%2===1){ doc.setFillColor(250,248,243); doc.rect(marginX,y,180,rowH,'F'); }
     const rowVals = gstOn
-      ? {i:String(i+1), name:it.productName, hsn:it.hsn||'-', gst:(Number(it.gstRate)||0)+'%', qty:fmtNum(it.qty), rate:fmtMoney(it.rate), amt:fmtMoney(it.amount)}
-      : {i:String(i+1), name:it.productName, qty:fmtNum(it.qty), rate:fmtMoney(it.rate), amt:fmtMoney(it.amount)};
+      ? {i:String(i+1), name:it.productName, hsn:it.hsn||'-', gst:(Number(it.gstRate)||0)+'%', qty:fmtNum(it.qty), rate:fmtMoneyPdf(it.rate), amt:fmtMoneyPdf(it.amount)}
+      : {i:String(i+1), name:it.productName, qty:fmtNum(it.qty), rate:fmtMoneyPdf(it.rate), amt:fmtMoneyPdf(it.amount)};
     colsDef.forEach((cd,idx)=>{
       const tx = cd.align==='right' ? colX[idx]+cd.w-2 : colX[idx]+2;
       doc.text(String(rowVals[cd.k]==null?'':rowVals[cd.k]), tx, y+rowH-(rowH<6?1.6:2.2), {align:cd.align, maxWidth:cd.w-3});
@@ -1069,16 +1087,16 @@ async function generateInvoicePdf(invoice, items){
     y += opts.gap||5.6;
   }
   if(gstOn){
-    totalLine('Taxable Amount', fmtMoney(invoice.taxableTotal));
-    totalLine('CGST', fmtMoney((Number(invoice.gstTotal)||0)/2), {size:8.5,color:gray,gap:4.8});
-    totalLine('SGST', fmtMoney((Number(invoice.gstTotal)||0)/2), {size:8.5,color:gray,gap:4.8});
+    totalLine('Taxable Amount', fmtMoneyPdf(invoice.taxableTotal));
+    totalLine('CGST', fmtMoneyPdf((Number(invoice.gstTotal)||0)/2), {size:8.5,color:gray,gap:4.8});
+    totalLine('SGST', fmtMoneyPdf((Number(invoice.gstTotal)||0)/2), {size:8.5,color:gray,gap:4.8});
   }
-  totalLine('Bill Total', fmtMoney(invoice.billTotal), {bold:true});
-  totalLine('Previous Balance', fmtMoney(invoice.previousBalance));
-  totalLine('Total Payable', fmtMoney(invoice.totalPayable));
-  totalLine('Received', fmtMoney(invoice.receivedAmount));
+  totalLine('Bill Total', fmtMoneyPdf(invoice.billTotal), {bold:true});
+  totalLine('Previous Balance', fmtMoneyPdf(invoice.previousBalance));
+  totalLine('Total Payable', fmtMoneyPdf(invoice.totalPayable));
+  totalLine('Received', fmtMoneyPdf(invoice.receivedAmount));
   doc.setDrawColor(...lineGray); doc.line(totalsX, y-3.5, pageW-marginX, y-3.5);
-  totalLine('Balance Due', fmtMoney(invoice.balanceDue), {bold:true, size:11.5, color: Number(invoice.balanceDue)>0?[181,64,47]:[47,125,84]});
+  totalLine('Balance Due', fmtMoneyPdf(invoice.balanceDue), {bold:true, size:11.5, color: Number(invoice.balanceDue)>0?[181,64,47]:[47,125,84]});
 
   y += 2;
   doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(...gray);
