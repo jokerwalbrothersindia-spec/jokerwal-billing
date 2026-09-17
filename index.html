@@ -289,6 +289,18 @@ const fmtMoneyPdf = (n)=>{ n = Number(n)||0; return 'Rs. '+n.toLocaleString('en-
 // small businesses) so a printed invoice/statement always carries some
 // identifier when one has been entered in Settings.
 const companyIdLine = (c)=> c.gstin ? ('GSTIN: '+c.gstin) : (c.pan ? ('PAN: '+c.pan) : '');
+// Converts a Settings color-picker hex value (e.g. "#a2732c") into an [r,g,b]
+// array for doc.setFillColor/setTextColor — falls back to a default [r,g,b]
+// when the field is blank or malformed, so older saved companies (with no
+// headerColor/footerColor yet) keep printing the original gold theme.
+function hexToRgb(hex, fallback){
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex||'').trim());
+  if(!m) return fallback;
+  const n = parseInt(m[1],16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+const darkenRgb = (rgb, factor)=> rgb.map(v=> Math.max(0, Math.round(v*factor)));
+const lightenRgb = (rgb, factor)=> rgb.map(v=> Math.min(255, Math.round(v + (255-v)*factor)));
 const fmtNum = (n)=> Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:3});
 const fmtDate = (iso)=>{ if(!iso) return ''; const [y,m,d]=iso.split('-'); if(!d) return iso; const dt=new Date(+y,+m-1,+d); return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); };
 const fmtDateTime = (iso)=>{ if(!iso) return ''; const d = new Date(iso); if(isNaN(d)) return iso; return d.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); };
@@ -480,7 +492,8 @@ async function switchCompany(companyId){
   App.store = new Store(fbDb, App.uid, companyId);
   const DEFAULT_PROFILE = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
     mobile:'', email:'', website:'', gstin:'', pan:'', invoicePrefix:'INV', productPrefix:'PRD', lowStockDefault:5, pin:'',
-    gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', invoiceTerms:'', logoDataUrl:'', upiId:''};
+    gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', invoiceTerms:'', logoDataUrl:'', upiId:'',
+    headerColor:'#a2732c', footerColor:'#a2732c'};
   let profile = await App.store.get('settings','profile');
   if(!profile){
     profile = Object.assign({}, DEFAULT_PROFILE);
@@ -998,8 +1011,16 @@ async function generateInvoicePdf(invoice, items){
   const doc = new jsPDF({unit:'mm', format:'a4'});
   const pageW = 210, pageH = 297, marginX = 15;
   const gstOn = !!invoice.gstEnabled;
-  const accent=[162,115,44], accentDark=[92,64,20], gray=[100,95,85], lineGray=[224,218,204];
   const c = App.company;
+  // Header/footer band colours are customizable in Settings; accentDark (used
+  // for headings/highlighted text) and accentLight (a pale tint for table
+  // header bands) are derived from the chosen header colour so the whole
+  // sheet stays visually consistent instead of clashing with a hardcoded gold.
+  const accent = hexToRgb(c.headerColor, [162,115,44]);
+  const accentDark = darkenRgb(accent, 0.58);
+  const accentLight = lightenRgb(accent, 0.85);
+  const footerAccent = hexToRgb(c.footerColor, accent);
+  const gray=[100,95,85], lineGray=[224,218,204];
 
   // Faint, centered logo watermark in the page background — makes the sheet
   // feel branded/premium instead of leaving the lower half of the page bare
@@ -1031,7 +1052,12 @@ async function generateInvoicePdf(invoice, items){
   }
   paintWatermark();
 
-  doc.setFillColor(...accent); doc.rect(0,0,pageW,26,'F');
+  // Non-registered businesses (no GSTIN) get a small "(Non-Registered
+  // Business)" tag under the name/tagline — the header band grows by a few
+  // mm to fit that extra line instead of crowding it against the tagline.
+  const showUnregTag = !c.gstin;
+  const headerBandH = (c.tagline && showUnregTag) ? 32 : 26;
+  doc.setFillColor(...accent); doc.rect(0,0,pageW,headerBandH,'F');
   let logoW = 0;
   if(c.logoDataUrl){
     try{ doc.addImage(c.logoDataUrl,'PNG', marginX, 5, 16, 16); logoW = 20; }catch(e){}
@@ -1039,9 +1065,18 @@ async function generateInvoicePdf(invoice, items){
   doc.setTextColor(255,255,255);
   doc.setFont('helvetica','bold'); doc.setFontSize(17);
   doc.text(c.name||'My Business', marginX+logoW, 13);
-  if(c.tagline){ doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.text(c.tagline, marginX+logoW, 19.5); }
+  let hLineY = 19.5;
+  if(c.tagline){
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(255,255,255);
+    doc.text(c.tagline, marginX+logoW, hLineY);
+    hLineY += 5.5;
+  }
+  if(showUnregTag){
+    doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(250,240,225);
+    doc.text('(Non-Registered Business)', marginX+logoW, hLineY);
+  }
 
-  let y = 34;
+  let y = headerBandH + 8;
   // Each address/contact line is measured with splitTextToSize first and the
   // cursor is advanced by however many lines it actually wrapped to — a
   // fixed per-line step here would let a long address's wrapped 2nd line
@@ -1051,7 +1086,6 @@ async function generateInvoicePdf(invoice, items){
   const addrLineDefs = [
     [c.address1,c.address2].filter(Boolean).join(', '),
     [c.mobile?('Mobile: '+c.mobile):'', c.email?('Email: '+c.email):''].filter(Boolean).join('   '),
-    companyIdLine(c),
   ].filter(Boolean);
   const addrMaxW = 105, addrLineH = 4.6;
   let leftY = y;
@@ -1060,6 +1094,16 @@ async function generateInvoicePdf(invoice, items){
     doc.text(wrapped, marginX, leftY);
     leftY += wrapped.length * addrLineH;
   });
+  // GSTIN/PAN line is pulled out of the plain gray address block and
+  // highlighted (bold + accent colour) so it's easy to spot on the printed
+  // invoice, per user request.
+  const idLine = companyIdLine(c);
+  if(idLine){
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(...accentDark);
+    const wrapped = doc.splitTextToSize(idLine, addrMaxW);
+    doc.text(wrapped, marginX, leftY);
+    leftY += wrapped.length * addrLineH;
+  }
 
   doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...accentDark);
   doc.text('INVOICE', pageW-marginX, y, {align:'right'});
@@ -1090,7 +1134,7 @@ async function generateInvoicePdf(invoice, items){
   if(items.length*rowH + headerH > maxTableH) rowH = Math.max(4.8, (maxTableH-headerH)/Math.max(items.length,1));
   const fontSize = rowH < 6 ? 7.3 : 8.3;
 
-  doc.setFillColor(241,227,200); doc.rect(marginX, y, 180, headerH, 'F');
+  doc.setFillColor(...accentLight); doc.rect(marginX, y, 180, headerH, 'F');
   doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...accentDark);
   colsDef.forEach((cd,idx)=>{ const tx = cd.align==='right' ? colX[idx]+cd.w-2 : colX[idx]+2; doc.text(cd.label, tx, y+headerH-2.6, {align:cd.align}); });
   y += headerH;
@@ -1141,19 +1185,27 @@ async function generateInvoicePdf(invoice, items){
 
   // Terms & Conditions box fills the space to the LEFT of the totals column
   // (that column only ever used the right ~85mm of the page width, leaving
-  // the rest blank) — sized to match the totals block's own height.
+  // the rest blank). Width is capped (was stretching almost to the totals
+  // column, which looked oversized) and height is sized to the ACTUAL
+  // wrapped text (not to the totals block's height) — matching the totals
+  // block's height was what made the box's bottom edge land exactly on top
+  // of the "Amount in words" line below it.
+  let termsBottomY = totalsTopY - 6;
   if(c.invoiceTerms){
-    const boxX = marginX, boxY = totalsTopY-6, boxW = totalsX-marginX-8, boxH = Math.max(totalsBottomY-totalsTopY+8, 24);
+    const boxX = marginX, boxY = totalsTopY-6, boxW = Math.min(totalsX-marginX-10, 80);
+    const wrappedTerms = doc.splitTextToSize(c.invoiceTerms, boxW-8);
+    const boxH = Math.max(11 + wrappedTerms.length*3.6 + 3, 24);
     doc.setDrawColor(...lineGray); doc.setFillColor(252,251,247);
     doc.rect(boxX, boxY, boxW, boxH, 'FD');
     doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...accentDark);
     doc.text('Terms & Conditions', boxX+4, boxY+6);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.3); doc.setTextColor(...gray);
-    doc.text(doc.splitTextToSize(c.invoiceTerms, boxW-8), boxX+4, boxY+11);
+    doc.text(wrappedTerms, boxX+4, boxY+11);
+    termsBottomY = boxY + boxH;
   }
 
-  y += 2;
-  doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(...gray);
+  y = Math.max(totalsBottomY, termsBottomY) + 4;
+  doc.setFont('helvetica','bolditalic'); doc.setFontSize(8.5); doc.setTextColor(...gray);
   doc.text('Amount in words: '+amountInWordsIndian(invoice.totalPayable), marginX, y, {maxWidth:180});
   y += 10;
 
@@ -1180,25 +1232,32 @@ async function generateInvoicePdf(invoice, items){
   }
   y = blockTop + (qrDataUrl ? 34 : 4);
 
-  // Footer note + signature strip are anchored near the very bottom of the
-  // page (not tied to how much content sits above) so there is always a
-  // proper, roomy blank gap for an actual pen signature — previously the
-  // line sat only 4mm above the "Authorized Signatory" label with nowhere
-  // to sign, and the whole strip could land mid-page on a short bill.
-  const dividerY = Math.max(y+10, pageH-48);
+  // Signature block now follows the content closely (divider ~8mm below
+  // whatever printed last — bank details/QR) instead of being force-pinned
+  // near the bottom of the page — that fixed floor was what left a big,
+  // awkward-looking blank gap between bank details and the footer on
+  // shorter bills. A colored footer BAND is anchored to the bottom of the
+  // page instead, as a deliberate design element, so any leftover blank
+  // space trails naturally below the signature rather than sitting in the
+  // middle of the page. Its color is customizable in Settings.
+  const footerBandH = 16;
+  const footerBandY = pageH - footerBandH;
+  let dividerY = y + 8;
+  if(dividerY + 31 > footerBandY - 4){ doc.addPage(); paintWatermark(); y = 20; dividerY = y + 8; }
+
   doc.setDrawColor(...lineGray); doc.line(marginX, dividerY, pageW-marginX, dividerY);
-
-  doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(...gray);
-  doc.text(c.invoiceNote || 'Thank you for your business!', marginX, dividerY+9, {maxWidth:100});
-  if(c.website){ doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text(c.website, marginX, dividerY+15); }
-
   const sigRight = pageW-marginX, sigLeft = sigRight-55;
   doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...gray);
-  doc.text('For '+(c.name||'Company'), sigRight, dividerY+9, {align:'right'});
-  const sigLineY = dividerY+32; // ~23mm of blank space above the line, reserved for the actual signature
+  doc.text('For '+(c.name||'Company'), sigRight, dividerY+7, {align:'right'});
+  const sigLineY = dividerY+26; // ~19mm of blank space above the line, reserved for the actual signature
   doc.setDrawColor(...lineGray); doc.line(sigLeft, sigLineY, sigRight, sigLineY);
   doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(20,20,20);
   doc.text('Authorized Signatory', sigRight, sigLineY+5, {align:'right'});
+
+  doc.setFillColor(...footerAccent); doc.rect(0, footerBandY, pageW, footerBandH, 'F');
+  doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+  doc.text(c.invoiceNote || 'Thank you for your business!', marginX, footerBandY+7, {maxWidth:130});
+  if(c.website){ doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(255,255,255); doc.text(c.website, marginX, footerBandY+12.5); }
 
   return doc;
 }
@@ -1260,8 +1319,12 @@ async function generateLedgerPdf(customer, filtered, openingBalance, closingBala
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'mm', format:'a4'});
   const pageW = 210, pageH = 297, marginX = 15;
-  const accent=[162,115,44], accentDark=[92,64,20], gray=[100,95,85], lineGray=[224,218,204];
   const c = App.company;
+  const accent = hexToRgb(c.headerColor, [162,115,44]);
+  const accentDark = darkenRgb(accent, 0.58);
+  const accentLight = lightenRgb(accent, 0.85);
+  const footerAccent = hexToRgb(c.footerColor, accent);
+  const gray=[100,95,85], lineGray=[224,218,204];
 
   let wmAspect = 1;
   if(c.logoDataUrl){
@@ -1287,20 +1350,30 @@ async function generateLedgerPdf(customer, filtered, openingBalance, closingBala
   }
   paintWatermark();
 
-  doc.setFillColor(...accent); doc.rect(0,0,pageW,26,'F');
+  const showUnregTag = !c.gstin;
+  const headerBandH = (c.tagline && showUnregTag) ? 32 : 26;
+  doc.setFillColor(...accent); doc.rect(0,0,pageW,headerBandH,'F');
   let logoW = 0;
   if(c.logoDataUrl){ try{ doc.addImage(c.logoDataUrl,'PNG', marginX, 5, 16, 16); logoW = 20; }catch(e){} }
   doc.setTextColor(255,255,255);
   doc.setFont('helvetica','bold'); doc.setFontSize(17);
   doc.text(c.name||'My Business', marginX+logoW, 13);
-  if(c.tagline){ doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.text(c.tagline, marginX+logoW, 19.5); }
+  let hLineY = 19.5;
+  if(c.tagline){
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(255,255,255);
+    doc.text(c.tagline, marginX+logoW, hLineY);
+    hLineY += 5.5;
+  }
+  if(showUnregTag){
+    doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(250,240,225);
+    doc.text('(Non-Registered Business)', marginX+logoW, hLineY);
+  }
 
-  let y = 34;
+  let y = headerBandH + 8;
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...gray);
   const addrLineDefs = [
     [c.address1,c.address2].filter(Boolean).join(', '),
     [c.mobile?('Mobile: '+c.mobile):'', c.email?('Email: '+c.email):''].filter(Boolean).join('   '),
-    companyIdLine(c),
   ].filter(Boolean);
   const addrMaxW = 105, addrLineH = 4.6;
   let leftY = y;
@@ -1309,6 +1382,13 @@ async function generateLedgerPdf(customer, filtered, openingBalance, closingBala
     doc.text(wrapped, marginX, leftY);
     leftY += wrapped.length * addrLineH;
   });
+  const idLine = companyIdLine(c);
+  if(idLine){
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(...accentDark);
+    const wrapped = doc.splitTextToSize(idLine, addrMaxW);
+    doc.text(wrapped, marginX, leftY);
+    leftY += wrapped.length * addrLineH;
+  }
 
   doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(...accentDark);
   doc.text('STATEMENT OF ACCOUNT', pageW-marginX, y, {align:'right'});
@@ -1334,7 +1414,7 @@ async function generateLedgerPdf(customer, filtered, openingBalance, closingBala
   const headerH = 8;
 
   function drawTableHeader(){
-    doc.setFillColor(241,227,200); doc.rect(marginX, y, 180, headerH, 'F');
+    doc.setFillColor(...accentLight); doc.rect(marginX, y, 180, headerH, 'F');
     doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...accentDark);
     colsDef.forEach((cd,idx)=>{ const tx = cd.align==='right' ? colX[idx]+cd.w-2 : colX[idx]+2; doc.text(cd.label, tx, y+headerH-2.6, {align:cd.align}); });
     y += headerH;
@@ -1382,11 +1462,16 @@ async function generateLedgerPdf(customer, filtered, openingBalance, closingBala
   y += 6;
   if(y > 200){ doc.addPage(); paintWatermark(); y = 20; }
 
-  const dividerY = Math.max(y+10, pageH-40);
-  doc.setDrawColor(...lineGray); doc.line(marginX, dividerY, pageW-marginX, dividerY);
-  doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(...gray);
-  doc.text(c.invoiceNote || 'Thank you for your business!', marginX, dividerY+9, {maxWidth:150});
-  if(c.website){ doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text(c.website, marginX, dividerY+15); }
+  // Same content-following-footer-band design as the invoice PDF: a colored
+  // band anchored to the bottom of the page instead of a fixed floor, so
+  // leftover blank space trails naturally below the summary.
+  const footerBandH = 16;
+  const footerBandY = pageH - footerBandH;
+  if(y + 4 > footerBandY - 4){ doc.addPage(); paintWatermark(); y = 20; }
+  doc.setFillColor(...footerAccent); doc.rect(0, footerBandY, pageW, footerBandH, 'F');
+  doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+  doc.text(c.invoiceNote || 'Thank you for your business!', marginX, footerBandY+7, {maxWidth:150});
+  if(c.website){ doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(255,255,255); doc.text(c.website, marginX, footerBandY+12.5); }
 
   return doc;
 }
@@ -2284,6 +2369,13 @@ async function viewSettings(root){
   invCard.appendChild(el('label',{class:'field'},['Terms & Conditions (optional — invoice par totals ke bagal print hoga)', termsI]));
   const upiI = el('input',{value:c.upiId||'', placeholder:'e.g. jokerwalbrothers@okhdfcbank'}); fields.upiId = upiI;
   invCard.appendChild(el('label',{class:'field'},['UPI ID (optional — bill par Scan & Pay QR banega)', upiI]));
+  const headerColorI = el('input',{type:'color', value: /^#[0-9a-f]{6}$/i.test(c.headerColor||'') ? c.headerColor : '#a2732c'}); fields.headerColor = headerColorI;
+  const footerColorI = el('input',{type:'color', value: /^#[0-9a-f]{6}$/i.test(c.footerColor||'') ? c.footerColor : '#a2732c'}); fields.footerColor = footerColorI;
+  invCard.appendChild(el('div',{class:'grid2'},[
+    el('label',{class:'field'},['Invoice Header Colour', headerColorI]),
+    el('label',{class:'field'},['Invoice Footer Colour', footerColorI]),
+  ]));
+  invCard.appendChild(el('div',{class:'tiny muted'},['Bill/statement PDF ke top header band aur bottom footer band ka colour apni pasand se set karein — dono alag-alag customize kar sakte hain.']));
 
   const saveAllProfile = async ()=>{
     for(const k in fields){
