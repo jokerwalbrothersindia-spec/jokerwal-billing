@@ -284,6 +284,11 @@ const fmtMoney = (n)=>{ n = Number(n)||0; return '₹'+n.toLocaleString('en-IN',
 // inside the PDF invoice (generateInvoicePdf) uses "Rs." instead of ₹, while
 // the on-screen HTML UI keeps using fmtMoney() with the real ₹ symbol.
 const fmtMoneyPdf = (n)=>{ n = Number(n)||0; return 'Rs. '+n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+// Legal tax-identifier line for printed documents: GSTIN if the business is
+// GST-registered, otherwise fall back to PAN (common for non-GST-registered
+// small businesses) so a printed invoice/statement always carries some
+// identifier when one has been entered in Settings.
+const companyIdLine = (c)=> c.gstin ? ('GSTIN: '+c.gstin) : (c.pan ? ('PAN: '+c.pan) : '');
 const fmtNum = (n)=> Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:3});
 const fmtDate = (iso)=>{ if(!iso) return ''; const [y,m,d]=iso.split('-'); if(!d) return iso; const dt=new Date(+y,+m-1,+d); return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); };
 const fmtDateTime = (iso)=>{ if(!iso) return ''; const d = new Date(iso); if(isNaN(d)) return iso; return d.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); };
@@ -474,7 +479,7 @@ async function importHistoricalSeed(){
 async function switchCompany(companyId){
   App.store = new Store(fbDb, App.uid, companyId);
   const DEFAULT_PROFILE = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
-    mobile:'', email:'', website:'', gstin:'', invoicePrefix:'INV', productPrefix:'PRD', lowStockDefault:5, pin:'',
+    mobile:'', email:'', website:'', gstin:'', pan:'', invoicePrefix:'INV', productPrefix:'PRD', lowStockDefault:5, pin:'',
     gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', invoiceTerms:'', logoDataUrl:'', upiId:''};
   let profile = await App.store.get('settings','profile');
   if(!profile){
@@ -608,9 +613,12 @@ const DB = {
     // customer balance = new outstanding balance due (mirrors Excel UpdateCustomerBalance)
     cust.balance = balanceDue;
     await App.store.put('customers', cust);
-    if(b.paymentMode==='CREDIT'){
-      await App.store.put('ledger', {id:uid(), date:b.date, invoiceNo:b.invoiceNo, customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit: clamp0(billTotal-receivedAmount), credit:0, balance: balanceDue, remarks:''});
-    }
+    // Ledger entry is written for EVERY bill, not just CREDIT ones — a CASH
+    // bill with a partial payment still leaves the customer owing money, and
+    // that needs a ledger trail too (previously only CREDIT bills were
+    // logged, so a customer statement/date-filter could silently miss real
+    // outstanding transactions).
+    await App.store.put('ledger', {id:uid(), date:b.date, invoiceNo:b.invoiceNo, customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit: clamp0(billTotal-receivedAmount), credit:0, balance: balanceDue, remarks:''});
     const lowStock = await DB.deductStock(items);
     return {invoice, lowStock};
   },
@@ -645,9 +653,7 @@ const DB = {
     if(cust){
       cust.balance = clamp0((Number(cust.balance)||0) - (Number(row.balanceDue)||0));
       await App.store.put('customers', cust);
-      if(row.paymentMode==='CREDIT'){
-        await App.store.put('ledger', {id:uid(), date: todayISO(), invoiceNo: invoiceNo+' (CANCELLED)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit:0, credit: clamp0(row.billTotal-row.receivedAmount), balance: cust.balance, remarks:'Bill cancelled'});
-      }
+      await App.store.put('ledger', {id:uid(), date: todayISO(), invoiceNo: invoiceNo+' (CANCELLED)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit:0, credit: clamp0(row.billTotal-row.receivedAmount), balance: cust.balance, remarks:'Bill cancelled'});
     }
     row.status = 'CANCELLED';
     await App.store.put('invoices', row);
@@ -690,7 +696,7 @@ const DB = {
       await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount, hsn: it.hsn||'', gstRate, gstAmount: amount*gstRate/100});
     }
     if(cust){ cust.balance = balanceDue; cust.name = b.customerName; cust.mobile = b.mobile; await App.store.put('customers', cust); }
-    if(b.paymentMode==='CREDIT' && cust){
+    if(cust){
       await App.store.put('ledger', {id:uid(), date:b.date, invoiceNo: oldInvoiceNo+' (MODIFIED)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit: clamp0(billTotal-receivedAmount), credit:0, balance: balanceDue, remarks:''});
     }
     const lowStock = await DB.deductStock(items);
@@ -1045,7 +1051,7 @@ async function generateInvoicePdf(invoice, items){
   const addrLineDefs = [
     [c.address1,c.address2].filter(Boolean).join(', '),
     [c.mobile?('Mobile: '+c.mobile):'', c.email?('Email: '+c.email):''].filter(Boolean).join('   '),
-    c.gstin ? ('GSTIN: '+c.gstin) : '',
+    companyIdLine(c),
   ].filter(Boolean);
   const addrMaxW = 105, addrLineH = 4.6;
   let leftY = y;
@@ -1236,6 +1242,184 @@ function sendInvoiceWhatsApp(invoice, items){
     'Thank you for your valuable purchase.';
   window.open(whatsappLink(invoice.mobile, msg), '_blank');
 }
+/* ---------------- Customer Ledger PDF / WhatsApp (date-range statement) ---------------- */
+// rowsDesc is ledgerForCustomer()'s result (newest-first). Splits it into the
+// rows that actually fall inside [dateFrom, dateTo] (either can be blank =
+// unbounded), plus the running balance just before the range started (so a
+// filtered statement still shows a correct Opening Balance instead of 0).
+function filterLedgerRange(rowsDesc, dateFrom, dateTo){
+  const asc = rowsDesc.slice().reverse();
+  const filtered = asc.filter(r=> (!dateFrom || r.date>=dateFrom) && (!dateTo || r.date<=dateTo));
+  const before = dateFrom ? asc.filter(r=> r.date<dateFrom) : [];
+  const openingBalance = before.length ? (Number(before[before.length-1].balance)||0) : 0;
+  const closingBalance = filtered.length ? (Number(filtered[filtered.length-1].balance)||0) : openingBalance;
+  return { filtered, openingBalance, closingBalance };
+}
+async function generateLedgerPdf(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo){
+  if(typeof window.jspdf==='undefined') throw new Error('PDF library load nahi ho payi. Internet check karke dobara try karein.');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const pageW = 210, pageH = 297, marginX = 15;
+  const accent=[162,115,44], accentDark=[92,64,20], gray=[100,95,85], lineGray=[224,218,204];
+  const c = App.company;
+
+  let wmAspect = 1;
+  if(c.logoDataUrl){
+    try{
+      wmAspect = await new Promise((resolve)=>{
+        const img = new Image();
+        img.onload = ()=> resolve(img.naturalWidth && img.naturalHeight ? img.naturalWidth/img.naturalHeight : 1);
+        img.onerror = ()=> resolve(1);
+        img.src = c.logoDataUrl;
+      });
+    }catch(e){}
+  }
+  function paintWatermark(){
+    if(!c.logoDataUrl) return;
+    try{
+      const boxSize = 130; let wmW=boxSize, wmH=boxSize;
+      if(wmAspect>1) wmH = boxSize/wmAspect; else wmW = boxSize*wmAspect;
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({opacity:0.06}));
+      doc.addImage(c.logoDataUrl,'PNG', (pageW-wmW)/2, 95+(boxSize-wmH)/2, wmW, wmH);
+      doc.restoreGraphicsState();
+    }catch(e){}
+  }
+  paintWatermark();
+
+  doc.setFillColor(...accent); doc.rect(0,0,pageW,26,'F');
+  let logoW = 0;
+  if(c.logoDataUrl){ try{ doc.addImage(c.logoDataUrl,'PNG', marginX, 5, 16, 16); logoW = 20; }catch(e){} }
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(17);
+  doc.text(c.name||'My Business', marginX+logoW, 13);
+  if(c.tagline){ doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.text(c.tagline, marginX+logoW, 19.5); }
+
+  let y = 34;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...gray);
+  const addrLineDefs = [
+    [c.address1,c.address2].filter(Boolean).join(', '),
+    [c.mobile?('Mobile: '+c.mobile):'', c.email?('Email: '+c.email):''].filter(Boolean).join('   '),
+    companyIdLine(c),
+  ].filter(Boolean);
+  const addrMaxW = 105, addrLineH = 4.6;
+  let leftY = y;
+  addrLineDefs.forEach((line)=>{
+    const wrapped = doc.splitTextToSize(line, addrMaxW);
+    doc.text(wrapped, marginX, leftY);
+    leftY += wrapped.length * addrLineH;
+  });
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(...accentDark);
+  doc.text('STATEMENT OF ACCOUNT', pageW-marginX, y, {align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(20,20,20);
+  const periodLabel = (dateFrom||dateTo) ? (fmtDate(dateFrom)||'Start')+' to '+(fmtDate(dateTo)||'Today') : 'All Transactions';
+  doc.text('Period: '+periodLabel, pageW-marginX, y+6, {align:'right'});
+  doc.text('Generated: '+fmtDate(todayISO()), pageW-marginX, y+11, {align:'right'});
+  const rightY = y + 11;
+
+  y = Math.max(leftY, rightY) + 8;
+  doc.setDrawColor(...lineGray); doc.setFillColor(250,248,243);
+  doc.rect(marginX, y, 180, 16, 'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...gray);
+  doc.text('CUSTOMER', marginX+4, y+5.5);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20,20,20);
+  doc.text(String(customer.name||''), marginX+4, y+11.5, {maxWidth:110});
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(...gray);
+  doc.text('Mobile: '+(customer.mobile||''), pageW-marginX-4, y+11.5, {align:'right'});
+
+  y += 22;
+  const colsDef = [{k:'date',w:24,label:'Date',align:'left'},{k:'ref',w:62,label:'Reference',align:'left'},{k:'debit',w:32,label:'Debit',align:'right'},{k:'credit',w:31,label:'Credit',align:'right'},{k:'balance',w:31,label:'Balance',align:'right'}];
+  const colX = []; { let cx=marginX; colsDef.forEach(cd=>{ colX.push(cx); cx+=cd.w; }); }
+  const headerH = 8;
+
+  function drawTableHeader(){
+    doc.setFillColor(241,227,200); doc.rect(marginX, y, 180, headerH, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...accentDark);
+    colsDef.forEach((cd,idx)=>{ const tx = cd.align==='right' ? colX[idx]+cd.w-2 : colX[idx]+2; doc.text(cd.label, tx, y+headerH-2.6, {align:cd.align}); });
+    y += headerH;
+  }
+
+  const rows = [{date:dateFrom||'', ref:'Opening Balance', debit:'', credit:'', balance:fmtMoneyPdf(openingBalance), isOpening:true}]
+    .concat(filtered.map(r=>({date:fmtDate(r.date), ref:(r.invoiceNo||'')+(r.remarks?(' — '+r.remarks):''), debit:r.debit?fmtMoneyPdf(r.debit):'', credit:r.credit?fmtMoneyPdf(r.credit):'', balance:fmtMoneyPdf(r.balance)})));
+  const rowH = 7;
+  const fontSize = 8.3;
+
+  drawTableHeader();
+  doc.setFont('helvetica','normal'); doc.setFontSize(fontSize); doc.setTextColor(20,20,20);
+  rows.forEach((r,i)=>{
+    if(y+rowH > 265){ doc.addPage(); paintWatermark(); y = 20; drawTableHeader(); doc.setFont(r.isOpening?'helvetica':'helvetica', r.isOpening?'italic':'normal'); doc.setFontSize(fontSize); doc.setTextColor(20,20,20); }
+    if(r.isOpening){ doc.setFont('helvetica','italic'); doc.setTextColor(...gray); }
+    else if(i%2===0){ doc.setFillColor(250,248,243); doc.rect(marginX,y,180,rowH,'F'); doc.setFont('helvetica','normal'); doc.setTextColor(20,20,20); }
+    else{ doc.setFont('helvetica','normal'); doc.setTextColor(20,20,20); }
+    colsDef.forEach((cd,idx)=>{
+      const tx = cd.align==='right' ? colX[idx]+cd.w-2 : colX[idx]+2;
+      doc.text(String(r[cd.k]==null?'':r[cd.k]), tx, y+rowH-2.2, {align:cd.align, maxWidth:cd.w-3});
+    });
+    y += rowH;
+  });
+  doc.setDrawColor(...lineGray); doc.line(marginX, y, marginX+180, y);
+  y += 7;
+
+  if(y > 200){ doc.addPage(); paintWatermark(); y = 20; }
+
+  const totalDebit = filtered.reduce((s,r)=> s+(Number(r.debit)||0), 0);
+  const totalCredit = filtered.reduce((s,r)=> s+(Number(r.credit)||0), 0);
+  const totalsX = pageW-marginX-72;
+  function totalLine(label, value, opts){
+    opts = opts||{};
+    doc.setFont('helvetica', opts.bold?'bold':'normal'); doc.setFontSize(opts.size||9.5);
+    doc.setTextColor(...(opts.color||[20,20,20]));
+    doc.text(label, totalsX, y);
+    doc.text(value, pageW-marginX, y, {align:'right'});
+    y += opts.gap||5.6;
+  }
+  totalLine('Total Debit (Billed)', fmtMoneyPdf(totalDebit));
+  totalLine('Total Credit (Received)', fmtMoneyPdf(totalCredit));
+  doc.setDrawColor(...lineGray); doc.line(totalsX, y-3.5, pageW-marginX, y-3.5);
+  totalLine('Closing Balance', fmtMoneyPdf(closingBalance), {bold:true, size:11.5, color: closingBalance>0?[181,64,47]:[47,125,84]});
+
+  y += 6;
+  if(y > 200){ doc.addPage(); paintWatermark(); y = 20; }
+
+  const dividerY = Math.max(y+10, pageH-40);
+  doc.setDrawColor(...lineGray); doc.line(marginX, dividerY, pageW-marginX, dividerY);
+  doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(...gray);
+  doc.text(c.invoiceNote || 'Thank you for your business!', marginX, dividerY+9, {maxWidth:150});
+  if(c.website){ doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text(c.website, marginX, dividerY+15); }
+
+  return doc;
+}
+function printLedger(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo){
+  generateLedgerPdf(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo).then(doc=>{
+    window.open(doc.output('bloburl'), '_blank');
+  }).catch(e=>{ toast(e.message,'err'); });
+}
+async function shareLedgerPdfWhatsApp(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo){
+  if(!customer.mobile){ toast('Mobile number nahi hai.','err'); return; }
+  const msg = 'Dear '+customer.name+',\n\nApka account statement attached hai.\nClosing Balance: '+fmtMoney(closingBalance)+'\n\n— '+App.company.name;
+  let doc;
+  try{ doc = await generateLedgerPdf(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo); }
+  catch(e){ toast(e.message,'err'); window.open(whatsappLink(customer.mobile, msg), '_blank'); return; }
+  const filename = 'Statement_'+String(customer.name||customer.id).replace(/[^a-z0-9]+/gi,'_')+'.pdf';
+  const blob = doc.output('blob');
+  try{
+    const file = new File([blob], filename, {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:filename, text:msg});
+      toast('WhatsApp mein PDF ke saath share karein.','ok');
+      return;
+    }
+  }catch(e){ /* user cancelled share sheet, or unsupported — fall through */ }
+  try{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  }catch(e){}
+  toast('PDF download ho gaya — WhatsApp chat mein manually attach kar dein (yeh phone ka feature hai, apne aap attach nahi ho sakta).');
+  window.open(whatsappLink(customer.mobile, msg), '_blank');
+}
+
 function printReceipt(payment){
   const area = $('#print-area');
   area.innerHTML = `<div class="invoice-doc" style="max-width:420px;">
@@ -1630,17 +1814,53 @@ function openCustomerForm(cust){
   openModal(isNew?'Add Customer':'Edit Customer', body);
 }
 async function openCustomerDetail(c){
-  const ledger = await DB.ledgerForCustomer(c.id);
+  const ledgerDesc = await DB.ledgerForCustomer(c.id);
+  let dateFrom = '', dateTo = '';
+
+  const ledgerSection = el('div',{class:'stack'});
+  function refreshLedgerSection(){
+    ledgerSection.innerHTML = '';
+    const {filtered, openingBalance, closingBalance} = filterLedgerRange(ledgerDesc, dateFrom, dateTo);
+    const filterOn = !!(dateFrom || dateTo);
+    ledgerSection.appendChild(el('div',{class:'row wrap'},[
+      el('button',{class:'btn btn-sm', onclick:()=> printLedger(c, filtered, openingBalance, closingBalance, dateFrom, dateTo)},[iconPrint(),'Print Ledger']),
+      el('button',{class:'btn btn-sm', onclick:()=> shareLedgerPdfWhatsApp(c, filtered, openingBalance, closingBalance, dateFrom, dateTo)},[iconWhatsapp(),'Send PDF on WhatsApp']),
+    ]));
+    if(filterOn){
+      ledgerSection.appendChild(el('div',{class:'spread small muted', style:'padding:4px 0;'},[el('span',{},['Opening Balance']), el('span',{},[fmtMoney(openingBalance)])]));
+    }
+    ledgerSection.appendChild(
+      filtered.length ? el('div',{class:'scroll-x'},[ ledgerTable(filtered) ])
+        : el('div',{class:'empty small'},[filterOn ? 'Is date range mein koi transaction nahi.' : 'Koi transaction nahi.'])
+    );
+    if(filterOn){
+      ledgerSection.appendChild(el('div',{class:'spread small', style:'padding:4px 0;'},[el('b',{},['Closing Balance']), el('b',{},[fmtMoney(closingBalance)])]));
+    }
+  }
+
+  const fromI = el('input',{type:'date'});
+  const toI = el('input',{type:'date'});
+  fromI.addEventListener('change', ()=>{ dateFrom = fromI.value; refreshLedgerSection(); });
+  toI.addEventListener('change', ()=>{ dateTo = toI.value; refreshLedgerSection(); });
+  const clearBtn = el('button',{class:'btn btn-sm btn-ghost', onclick:()=>{ dateFrom=''; dateTo=''; fromI.value=''; toI.value=''; refreshLedgerSection(); }},['Clear']);
+
+  refreshLedgerSection();
+
   const body = el('div',{class:'stack'},[
     el('div',{class:'spread'},[ el('div',{},[el('div',{class:'bold'},[c.name]), el('div',{class:'small muted'},[c.mobile])]), el('div',{class:(c.balance>0?'pill pill-warning':'pill pill-success')},[fmtMoney(c.balance||0)]) ]),
     el('div',{class:'row wrap'},[
       el('button',{class:'btn btn-sm', onclick:()=>{ closeModal(); openCustomerForm(c); }},[iconEdit(),'Edit']),
       el('button',{class:'btn btn-sm', onclick:()=>{ closeModal(); openReceivePaymentModal(c); }},[iconWallet(),'Receive Payment']),
-      el('button',{class:'btn btn-sm', onclick:()=>{ const msg='Dear '+c.name+', apka current balance '+fmtMoney(c.balance||0)+' hai. — '+App.company.name; window.open(whatsappLink(c.mobile,msg),'_blank'); }},[iconWhatsapp(),'WhatsApp']),
+      el('button',{class:'btn btn-sm', onclick:()=>{ const msg='Dear '+c.name+', apka current balance '+fmtMoney(c.balance||0)+' hai. — '+App.company.name; window.open(whatsappLink(c.mobile,msg),'_blank'); }},[iconWhatsapp(),'Balance WhatsApp']),
     ]),
     el('div',{class:'divider'}),
-    el('div',{class:'bold small'},['Ledger']),
-    ledger.length ? el('div',{class:'scroll-x'},[ ledgerTable(ledger) ]) : el('div',{class:'empty small'},['Koi transaction nahi.']),
+    el('div',{class:'bold small'},['Ledger — date-wise check karein']),
+    el('div',{class:'row wrap', style:'align-items:flex-end;gap:8px;'},[
+      el('label',{class:'field', style:'width:150px;'},['From', fromI]),
+      el('label',{class:'field', style:'width:150px;'},['To', toI]),
+      clearBtn,
+    ]),
+    ledgerSection,
   ]);
   openModal('Customer', body);
 }
@@ -2006,6 +2226,7 @@ async function viewSettings(root){
   profCard.appendChild(mk('address2','Address Line 2'));
   profCard.appendChild(el('div',{class:'grid2'},[mk('mobile','Mobile'), mk('email','Email')]));
   profCard.appendChild(el('div',{class:'grid2'},[mk('website','Website'), mk('gstin','GSTIN (optional)')]));
+  profCard.appendChild(mk('pan','PAN Number (GST na ho to invoice par yeh print hoga)'));
   profCard.appendChild(el('div',{class:'grid2'},[mk('invoicePrefix','Invoice Prefix'), mk('productPrefix','Product Code Prefix')]));
   const lowI = el('input',{type:'number', value:c.lowStockDefault||0}); fields.lowStockDefault=lowI;
   profCard.appendChild(el('label',{class:'field'},['Default Low Stock Limit (naye products ke liye)', lowI]));
