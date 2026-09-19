@@ -108,6 +108,15 @@ Ab app mein ek poora **Purchase side** bhi hai — jab aap kisi party/vendor se 
 
 ---
 
+## Latest Fixes — Party Details, Payment Bug, Auto-WhatsApp, Inline Add
+
+- **Supplier/Party ki poori detail:** "Add Party" / "Edit Party" form mein ab Name, Mobile ke saath **Address Line 1/2, GSTIN aur PAN** bhi hai (bilkul Company Profile jaisa) — Party detail screen mein yeh address/GSTIN ab dikhta bhi hai.
+- **"Receive Payment" button fix:** Pehle jab Receive Payment modal khol kar "Select Customer" se customer choose karte the, to poora modal gayab ho jaata tha aur payment record nahi ho pata tha. Yeh ek modal-system ka bug tha — jab ek modal ke andar se doosra modal (jaise search picker) khulta tha, to pehla wala destroy ho jaata tha. Ab modals theek se ek-doosre ke upar "stack" hote hain, isliye Receive Payment ho ya Pay Supplier — dono mein "Select Customer/Party" search button ab sahi kaam karta hai.
+- **Bill save hote hi WhatsApp apne aap khulta hai:** Ab Sale Bill ho ya Purchase Bill, save karte hi bill/party ke mobile number ka WhatsApp automatically khul jaata hai (jaisa "Send PDF on WhatsApp" / "WhatsApp" button manually dabane par hota hai) — manual button bhi wahin available rehta hai agar browser ne automatic popup block kar diya ho (kuch browsers sirf ek direct click par hi naya tab khulne dete hain).
+- **Product/Customer/Party list mein na ho to wahin se "Add New":** Sale Bill ya Purchase Bill banate waqt jab aap search-icon se Product ya Party/Customer dhoondte hain aur woh list mein nahi milta, to picker ke top par ek **"+ Add New Product" / "+ Add New Customer" / "+ Add New Party"** button dikhega — jo aapne search box mein type kiya tha woh naam pehle se bhara hua aayega, bas baaki detail bharke save karein — naya record turant bill mein select ho jayega, dobara dhoondhne ki zaroorat nahi.
+
+---
+
 ## Notes
 
 - Yeh Firebase ka **free (Spark) plan** hai — ek chhoti billing shop ke liye yeh limit kabhi khatam nahi hogi (roughly 50,000 reads/day free milte hain).

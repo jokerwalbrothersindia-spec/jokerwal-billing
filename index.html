@@ -1072,10 +1072,16 @@ function iconLock(){ return svg('<rect x="5" y="10.5" width="14" height="9.5" rx
 function iconTruck(){ return svg('<path d="M2.5 6.5h11v10h-11z"/><path d="M13.5 10h4l3 3.5v3h-7z"/><circle cx="6.5" cy="18.5" r="1.7"/><circle cx="17" cy="18.5" r="1.7"/>'); }
 
 /* ---------------- Modal helper ---------------- */
+/* Modals stack: opening a modal (eg. a search picker) from inside an
+   already-open modal layers on top of it instead of destroying it.
+   closeModal() closes only the top-most layer. This matters because
+   several flows open a picker/confirm dialog while a parent modal
+   (Receive Payment, Pay Supplier, Cancel Bill, etc.) is still open and
+   needs to remain intact underneath. */
+let modalStack = [];
 function openModal(title, bodyEl, opts){
   opts = opts||{};
   const root = $('#modal-root');
-  root.innerHTML='';
   const back = el('div',{class:'modal-backdrop', onclick:(e)=>{ if(e.target===back && !opts.persist) closeModal(); }});
   const modal = el('div',{class:'modal'},[
     el('div',{class:'modal-head'},[ el('h3',{},[title]), el('button',{class:'icon-btn', onclick:closeModal},[iconClose()]) ]),
@@ -1083,8 +1089,13 @@ function openModal(title, bodyEl, opts){
   modal.appendChild(bodyEl);
   back.appendChild(modal);
   root.appendChild(back);
+  modalStack.push(back);
 }
-function closeModal(){ $('#modal-root').innerHTML=''; }
+function closeModal(){
+  const top = modalStack.pop();
+  if(top && top.parentNode) top.parentNode.removeChild(top);
+  if(!modalStack.length){ $('#modal-root').innerHTML=''; }
+}
 
 function confirmDialog(msg, okLabel){
   return new Promise(resolve=>{
@@ -1101,12 +1112,15 @@ function confirmDialog(msg, okLabel){
 
 /* ---------------- Reusable search picker ---------------- */
 function pickerModal(opts){
-  // opts: {title, placeholder, fetchItems(query)->Promise<arr>, renderRow(item)->el, onSelect(item), extraTop?}
+  // opts: {title, placeholder, fetchItems(query)->Promise<arr>, renderRow(item)->el, onSelect(item), extraTop?, addNewLabel?, onAddNew(query)?}
   const body = el('div',{class:'stack'});
   const searchWrap = el('div',{class:'searchbox'},[iconSearch(), el('input',{placeholder:opts.placeholder||'Search...', id:'picker-input'})]);
   const results = el('div',{id:'picker-results'},[]);
   body.appendChild(searchWrap);
   if(opts.extraTop) body.appendChild(opts.extraTop);
+  if(opts.onAddNew){
+    body.appendChild(el('button',{class:'btn btn-sm btn-block', onclick:()=>{ const q=(input.value||'').trim(); closeModal(); opts.onAddNew(q); }},[iconPlus(), opts.addNewLabel||'+ Add New']));
+  }
   body.appendChild(results);
   openModal(opts.title, body);
   const input = $('#picker-input');
@@ -1149,6 +1163,8 @@ function openCustomerPicker(onSelect, extraTop){
     fetchItems:(q)=>DB.searchCustomers(q),
     renderRow: wrapRowSpread,
     onSelect, extraTop,
+    addNewLabel:'+ Add New Customer',
+    onAddNew:(q)=>openCustomerForm(null, q, onSelect),
   });
 }
 function openProductPicker(onSelect){
@@ -1157,6 +1173,8 @@ function openProductPicker(onSelect){
     fetchItems:(q)=>DB.searchProducts(q),
     renderRow: productPickerRow,
     onSelect,
+    addNewLabel:'+ Add New Product',
+    onAddNew:(q)=>openProductForm(null, null, q, onSelect),
   });
 }
 function openSupplierPicker(onSelect, extraTop){
@@ -1165,6 +1183,8 @@ function openSupplierPicker(onSelect, extraTop){
     fetchItems:(q)=>DB.searchSuppliers(q),
     renderRow: wrapRowSpread,
     onSelect, extraTop,
+    addNewLabel:'+ Add New Party',
+    onAddNew:(q)=>openSupplierForm(null, q, onSelect),
   });
 }
 
@@ -1178,6 +1198,11 @@ function sendReceiptWhatsApp(payment){
   if(!payment.mobile){ toast('Mobile number nahi hai.','err'); return; }
   const msg = 'Dear '+payment.customerName+',\n\nWe received your payment.\nReceipt No: '+payment.id+'\nAmount Received: '+fmtMoney(payment.amountReceived)+'\nBalance Due: '+fmtMoney(clamp0(payment.balanceAfter))+'\n\nThank you — '+App.company.name;
   window.open(whatsappLink(payment.mobile, msg), '_blank');
+}
+function sendPurchaseVoucherWhatsApp(purchase){
+  if(!purchase.mobile){ toast('Mobile number nahi hai.','err'); return; }
+  const msg = 'Dear '+purchase.supplierName+',\n\nPurchase Bill No: '+purchase.purchaseNo+'\nBill Amount: '+fmtMoney(purchase.billTotal)+'\nBalance Payable: '+fmtMoney(purchase.balanceDue)+'\n\n— '+App.company.name;
+  window.open(whatsappLink(purchase.mobile, msg), '_blank');
 }
 function sendPayoutWhatsApp(payout){
   if(!payout.mobile){ toast('Mobile number nahi hai.','err'); return; }
@@ -2145,6 +2170,10 @@ async function showPostSaveOptions(invoice){
     el('button',{class:'btn btn-primary btn-block', onclick:async ()=>{ closeModal(); billDraft = freshDraft(await DB.nextInvoiceNo()); renderRoute(); }},['New Bill']),
   ]);
   openModal('Bill Saved', body, {persist:true});
+  // Auto-open WhatsApp with the bill's mobile number right after save, as requested —
+  // "WhatsApp" button above stays as a manual fallback in case the browser blocks
+  // this automatic popup (some browsers only allow window.open right on a click).
+  if(invoice.mobile){ sendInvoiceWhatsApp(invoice, items); }
 }
 function openLoadInvoicePrompt(){
   const body = el('div',{class:'stack'});
@@ -2366,9 +2395,12 @@ async function showPostSavePurchaseOptions(purchase){
   const body = el('div',{class:'stack'},[
     el('div',{},['Purchase bill ', el('b',{},[purchase.purchaseNo]), ' saved. ', fmtMoney(purchase.billTotal), ' total.']),
     el('button',{class:'btn btn-block', onclick:()=>printPurchaseVoucher(purchase, items)},[iconPrint(),'Print Purchase Voucher']),
+    el('button',{class:'btn btn-block', onclick:()=>sendPurchaseVoucherWhatsApp(purchase)},[iconWhatsapp(),'WhatsApp']),
     el('button',{class:'btn btn-primary btn-block', onclick:async ()=>{ closeModal(); purchaseDraft = freshPurchaseDraft(await DB.nextPurchaseNo()); renderRoute(); }},['New Bill']),
   ]);
   openModal('Purchase Bill Saved', body, {persist:true});
+  // Auto-open WhatsApp with the party's mobile number right after save (manual button above stays as fallback).
+  if(purchase.mobile){ sendPurchaseVoucherWhatsApp(purchase); }
 }
 function openLoadPurchasePrompt(){
   const body = el('div',{class:'stack'});
@@ -2474,10 +2506,11 @@ async function viewCustomers(root){
   $('#cust-search').addEventListener('input', debounce(refresh,150));
   refresh();
 }
-function openCustomerForm(cust){
+function openCustomerForm(cust, prefill, onSaved){
   const isNew = !cust;
-  const nameI = el('input',{value: cust?cust.name:''});
-  const mobileI = el('input',{value: cust?cust.mobile:''});
+  const prefillIsMobile = !!(prefill && /^\d{7,}$/.test(prefill.trim()));
+  const nameI = el('input',{value: cust?cust.name:(prefillIsMobile?'':(prefill||''))});
+  const mobileI = el('input',{value: cust?cust.mobile:(prefillIsMobile?prefill.trim():'')});
   const creditI = el('input',{type:'number', value: cust?cust.creditLimit:0});
   const balanceI = el('input',{type:'number', value: cust?cust.balance:0});
   const body = el('div',{class:'stack'},[
@@ -2491,7 +2524,9 @@ function openCustomerForm(cust){
       const rec = cust || {id: await DB.nextCustomerId(), createdAt: new Date().toISOString()};
       rec.name=name; rec.mobile=mobile; rec.creditLimit=Number(creditI.value)||0; rec.balance=Number(balanceI.value)||0;
       await App.store.put('customers', rec);
-      closeModal(); toast('Customer saved.','ok'); renderRoute();
+      closeModal(); toast('Customer saved.','ok');
+      if(onSaved) onSaved(rec);
+      renderRoute();
     }},[isNew?'Add Customer':'Save Changes']),
   ]);
   openModal(isNew?'Add Customer':'Edit Customer', body);
@@ -2588,22 +2623,34 @@ async function viewSuppliers(root){
   $('#sup-search').addEventListener('input', debounce(refresh,150));
   refresh();
 }
-function openSupplierForm(sup){
+function openSupplierForm(sup, prefill, onSaved){
   const isNew = !sup;
-  const nameI = el('input',{value: sup?sup.name:''});
-  const mobileI = el('input',{value: sup?sup.mobile:''});
+  const prefillIsMobile = !!(prefill && /^\d{7,}$/.test(prefill.trim()));
+  const nameI = el('input',{value: sup?sup.name:(prefillIsMobile?'':(prefill||''))});
+  const mobileI = el('input',{value: sup?sup.mobile:(prefillIsMobile?prefill.trim():'')});
+  const address1I = el('input',{value: sup?(sup.address1||''):''});
+  const address2I = el('input',{value: sup?(sup.address2||''):''});
+  const gstinI = el('input',{value: sup?(sup.gstin||''):'', placeholder:'e.g. 27ABCDE1234F1Z5'});
+  const panI = el('input',{value: sup?(sup.pan||''):'', placeholder:'e.g. ABCDE1234F'});
   const balanceI = el('input',{type:'number', value: sup?sup.balance:0});
   const body = el('div',{class:'stack'},[
     el('label',{class:'field'},['Name', nameI]),
     el('label',{class:'field'},['Mobile', mobileI]),
+    el('label',{class:'field'},['Address Line 1', address1I]),
+    el('label',{class:'field'},['Address Line 2', address2I]),
+    el('div',{class:'grid2'},[ el('label',{class:'field'},['GSTIN (optional)', gstinI]), el('label',{class:'field'},['PAN (optional)', panI]) ]),
     isNew ? el('label',{class:'field'},['Opening Balance (Payable)', balanceI]) : el('label',{class:'field'},['Balance (manual correction)', balanceI]),
     el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
       const name = nameI.value.trim(), mobile = mobileI.value.trim();
       if(!name||!mobile){ toast('Naam aur mobile dono zaroori hain.','err'); return; }
       const rec = sup || {id: await DB.nextSupplierId(), createdAt: new Date().toISOString()};
       rec.name=name; rec.mobile=mobile; rec.balance=Number(balanceI.value)||0;
+      rec.address1=address1I.value.trim(); rec.address2=address2I.value.trim();
+      rec.gstin=gstinI.value.trim(); rec.pan=panI.value.trim();
       await App.store.put('suppliers', rec);
-      closeModal(); toast('Party saved.','ok'); renderRoute();
+      closeModal(); toast('Party saved.','ok');
+      if(onSaved) onSaved(rec);
+      renderRoute();
     }},[isNew?'Add Party':'Save Changes']),
   ]);
   openModal(isNew?'Add Party':'Edit Party', body);
@@ -2641,8 +2688,12 @@ async function openSupplierDetail(s){
 
   refreshLedgerSection();
 
+  const addrLine = [s.address1,s.address2].filter(Boolean).join(', ');
+  const idLine = s.gstin ? ('GSTIN: '+s.gstin) : (s.pan ? ('PAN: '+s.pan) : '');
   const body = el('div',{class:'stack'},[
-    el('div',{class:'spread'},[ el('div',{},[el('div',{class:'bold'},[s.name]), el('div',{class:'small muted'},[s.mobile])]), el('div',{class:(s.balance>0?'pill pill-warning':'pill pill-success')},[fmtMoney(s.balance||0)]) ]),
+    el('div',{class:'spread'},[ el('div',{},[el('div',{class:'bold'},[s.name]), el('div',{class:'small muted'},[s.mobile]),
+      addrLine ? el('div',{class:'tiny muted'},[addrLine]) : null, idLine ? el('div',{class:'tiny muted'},[idLine]) : null,
+    ]), el('div',{class:(s.balance>0?'pill pill-warning':'pill pill-success')},[fmtMoney(s.balance||0)]) ]),
     el('div',{class:'row wrap'},[
       el('button',{class:'btn btn-sm', onclick:()=>{ closeModal(); openSupplierForm(s); }},[iconEdit(),'Edit']),
       el('button',{class:'btn btn-sm', onclick:()=>{ closeModal(); openPaySupplierModal(s); }},[iconWallet(),'Pay Supplier']),
@@ -2720,10 +2771,10 @@ async function viewProducts(root){
   $('#prod-search').addEventListener('input', debounce(refresh,150));
   refresh();
 }
-async function openProductForm(p, prefillCode){
+async function openProductForm(p, prefillCode, prefillName, onSaved){
   const isNew = !p;
   const codeI = el('input',{value: p?p.id:(prefillCode||''), placeholder:'Auto-generate ke liye khaali chodein'});
-  const nameI = el('input',{value: p?p.name:''});
+  const nameI = el('input',{value: p?p.name:(prefillName||'')});
   const rateI = el('input',{type:'number', value: p?p.rate:''});
   const typeI = el('select',{},[el('option',{value:'PIECE'},['Piece']), el('option',{value:'WEIGHT'},['Weight (gm)'])]);
   typeI.value = p?p.qtyType:'PIECE';
@@ -2752,7 +2803,9 @@ async function openProductForm(p, prefillCode){
         rec.stock=Number(stockI.value)||0; rec.lowStockLimit=Number(lowI.value)||0;
         rec.hsn = hsnI.value.trim(); rec.gstRate = Number(gstRateI.value)||0;
         await App.store.put('products', rec);
-        closeModal(); toast('Product saved.','ok'); renderRoute();
+        closeModal(); toast('Product saved.','ok');
+        if(onSaved) onSaved(rec);
+        renderRoute();
       }},[isNew?'Add Product':'Save Changes']),
     ]),
     !isNew ? el('button',{class:'btn btn-danger btn-block', onclick: async ()=>{
