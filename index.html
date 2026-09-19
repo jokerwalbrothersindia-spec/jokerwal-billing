@@ -610,18 +610,25 @@ const DB = {
     const receivedAmount = b.paymentMode==='CREDIT' ? (Number(b.receivedAmount)||0) : Number(b.receivedAmount)||0;
     const gstEnabled = !!App.company.gstEnabled;
     const {taxableTotal,gstTotal,billTotal,totalPayable,balanceDue} = DB.computeTotals(items, previousBalance, receivedAmount, gstEnabled);
+    // Profit & Loss: cost is snapshotted per item at billing time (costRate, set when the
+    // item was added to the bill from the product's current Purchase Cost) — this way a
+    // later change to the product's cost never rewrites the profit on a past bill.
+    const totalCost = items.reduce((s,it)=> s + (Number(it.qty)||0)*(Number(it.costRate)||0), 0);
+    const grossProfit = taxableTotal - totalCost;
     const invId = uid();
     const invoice = {
       id: invId, invoiceNo: b.invoiceNo, date: b.date, customerId: cust.id, customerName: cust.name,
       mobile: cust.mobile, paymentMode: b.paymentMode, billTotal, previousBalance, currentBill: billTotal,
       totalPayable, receivedAmount, balanceDue, status:'COMPLETED', createdAt: new Date().toISOString(),
-      gstEnabled, taxableTotal, gstTotal
+      gstEnabled, taxableTotal, gstTotal, totalCost, grossProfit
     };
     await App.store.put('invoices', invoice);
     for(const it of items){
       const amount = Number(it.qty)*Number(it.rate);
       const gstRate = gstEnabled ? (Number(it.gstRate)||0) : 0;
-      await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount, hsn: it.hsn||'', gstRate, gstAmount: amount*gstRate/100});
+      const costRate = Number(it.costRate)||0;
+      const itemProfit = amount - costRate*Number(it.qty);
+      await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount, hsn: it.hsn||'', gstRate, gstAmount: amount*gstRate/100, costRate, itemProfit});
     }
     // customer balance = new outstanding balance due (mirrors Excel UpdateCustomerBalance)
     cust.balance = balanceDue;
@@ -695,18 +702,22 @@ const DB = {
     const receivedAmount = Number(b.receivedAmount)||0;
     const gstEnabled = !!App.company.gstEnabled;
     const {taxableTotal,gstTotal,billTotal,totalPayable,balanceDue} = DB.computeTotals(items, previousBalance, receivedAmount, gstEnabled);
+    const totalCost = items.reduce((s,it)=> s + (Number(it.qty)||0)*(Number(it.costRate)||0), 0);
+    const grossProfit = taxableTotal - totalCost;
     const invId = uid();
     const invoice = {
       id: invId, invoiceNo: oldInvoiceNo, date: b.date, customerId: cust?cust.id:oldRow.customerId,
       customerName: b.customerName, mobile: b.mobile, paymentMode: b.paymentMode, billTotal, previousBalance,
       currentBill: billTotal, totalPayable, receivedAmount, balanceDue, status:'COMPLETED', createdAt: new Date().toISOString(),
-      gstEnabled, taxableTotal, gstTotal
+      gstEnabled, taxableTotal, gstTotal, totalCost, grossProfit
     };
     await App.store.put('invoices', invoice);
     for(const it of items){
       const amount = Number(it.qty)*Number(it.rate);
       const gstRate = gstEnabled ? (Number(it.gstRate)||0) : 0;
-      await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount, hsn: it.hsn||'', gstRate, gstAmount: amount*gstRate/100});
+      const costRate = Number(it.costRate)||0;
+      const itemProfit = amount - costRate*Number(it.qty);
+      await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount, hsn: it.hsn||'', gstRate, gstAmount: amount*gstRate/100, costRate, itemProfit});
     }
     if(cust){ cust.balance = balanceDue; cust.name = b.customerName; cust.mobile = b.mobile; await App.store.put('customers', cust); }
     if(cust){
@@ -822,6 +833,9 @@ const DB = {
       const p = await DB.findProductByCode(it.productCode);
       if(!p) continue;
       p.stock = (Number(p.stock)||0) + (Number(it.qty)||0);
+      // Keep the product's Purchase Cost current with the last purchase rate paid —
+      // this is what the Profit & Loss report and future Purchase Bill entries use as cost.
+      if(Number(it.rate)>0) p.purchaseRate = Number(it.rate);
       await App.store.put('products', p);
     }
   },
@@ -963,7 +977,12 @@ async function renderRoute(){
   App.route = currentRoute();
   const [path, qs] = App.route.split('?');
   const parts = path.split('/').filter(Boolean); // ['#','dashboard'] etc -> after split '#' empty
-  const key = '#/'+(parts[1]||'dashboard');
+  // Try the full remaining path first (so a distinctly-registered sub-route like
+  // '#/reports/monthly' is matched exactly), falling back to just the first segment
+  // (so a generic '#/bill/new'-style URL still reaches its single-segment handler).
+  const fullKey = '#/'+parts.slice(1).join('/');
+  const shortKey = '#/'+(parts[1]||'dashboard');
+  const key = routes[fullKey] ? fullKey : shortKey;
   const params = new URLSearchParams(qs||'');
   renderShell();
   const main = $('#view-root');
@@ -993,6 +1012,7 @@ const NAV_ITEMS = [
   {key:'#/purchase-register', label:'Purchase Register', icon:iconList},
   {key:'#/reports/daily', label:'Daily Report', icon:iconChart},
   {key:'#/reports/monthly', label:'Monthly Report', icon:iconCalendar},
+  {key:'#/profit-loss', label:'Profit & Loss', icon:iconChart},
   {key:'#/settings', label:'Settings', icon:iconGear},
 ];
 const BOTTOM_ITEMS = ['#/dashboard','#/bill','#/customers','#/products','#/settings'];
@@ -2044,7 +2064,7 @@ async function viewDashboard(root){
   ]));
 }
 function statTile(label,val,tone){
-  const toneColor = tone==='success'?'var(--success)':tone==='warning'?'var(--warning)':'var(--text)';
+  const toneColor = tone==='success'?'var(--success)':tone==='warning'?'var(--warning)':tone==='danger'?'var(--danger)':'var(--text)';
   return el('div',{class:'stat-tile'},[ el('div',{class:'stat-num num', style:'color:'+toneColor},[val]), el('div',{class:'stat-label'},[label]) ]);
 }
 function quickAction(label, icon, onclick){
@@ -2239,7 +2259,7 @@ function renderBillScreen(root){
   function addItemFromProduct(p){
     const existing = billDraft.items.find(it=>it.productCode===p.productCode);
     if(existing){ existing.qty = Number(existing.qty)+1; }
-    else{ billDraft.items.push({productCode:p.productCode, productName:p.name, qty:1, rate:Number(p.rate)||0, hsn:p.hsn||'', gstRate:Number(p.gstRate)||0}); }
+    else{ billDraft.items.push({productCode:p.productCode, productName:p.name, qty:1, rate:Number(p.rate)||0, hsn:p.hsn||'', gstRate:Number(p.gstRate)||0, costRate:Number(p.purchaseRate)||0}); }
     renderBillScreen(root);
   }
 }
@@ -2276,7 +2296,7 @@ function openLoadInvoicePrompt(){
     try{
       const {row, items} = await DB.loadBillForModify(input.value.trim());
       billDraft = {invoiceNo: row.invoiceNo, date: row.date, customerId: row.customerId, customerName: row.customerName, mobile: row.mobile,
-        previousBalance: row.previousBalance, items: items.map(it=>({productCode:it.productCode, productName:it.productName, qty:it.qty, rate:it.rate, hsn:it.hsn||'', gstRate:it.gstRate||0})),
+        previousBalance: row.previousBalance, items: items.map(it=>({productCode:it.productCode, productName:it.productName, qty:it.qty, rate:it.rate, hsn:it.hsn||'', gstRate:it.gstRate||0, costRate:it.costRate||0})),
         paymentMode: row.paymentMode, receivedAmount: row.receivedAmount, editingInvoiceNo: row.invoiceNo};
       closeModal();
       renderRoute();
@@ -2469,7 +2489,13 @@ function renderPurchaseBillScreen(root){
   function addItemFromProduct(p){
     const existing = purchaseDraft.items.find(it=>it.productCode===p.productCode);
     if(existing){ existing.qty = Number(existing.qty)+1; }
-    else{ purchaseDraft.items.push({productCode:p.productCode, productName:p.name, qty:1, rate:Number(p.rate)||0}); }
+    else{
+      // Suggest the product's last-known Purchase Cost as the default rate here
+      // (falling back to selling Rate only if no cost has been recorded yet) —
+      // a purchase bill's rate is what we PAY, not what we sell for.
+      const suggestedRate = Number(p.purchaseRate)>0 ? Number(p.purchaseRate) : (Number(p.rate)||0);
+      purchaseDraft.items.push({productCode:p.productCode, productName:p.name, qty:1, rate:suggestedRate});
+    }
     renderPurchaseBillScreen(root);
   }
 }
@@ -2873,6 +2899,7 @@ async function openProductForm(p, prefillCode, prefillName, onSaved){
   const codeI = el('input',{value: p?p.id:(prefillCode||''), placeholder:'Auto-generate ke liye khaali chodein'});
   const nameI = el('input',{value: p?p.name:(prefillName||'')});
   const rateI = el('input',{type:'number', value: p?p.rate:''});
+  const costI = el('input',{type:'number', value: p? (p.purchaseRate||0) : '', placeholder:'0.00'});
   const typeI = el('select',{},[el('option',{value:'PIECE'},['Piece']), el('option',{value:'WEIGHT'},['Weight (gm)'])]);
   typeI.value = p?p.qtyType:'PIECE';
   const stockI = el('input',{type:'number', value: p? p.stock : 0});
@@ -2882,8 +2909,10 @@ async function openProductForm(p, prefillCode, prefillName, onSaved){
   const body = el('div',{class:'stack'},[
     el('label',{class:'field'},['QR / Product Code', codeI]),
     el('label',{class:'field'},['Product Name', nameI]),
-    el('div',{class:'grid2'},[ el('label',{class:'field'},['Rate (₹)', rateI]), el('label',{class:'field'},['Qty Type', typeI]) ]),
-    el('div',{class:'grid2'},[ el('label',{class:'field'},[isNew?'Opening Stock':'Stock', stockI]), el('label',{class:'field'},['Low Stock Limit', lowI]) ]),
+    el('div',{class:'grid2'},[ el('label',{class:'field'},['Rate (₹) — jis par bechte hain', rateI]), el('label',{class:'field'},['Purchase Cost (₹) — jis par khareeda', costI]) ]),
+    el('div',{class:'small muted'},['Rate (selling) aur Purchase Cost dono alag-alag rakhein — tabhi Profit & Loss Report sahi profit dikha payegi, chahe aap dono ek hi rate par bech rahe hon.']),
+    el('div',{class:'grid2'},[ el('label',{class:'field'},['Qty Type', typeI]), el('label',{class:'field'},[isNew?'Opening Stock':'Stock', stockI]) ]),
+    el('div',{class:'grid2'},[ el('label',{class:'field'},['Low Stock Limit', lowI]), null ]),
     App.company.gstEnabled ? el('div',{class:'grid2'},[ el('label',{class:'field'},['HSN Code', hsnI]), el('label',{class:'field'},['GST %', gstRateI]) ]) : null,
     el('div',{class:'row'},[
       el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
@@ -2896,7 +2925,7 @@ async function openProductForm(p, prefillCode, prefillName, onSaved){
           if(existing){ toast('Yeh code pehle se hai.','err'); return; }
         }
         const rec = p || {id:code, createdAt:new Date().toISOString()};
-        rec.productCode = code; rec.name=name; rec.rate=Number(rateI.value)||0; rec.qtyType=typeI.value;
+        rec.productCode = code; rec.name=name; rec.rate=Number(rateI.value)||0; rec.purchaseRate=Number(costI.value)||0; rec.qtyType=typeI.value;
         rec.stock=Number(stockI.value)||0; rec.lowStockLimit=Number(lowI.value)||0;
         rec.hsn = hsnI.value.trim(); rec.gstRate = Number(gstRateI.value)||0;
         await App.store.put('products', rec);
@@ -3045,10 +3074,13 @@ async function viewDailyReport(root){
     const totalCredit = active.reduce((s,r)=>s+Number(r.balanceDue||0),0);
     const cash = active.filter(r=>r.paymentMode==='CASH').reduce((s,r)=>s+Number(r.billTotal||0),0);
     const upi = active.filter(r=>r.paymentMode==='UPI').reduce((s,r)=>s+Number(r.billTotal||0),0);
+    const completed = active.filter(r=>r.status==='COMPLETED');
+    const grossProfit = completed.reduce((s,r)=>s+Number(r.grossProfit||0),0);
     out.innerHTML='';
     out.appendChild(el('div',{class:'grid3'},[
       statTile('Bills', String(active.length),'neutral'), statTile('Sales', fmtMoney(totalSales),'success'), statTile('Received', fmtMoney(totalReceived),'neutral'),
       statTile('Credit Out', fmtMoney(totalCredit),'warning'), statTile('Cash', fmtMoney(cash),'neutral'), statTile('UPI', fmtMoney(upi),'neutral'),
+      statTile('Profit', fmtMoney(grossProfit), grossProfit>=0?'success':'danger'),
     ]));
     const card = el('div',{class:'card pad'});
     if(!rows.length) card.appendChild(el('div',{class:'empty'},['Is din koi bill nahi.']));
@@ -3079,6 +3111,7 @@ async function viewMonthlyReport(root){
     const totalCredit = rows.reduce((s,r)=>s+Number(r.balanceDue||0),0);
     const cash = rows.filter(r=>r.paymentMode==='CASH').reduce((s,r)=>s+Number(r.billTotal||0),0);
     const upi = rows.filter(r=>r.paymentMode==='UPI').reduce((s,r)=>s+Number(r.billTotal||0),0);
+    const grossProfit = rows.reduce((s,r)=>s+Number(r.grossProfit||0),0);
     const dayTotals = {};
     for(let d=1; d<=lastDate; d++){ dayTotals[d]=0; }
     rows.forEach(r=>{ const d = Number(r.date.split('-')[2]); dayTotals[d]=(dayTotals[d]||0)+Number(r.billTotal||0); });
@@ -3087,6 +3120,7 @@ async function viewMonthlyReport(root){
     out.appendChild(el('div',{class:'grid3'},[
       statTile('Bills', String(rows.length),'neutral'), statTile('Sales', fmtMoney(totalSales),'success'), statTile('Received', fmtMoney(totalReceived),'neutral'),
       statTile('Credit Out', fmtMoney(totalCredit),'warning'), statTile('Cash', fmtMoney(cash),'neutral'), statTile('UPI', fmtMoney(upi),'neutral'),
+      statTile('Profit', fmtMoney(grossProfit), grossProfit>=0?'success':'danger'),
     ]));
     const chartCard = el('div',{class:'card pad'});
     chartCard.appendChild(el('div',{class:'bold small', style:'margin-bottom:6px;'},['Daily Breakdown']));
@@ -3102,6 +3136,54 @@ async function viewMonthlyReport(root){
     out.appendChild(card);
   }
   monthI.addEventListener('change',refresh);
+  refresh();
+}
+async function viewProfitLossReport(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{},[el('div',{class:'section-title'},['Profit & Loss Report']), el('div',{class:'section-sub'},['Selling Rate aur Purchase Cost ke fark se asli profit — chahe dono ek jaisi rate par bech rahe hon'])]));
+  const filterRow = el('div',{class:'row wrap'});
+  const fromI = el('input',{type:'date', value: (()=>{const d=new Date(); d.setDate(d.getDate()-30); return d.toISOString().slice(0,10);})()});
+  const toI = el('input',{type:'date', value: todayISO()});
+  filterRow.appendChild(el('label',{class:'field'},['From', fromI]));
+  filterRow.appendChild(el('label',{class:'field'},['To', toI]));
+  wrap.appendChild(filterRow);
+  const out = el('div',{class:'stack'});
+  wrap.appendChild(out);
+  root.appendChild(wrap);
+  async function refresh(){
+    const all = await DB.currentInvoicesInRange(fromI.value, toI.value);
+    const rows = all.filter(r=>r.status==='COMPLETED');
+    const totalSales = rows.reduce((s,r)=>s+Number(r.taxableTotal!=null?r.taxableTotal:r.billTotal||0),0);
+    const totalCost = rows.reduce((s,r)=>s+Number(r.totalCost||0),0);
+    const grossProfit = totalSales - totalCost;
+    const marginPct = totalSales>0 ? (grossProfit/totalSales*100) : 0;
+    out.innerHTML='';
+    out.appendChild(el('div',{class:'grid3'},[
+      statTile('Bills', String(rows.length),'neutral'),
+      statTile('Total Sales', fmtMoney(totalSales),'success'),
+      statTile('Total Purchase Cost', fmtMoney(totalCost),'neutral'),
+      statTile('Gross Profit', fmtMoney(grossProfit), grossProfit>=0?'success':'danger'),
+      statTile('Profit Margin', marginPct.toFixed(1)+'%', grossProfit>=0?'success':'danger'),
+    ]));
+    if(rows.some(r=>r.totalCost==null)){
+      out.appendChild(el('div',{class:'small muted', style:'padding:2px 0;'},['Note: kuch purane bills product ka Purchase Cost set hone se pehle ke hain — unka profit yahan 0/kam dikh sakta hai. Product mein "Purchase Cost" bharne ke baad ke naye bills sahi profit dikhayenge.']));
+    }
+    const card = el('div',{class:'card pad'});
+    if(!rows.length){ card.appendChild(el('div',{class:'empty'},['Is date range mein koi completed bill nahi.'])); }
+    else{
+      rows.sort((a,b)=> (a.date<b.date?1:-1));
+      rows.forEach(r=>{
+        const sales = Number(r.taxableTotal!=null?r.taxableTotal:r.billTotal||0);
+        const profit = Number(r.grossProfit||0);
+        card.appendChild(el('div',{class:'list-row', onclick:()=>openInvoiceDetail(r)},[
+          el('div',{},[ el('div',{class:'bold small'},[r.invoiceNo]), el('div',{class:'tiny muted'},[r.customerName+' • '+fmtDate(r.date)]) ]),
+          el('div',{style:'text-align:right;'},[ el('div',{class:'small num'},[fmtMoney(sales)]), el('div',{class:'tiny num', style:'color:'+(profit>=0?'var(--success)':'var(--danger)')},[(profit>=0?'+':'')+fmtMoney(profit)+' profit']) ]),
+        ]));
+      });
+    }
+    out.appendChild(card);
+  }
+  [fromI,toI].forEach(i=>i.addEventListener('change',refresh));
   refresh();
 }
 
@@ -3543,6 +3625,7 @@ on('#/purchase', viewPurchaseBill);
 on('#/suppliers', viewSuppliers);
 on('#/purchase-register', viewPurchaseRegister);
 on('#/reports', viewDailyReport);
+on('#/profit-loss', viewProfitLossReport);
 on('#/settings', viewSettings);
 routes['#/reports/daily'] = viewDailyReport;
 routes['#/reports/monthly'] = viewMonthlyReport;

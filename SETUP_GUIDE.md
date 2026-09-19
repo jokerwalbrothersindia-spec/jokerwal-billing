@@ -131,6 +131,19 @@ Ab har Product ke liye ek **QR code label** print kar sakte hain jo uske Product
 
 ---
 
+## Purchase Cost vs Selling Rate — Profit & Loss Report
+
+Ab har Product mein **do alag rate** hain: **Rate (₹)** — jis par aap bechte hain (selling), aur **Purchase Cost (₹)** — jis par aapne khareeda tha (cost). Pehle sirf ek hi "Rate" tha, isliye agar kabhi selling price aur cost price same rakhni pade to profit/loss pata karna mushkil tha — ab dono alag track hote hain.
+
+- **Product mein Purchase Cost daalein:** Products → kisi bhi product ko Add/Edit karein — "Purchase Cost (₹)" field mein wo rate daalein jis par aapne wo maal khareeda tha.
+- **Purchase Bill khud-ba-khud update kar deta hai:** Jab bhi koi Purchase Bill save hota hai, us bill mein jo rate diya gaya tha wahi us product ka naya Purchase Cost ban jata hai (latest cost hamesha up-to-date rehta hai) — Purchase Bill mein product add karte waqt bhi ab default rate Purchase Cost se hi aata hai (Selling Rate se nahi).
+- **Sale Bill profit save karta hai:** Jab bhi koi Sale Bill banta hai, us waqt product ka jo Purchase Cost tha wo us bill ke saath hamesha ke liye save ho jata hai — isliye baad mein Purchase Cost badal bhi jaye, to purane bills ka profit galat nahi hoga.
+- **Profit & Loss Report (naya sidebar menu):** Date range choose karke Total Sales, Total Purchase Cost, **Gross Profit** aur Profit Margin % dekhein — har bill ka apna profit bhi list mein dikhta hai. Yehi report bataegi ki agar aap Selling Rate aur Purchase Cost same rakh rahe hain to profit zero/negative aa raha hai — turant pata chal jayega.
+- Daily aur Monthly Report mein bhi ab ek **"Profit"** tile add hui hai, quick check ke liye.
+- **Note:** Jo purane bills Purchase Cost set karne se PEHLE bane the, unka profit yahan 0 dikhega (kyunki us waqt cost record nahi thi) — Purchase Cost bharne ke baad ke saare naye bills sahi profit dikhayenge.
+
+---
+
 ## Notes
 
 - Yeh Firebase ka **free (Spark) plan** hai — ek chhoti billing shop ke liye yeh limit kabhi khatam nahi hogi (roughly 50,000 reads/day free milte hain).
