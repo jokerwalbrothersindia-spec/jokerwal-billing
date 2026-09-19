@@ -1923,18 +1923,21 @@ function printCheque(opts){
 // Each label's QR encodes the product's Product Code — the same code the Sale/Purchase
 // Bill "scan/type" box already accepts on Enter. Stick a label on the item and it can be
 // scanned straight into a bill for fast billing.
-async function generateProductLabelsPdf(items){
-  // items: [{productCode, name, rate, qty}] — qty = how many copies of that product's label to print.
+async function generateProductLabelsPdf(items, layout){
+  // items: [{productCode, name, rate, qty}] — rate is ALWAYS the Selling Price (MRP), never
+  // the Purchase Cost, since this is what the customer sees and what a Sale Bill will
+  // actually charge. qty = how many copies of that product's label to print.
+  // layout: {cols, rows} — how many labels fit on one A4 sheet (user-configurable).
   if(typeof window.jspdf==='undefined') throw new Error('PDF library load nahi ho payi. Internet check karke dobara try karein.');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'mm', format:'a4', orientation:'portrait'});
   const pageW = 210, pageH = 297;
-  const marginX = 8, marginY = 10;
-  const cols = 3, rows = 7;
-  const gapX = 3, gapY = 3;
+  const marginX = 6, marginY = 8;
+  const cols = Math.max(1, Math.min(8, (layout&&layout.cols)||3));
+  const rows = Math.max(1, Math.min(15, (layout&&layout.rows)||7));
+  const gapX = 2.5, gapY = 2.5;
   const cellW = (pageW - marginX*2 - gapX*(cols-1)) / cols;
   const cellH = (pageH - marginY*2 - gapY*(rows-1)) / rows;
-  const qrSize = Math.min(cellW, cellH) * 0.5;
 
   // One QR image per unique product code, reused across all copies — much faster than
   // regenerating the same QR image again for every physical label.
@@ -1954,46 +1957,70 @@ async function generateProductLabelsPdf(items){
 
   let col=0, row=0;
   const companyName = String(App.company.name||'').slice(0,30);
+  const headerH = Math.min(4.2, cellH*0.18);
   labels.forEach((it, idx)=>{
     const x = marginX + col*(cellW+gapX);
     const y = marginY + row*(cellH+gapY);
     doc.setDrawColor(205,205,205);
     doc.rect(x, y, cellW, cellH, 'D');
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.3); doc.setTextColor(120,90,30);
-    doc.text(companyName, x+cellW/2, y+4, {align:'center'});
+    // Company name banner across the top (branding — "shop premium lagegi").
+    doc.setFont('helvetica','bold'); doc.setFontSize(Math.max(5, Math.min(6.3, cellW*0.22))); doc.setTextColor(120,90,30);
+    doc.text(companyName, x+cellW/2, y+headerH, {align:'center'});
+    doc.setDrawColor(225,225,225);
+    doc.line(x+1, y+headerH+0.8, x+cellW-1, y+headerH+0.8);
+
+    // Body: product details on the LEFT, QR code on the RIGHT.
+    const bodyY = y+headerH+1.6, bodyH = cellH-headerH-2.6;
+    const qrSize = Math.max(6, Math.min(bodyH, cellW*0.4));
+    const qrX = x+cellW-qrSize-1.3, qrY = bodyY+(bodyH-qrSize)/2;
     const qrData = qrCache[it.productCode];
-    const qrX = x+(cellW-qrSize)/2, qrY = y+5.5;
     if(qrData){ try{ doc.addImage(qrData,'PNG', qrX, qrY, qrSize, qrSize); }catch(e){} }
-    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(20,20,20);
-    doc.text(String(it.name||'').slice(0,22), x+cellW/2, qrY+qrSize+4, {align:'center', maxWidth:cellW-3});
-    doc.setFont('helvetica','normal'); doc.setFontSize(6.3); doc.setTextColor(110,110,110);
-    doc.text(String(it.productCode||''), x+cellW/2, qrY+qrSize+7.6, {align:'center'});
-    if(Number(it.rate)>0){
-      doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(20,20,20);
-      doc.text(fmtMoneyPdf(it.rate), x+cellW/2, qrY+qrSize+11.5, {align:'center'});
-    }
+
+    const textX = x+1.5, textW = qrX-textX-1.2;
+    const maxChars = Math.max(8, Math.floor(textW/1.7));
+    let ty = bodyY+3;
+    doc.setFont('helvetica','bold'); doc.setFontSize(Math.max(5.2, Math.min(7, cellW*0.24))); doc.setTextColor(20,20,20);
+    doc.text(String(it.name||'').slice(0,maxChars), textX, ty);
+    ty += Math.max(3.2, bodyH*0.28);
+    doc.setFont('helvetica','bold'); doc.setFontSize(Math.max(5.5, Math.min(7.5, cellW*0.26))); doc.setTextColor(20,20,20);
+    doc.text('MRP: '+fmtMoneyPdf(it.rate), textX, ty, {maxWidth:textW});
+    ty += Math.max(3, bodyH*0.26);
+    doc.setFont('helvetica','normal'); doc.setFontSize(Math.max(4.8, Math.min(6, cellW*0.2))); doc.setTextColor(110,110,110);
+    doc.text(String(it.productCode||''), textX, ty);
+
     col++;
     if(col>=cols){ col=0; row++; }
     if(row>=rows && idx<labels.length-1){ doc.addPage(); row=0; col=0; }
   });
   return doc;
 }
-function printProductLabels(items){
-  generateProductLabelsPdf(items).then(doc=>{
+function printProductLabels(items, layout){
+  generateProductLabelsPdf(items, layout).then(doc=>{
     window.open(doc.output('bloburl'), '_blank');
   }).catch(e=>{ toast(e.message,'err'); });
 }
+const LABEL_LAYOUT_PRESETS = [
+  {value:'3x4', label:'12 labels / A4 sheet (Bade label)'},
+  {value:'3x7', label:'21 labels / A4 sheet (Default)'},
+  {value:'4x8', label:'32 labels / A4 sheet'},
+  {value:'4x10', label:'40 labels / A4 sheet (Chhote label)'},
+  {value:'5x13', label:'65 labels / A4 sheet (Extra chhote)'},
+];
 function openPrintLabelsModal(initialItems){
   let rows = (initialItems||[]).map(it=>({productCode:it.productCode, name:it.name, rate:it.rate, qty: Math.max(1, Math.min(500, Number(it.qty)||1))}));
   const body = el('div',{class:'stack'});
-  body.appendChild(el('div',{class:'small muted'},['Har product ka QR code uske Product Code ko encode karta hai — label print karke item par chipka dein, Bill screen mein scan karte hi item apne aap add ho jayega.']));
+  body.appendChild(el('div',{class:'small muted'},['Har label mein: upar company name, LEFT side par product naam/MRP/code (text mein), RIGHT side par QR code. Product Code text mein bhi likha hota hai, isliye scanner na ho to bhi manually type karke bill mein item name/rate apne aap aa jata hai.']));
+  const layoutSel = el('select',{}, LABEL_LAYOUT_PRESETS.map(p=>el('option',{value:p.value},[p.label])));
+  layoutSel.value = '3x7';
+  body.appendChild(el('label',{class:'field'},['A4 Sheet par kitne labels', layoutSel]));
   const listWrap = el('div',{class:'stack', style:'gap:8px;'});
   body.appendChild(listWrap);
   body.appendChild(el('button',{class:'btn btn-sm', onclick:()=>openProductPicker(p=>{ rows.push({productCode:p.productCode, name:p.name, rate:p.rate, qty:1}); renderRows(); })},[iconPlus(),'Add Product']));
   body.appendChild(el('button',{class:'btn btn-primary btn-block', onclick:()=>{
     const valid = rows.filter(r=>r.qty>0);
     if(!valid.length){ toast('Kam se kam ek product aur quantity daalein.','err'); return; }
-    printProductLabels(valid);
+    const [c,r] = layoutSel.value.split('x').map(Number);
+    printProductLabels(valid, {cols:c, rows:r});
   }},[iconPrint(),'Print QR Labels']));
   function renderRows(){
     listWrap.innerHTML='';
@@ -2003,7 +2030,7 @@ function openPrintLabelsModal(initialItems){
       qtyI.addEventListener('input', ()=>{ r.qty = Math.max(1, Math.min(500, Number(qtyI.value)||1)); });
       const rm = el('button',{class:'icon-btn btn-sm', onclick:()=>{ rows.splice(idx,1); renderRows(); }},[iconTrash()]);
       listWrap.appendChild(el('div',{class:'spread', style:'align-items:center;'},[
-        el('div',{},[ el('div',{class:'bold small'},[r.name]), el('div',{class:'tiny muted'},[r.productCode]) ]),
+        el('div',{},[ el('div',{class:'bold small'},[r.name]), el('div',{class:'tiny muted'},['MRP '+fmtMoney(r.rate||0)+' • '+r.productCode]) ]),
         el('div',{class:'row', style:'align-items:center;gap:6px;'},[ el('span',{class:'tiny muted'},['Labels:']), qtyI, rm ]),
       ]));
     });
@@ -2515,7 +2542,17 @@ async function showPostSavePurchaseOptions(purchase){
     el('div',{},['Purchase bill ', el('b',{},[purchase.purchaseNo]), ' saved. ', fmtMoney(purchase.billTotal), ' total.']),
     el('button',{class:'btn btn-block', onclick:()=>printPurchaseVoucher(purchase, items)},[iconPrint(),'Print Purchase Voucher']),
     el('button',{class:'btn btn-block', onclick:()=>sendPurchaseVoucherWhatsApp(purchase)},[iconWhatsapp(),'WhatsApp']),
-    el('button',{class:'btn btn-block', onclick:()=>openPrintLabelsModal(items.map(it=>({productCode:it.productCode, name:it.productName, rate:it.rate, qty:it.qty})))},[iconPrint(),'Print QR Labels (Batch — is bill ke items)']),
+    el('button',{class:'btn btn-block', onclick: async ()=>{
+      // `items` here are PURCHASE items — it.rate is the cost we PAID, never what a
+      // customer sees. The printed label must show the product's actual Selling
+      // Price (MRP), so look each product back up rather than reusing the cost rate.
+      const labelItems = [];
+      for(const it of items){
+        const prod = await DB.findProductByCode(it.productCode);
+        labelItems.push({productCode:it.productCode, name:it.productName, rate: prod?Number(prod.rate)||0:0, qty: Math.min(500, Math.max(1, Number(it.qty)||1))});
+      }
+      openPrintLabelsModal(labelItems);
+    }},[iconPrint(),'Print QR Labels (Batch — is bill ke items)']),
     el('button',{class:'btn btn-primary btn-block', onclick:async ()=>{ closeModal(); purchaseDraft = freshPurchaseDraft(await DB.nextPurchaseNo()); renderRoute(); }},['New Bill']),
   ]);
   openModal('Purchase Bill Saved', body, {persist:true});

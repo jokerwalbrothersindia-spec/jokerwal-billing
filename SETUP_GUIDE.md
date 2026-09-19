@@ -125,9 +125,11 @@ Ab har Product ke liye ek **QR code label** print kar sakte hain jo uske Product
   - **Products page** ke top par "Print QR Labels" button — kisi bhi product(s) ko search karke, har ek ki quantity (kitne label chahiye) set karke ek saath batch print kar sakte hain.
   - **Kisi bhi product ko Edit karke** — "Print QR Label" button se sirf uska label reprint kar sakte hain.
   - **Stock Entry** mein stock add karne ke turant baad — "Print QR Labels for last-added stock" button us exact quantity ke hisab se labels bana deta hai (jaise 100 pcs aaye to 100 labels).
-  - **Purchase Bill save hone ke baad** — "Print QR Labels (Batch)" button us poore purchase bill ke saare items (jitni quantity aayi thi) ke liye ek hi baar mein saare labels bana deta hai — yehi woh **"ek saath" (batch) option** hai jab bulk mein naya maal/products aaye.
+  - **Purchase Bill save hone ke baad** — "Print QR Labels (Batch)" button us poore purchase bill ke saare items (jitni quantity aayi thi) ke liye ek hi baar mein saare labels bana deta hai — yehi woh **"ek saath" (batch) option** hai jab bulk mein naya maal/products aaye. Label par yahan bhi hamesha **Selling Price (MRP)** hi print hoti hai, purchase bill ka cost rate kabhi nahi (chahe purchase alag rate par hui ho).
+- **Label design:** Upar company name (branding ke liye), **LEFT side par product ka naam, MRP aur Product Code (sab text mein, padhne layak)**, aur **RIGHT side par QR code**. Product Code text mein bhi print hota hai — isliye agar kabhi QR scan na ho paye to bhi wahi code manually Sale/Purchase Bill ke "scan/type" box mein type karke Enter dabayein, item ka naam/rate automatically bill mein aa jayega.
+- **A4 sheet par kitne label aayenge — aap choose karein:** "Print QR Labels" modal mein "A4 Sheet par kitne labels" dropdown se choose karein — 12 (bade label), 21 (default), 32, 40 (chhote), ya 65 (extra chhote) labels per sheet.
 - Ek hi product ke saare labels ke liye QR code sirf **ek baar generate hota hai** aur baaki copies mein reuse hota hai — isliye 100+ labels bhi jaldi ban jaate hain.
-- Label sheet A4 page par grid mein print hoti hai (company name, QR code, product naam, code aur rate) — printer/plain paper par print karke kaat lein aur item par chipka dein.
+- Label sheet A4 page par grid mein print hoti hai — printer/plain paper par print karke kaat lein aur item par chipka dein.
 
 ---
 
