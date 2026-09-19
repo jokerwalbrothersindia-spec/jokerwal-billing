@@ -491,7 +491,7 @@ async function importHistoricalSeed(){
 async function switchCompany(companyId){
   App.store = new Store(fbDb, App.uid, companyId);
   const DEFAULT_PROFILE = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
-    mobile:'', email:'', website:'', gstin:'', pan:'', invoicePrefix:'INV', productPrefix:'PRD', lowStockDefault:5, pin:'',
+    mobile:'', email:'', website:'', gstin:'', pan:'', invoicePrefix:'INV', productPrefix:'PRD', purchasePrefix:'PUR', lowStockDefault:5, pin:'',
     gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', invoiceTerms:'', logoDataUrl:'', upiId:'',
     headerColor:'#a2732c', footerColor:'#a2732c', logoSizeMm:16};
   let profile = await App.store.get('settings','profile');
@@ -754,6 +754,203 @@ const DB = {
     const rows = await App.store.byIndex('ledger','customerId', customerId);
     return rows.sort((a,b)=> (a.date||'')<(b.date||'')?1:-1);
   },
+
+  /* ---------------- Purchases (party-wise bill entry + payments + ledger) ----------------
+     Mirrors the Sales/Customer system above: Suppliers are "parties" you owe
+     money to, a Purchase Bill increases stock (goods coming IN) and increases
+     what you owe that party, and paying them (Pay Supplier) decreases it.
+     Ledger entries reuse the exact same shape as customer ledger rows
+     (date/invoiceNo/debit/credit/balance) so filterLedgerRange/ledgerTable/
+     generateLedgerPdf all work unchanged for suppliers too. */
+  async nextSupplierId(){
+    const all = await App.store.all('suppliers');
+    let max=0;
+    all.forEach(s=>{ const m=/^SUP(\d+)$/.exec(s.id||''); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
+    return 'SUP'+String(max+1).padStart(6,'0');
+  },
+  async nextPurchaseNo(){
+    const fy = financialYear();
+    const prefix = App.company.purchasePrefix || 'PUR';
+    const all = await App.store.all('purchases');
+    const re = new RegExp('^'+prefix.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/'+fy+'/(\\d+)$');
+    let max=0;
+    all.forEach(row=>{ const m = re.exec(row.purchaseNo||''); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
+    return prefix+'/'+fy+'/'+String(max+1).padStart(6,'0');
+  },
+  async nextPayoutNo(){
+    const all = await App.store.all('payouts');
+    let max=0;
+    all.forEach(p=>{ const m=/^PY(\d+)$/.exec(p.id||''); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
+    return 'PY'+String(max+1).padStart(6,'0');
+  },
+  async findSupplierByMobile(mobile){
+    mobile = String(mobile||'').trim();
+    if(!mobile) return null;
+    const all = await App.store.all('suppliers');
+    return all.find(s=>String(s.mobile||'').trim()===mobile) || null;
+  },
+  async searchSuppliers(text){
+    const all = await App.store.all('suppliers');
+    text = (text||'').trim().toLowerCase();
+    if(!text) return all;
+    return all.filter(s=> (s.name||'').toLowerCase().includes(text) || String(s.mobile||'').includes(text) || (s.id||'').toLowerCase().includes(text));
+  },
+  async getOrCreateSupplier(mobile, name){
+    mobile = String(mobile||'').trim(); name = (name||'').trim();
+    let sup = await DB.findSupplierByMobile(mobile);
+    if(sup){
+      if(name && sup.name!==name){ sup.name = name; await App.store.put('suppliers', sup); }
+      return sup;
+    }
+    sup = {id: await DB.nextSupplierId(), mobile, name: name||'Supplier', balance:0, createdAt: new Date().toISOString()};
+    await App.store.put('suppliers', sup);
+    return sup;
+  },
+  validatePurchaseBill(b){
+    if(!b.partyName || !b.partyName.trim()) return 'Party ka naam daalein.';
+    if(!b.mobile || !b.mobile.trim()) return 'Mobile number daalein.';
+    if(!b.items || !b.items.filter(it=>it.productCode).length) return 'Kam se kam ek product add karein.';
+    if(!b.paymentMode) return 'Payment mode select karein.';
+    if(b.paymentMode!=='CREDIT'){
+      if(b.paidAmount===''||b.paidAmount==null) return 'Paid amount daalein.';
+      if(isNaN(Number(b.paidAmount)) || Number(b.paidAmount)<0) return 'Valid paid amount daalein.';
+    }
+    return null;
+  },
+  async addStockForItems(items){
+    for(const it of items){
+      const p = await DB.findProductByCode(it.productCode);
+      if(!p) continue;
+      p.stock = (Number(p.stock)||0) + (Number(it.qty)||0);
+      await App.store.put('products', p);
+    }
+  },
+  async removeStockForItems(items){
+    for(const it of items){
+      const p = await DB.findProductByCode(it.productCode);
+      if(!p) continue;
+      p.stock = (Number(p.stock)||0) - (Number(it.qty)||0);
+      await App.store.put('products', p);
+    }
+  },
+  // Save a brand-new purchase bill. Returns {purchase}
+  async savePurchaseBill(b){
+    const err = DB.validatePurchaseBill(b); if(err) throw new Error(err);
+    const items = b.items.filter(it=>it.productCode && Number(it.qty)>0);
+    const sup = await DB.getOrCreateSupplier(b.mobile, b.partyName);
+    const previousBalance = Number(sup.balance)||0;
+    const paidAmount = Number(b.paidAmount)||0;
+    const {billTotal,totalPayable,balanceDue} = DB.computeTotals(items, previousBalance, paidAmount, false);
+    const rowId = uid();
+    const purchase = {
+      id: rowId, purchaseNo: b.purchaseNo, date: b.date, supplierId: sup.id, supplierName: sup.name,
+      mobile: sup.mobile, paymentMode: b.paymentMode, billTotal, previousBalance, currentBill: billTotal,
+      totalPayable, paidAmount, balanceDue, status:'COMPLETED', createdAt: new Date().toISOString(),
+    };
+    await App.store.put('purchases', purchase);
+    for(const it of items){
+      const amount = Number(it.qty)*Number(it.rate);
+      await App.store.put('purchaseItems', {id:uid(), purchaseRowId:rowId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount});
+    }
+    // supplier balance = new outstanding amount PAYABLE to them
+    sup.balance = balanceDue;
+    await App.store.put('suppliers', sup);
+    await App.store.put('supplierLedger', {id:uid(), date:b.date, invoiceNo:b.purchaseNo, supplierId:sup.id, supplierName:sup.name, mobile:sup.mobile, debit: clamp0(billTotal-paidAmount), credit:0, balance: balanceDue, remarks:''});
+    await DB.addStockForItems(items);
+    return {purchase};
+  },
+  async currentPurchaseRow(purchaseNo){
+    const rows = await App.store.byIndex('purchases','purchaseNo', purchaseNo);
+    const active = rows.filter(r=>r.status==='COMPLETED');
+    if(active.length) return active.sort((a,b)=> (a.createdAt<b.createdAt?1:-1))[0];
+    if(rows.length) return rows.sort((a,b)=> (a.createdAt<b.createdAt?1:-1))[0];
+    return null;
+  },
+  async itemsForPurchaseRow(rowId){
+    return App.store.byIndex('purchaseItems','purchaseRowId', rowId);
+  },
+  async cancelPurchaseBill(purchaseNo){
+    const row = await DB.currentPurchaseRow(purchaseNo);
+    if(!row) throw new Error('Purchase bill nahi mila: '+purchaseNo);
+    if(row.status==='CANCELLED') throw new Error('Yeh purchase bill pehle se cancelled hai.');
+    const items = await DB.itemsForPurchaseRow(row.id);
+    await DB.removeStockForItems(items);
+    const sup = await App.store.get('suppliers', row.supplierId);
+    if(sup){
+      sup.balance = clamp0((Number(sup.balance)||0) - (Number(row.balanceDue)||0));
+      await App.store.put('suppliers', sup);
+      await App.store.put('supplierLedger', {id:uid(), date: todayISO(), invoiceNo: purchaseNo+' (CANCELLED)', supplierId:sup.id, supplierName:sup.name, mobile:sup.mobile, debit:0, credit: clamp0(row.billTotal-row.paidAmount), balance: sup.balance, remarks:'Bill cancelled'});
+    }
+    row.status = 'CANCELLED';
+    await App.store.put('purchases', row);
+    return row;
+  },
+  async loadPurchaseBillForModify(purchaseNo){
+    const row = await DB.currentPurchaseRow(purchaseNo);
+    if(!row) throw new Error('Purchase bill nahi mila: '+purchaseNo);
+    if(row.status==='CANCELLED') throw new Error('Cancelled purchase bill modify nahi ho sakta.');
+    const items = await DB.itemsForPurchaseRow(row.id);
+    return {row, items};
+  },
+  async modifyPurchaseBill(oldPurchaseNo, b){
+    const err = DB.validatePurchaseBill(b); if(err) throw new Error(err);
+    const oldRow = await DB.currentPurchaseRow(oldPurchaseNo);
+    if(!oldRow) throw new Error('Original purchase bill nahi mila.');
+    if(oldRow.status==='CANCELLED') throw new Error('Cancelled purchase bill modify nahi ho sakta.');
+    const oldItems = await DB.itemsForPurchaseRow(oldRow.id);
+    await DB.removeStockForItems(oldItems);
+    oldRow.status='MODIFIED';
+    await App.store.put('purchases', oldRow);
+    const sup = await App.store.get('suppliers', oldRow.supplierId);
+    if(sup){ sup.balance = clamp0((Number(sup.balance)||0) - (Number(oldRow.balanceDue)||0)); await App.store.put('suppliers', sup); }
+    const items = b.items.filter(it=>it.productCode && Number(it.qty)>0);
+    const previousBalance = sup ? Number(sup.balance)||0 : 0;
+    const paidAmount = Number(b.paidAmount)||0;
+    const {billTotal,totalPayable,balanceDue} = DB.computeTotals(items, previousBalance, paidAmount, false);
+    const rowId = uid();
+    const purchase = {
+      id: rowId, purchaseNo: oldPurchaseNo, date: b.date, supplierId: sup?sup.id:oldRow.supplierId,
+      supplierName: b.partyName, mobile: b.mobile, paymentMode: b.paymentMode, billTotal, previousBalance,
+      currentBill: billTotal, totalPayable, paidAmount, balanceDue, status:'COMPLETED', createdAt: new Date().toISOString(),
+    };
+    await App.store.put('purchases', purchase);
+    for(const it of items){
+      const amount = Number(it.qty)*Number(it.rate);
+      await App.store.put('purchaseItems', {id:uid(), purchaseRowId:rowId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount});
+    }
+    if(sup){ sup.balance = balanceDue; sup.name = b.partyName; sup.mobile = b.mobile; await App.store.put('suppliers', sup); }
+    if(sup){
+      await App.store.put('supplierLedger', {id:uid(), date:b.date, invoiceNo: oldPurchaseNo+' (MODIFIED)', supplierId:sup.id, supplierName:sup.name, mobile:sup.mobile, debit: clamp0(billTotal-paidAmount), credit:0, balance: balanceDue, remarks:''});
+    }
+    await DB.addStockForItems(items);
+    return {purchase};
+  },
+  async paySupplier(p){
+    const sup = await App.store.get('suppliers', p.supplierId);
+    if(!sup) throw new Error('Party nahi mili.');
+    const amount = Number(p.amount)||0;
+    if(amount<=0) throw new Error('Valid amount daalein.');
+    const previousBalance = Number(sup.balance)||0;
+    const balanceAfter = previousBalance - amount;
+    const payoutNo = await DB.nextPayoutNo();
+    const payout = {id:payoutNo, date: p.date||todayISO(), supplierId:sup.id, supplierName:sup.name, mobile:sup.mobile,
+      paymentMode: p.mode, amountPaid: amount, previousBalance, balanceAfter, remarks: p.remarks||'', status:'PAID', paidBy: App.company.name||'admin'};
+    await App.store.put('payouts', payout);
+    sup.balance = clamp0(balanceAfter);
+    await App.store.put('suppliers', sup);
+    await App.store.put('supplierLedger', {id:uid(), date:payout.date, invoiceNo: payoutNo, supplierId:sup.id, supplierName:sup.name, mobile:sup.mobile, debit:0, credit:amount, balance: sup.balance, remarks: p.remarks||''});
+    return payout;
+  },
+  async ledgerForSupplier(supplierId){
+    const rows = await App.store.byIndex('supplierLedger','supplierId', supplierId);
+    return rows.sort((a,b)=> (a.date||'')<(b.date||'')?1:-1);
+  },
+  async currentPurchasesInRange(fromISO, toISO){
+    const all = await App.store.all('purchases');
+    const byNo = {};
+    all.forEach(r=>{ if(!byNo[r.purchaseNo] || r.createdAt>byNo[r.purchaseNo].createdAt) byNo[r.purchaseNo]=r; });
+    return Object.values(byNo).filter(r=> r.date>=fromISO && r.date<=toISO).sort((a,b)=> a.date<b.date?1:-1);
+  },
 };
 
 /* ---------------- Router ---------------- */
@@ -791,6 +988,9 @@ const NAV_ITEMS = [
   {key:'#/stock', label:'Stock', icon:iconLayers},
   {key:'#/payments', label:'Payments', icon:iconWallet},
   {key:'#/sales-register', label:'Sales Register', icon:iconList},
+  {key:'#/purchase', label:'Purchase Bill', icon:iconTruck},
+  {key:'#/suppliers', label:'Suppliers / Parties', icon:iconUsers},
+  {key:'#/purchase-register', label:'Purchase Register', icon:iconList},
   {key:'#/reports/daily', label:'Daily Report', icon:iconChart},
   {key:'#/reports/monthly', label:'Monthly Report', icon:iconCalendar},
   {key:'#/settings', label:'Settings', icon:iconGear},
@@ -869,6 +1069,7 @@ function iconEdit(){ return svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 
 function iconDownload(){ return svg('<path d="M12 3v13"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/>'); }
 function iconUpload(){ return svg('<path d="M12 21V8"/><path d="M7 13l5-5 5 5"/><path d="M5 21h14"/>'); }
 function iconLock(){ return svg('<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>'); }
+function iconTruck(){ return svg('<path d="M2.5 6.5h11v10h-11z"/><path d="M13.5 10h4l3 3.5v3h-7z"/><circle cx="6.5" cy="18.5" r="1.7"/><circle cx="17" cy="18.5" r="1.7"/>'); }
 
 /* ---------------- Modal helper ---------------- */
 function openModal(title, bodyEl, opts){
@@ -958,6 +1159,14 @@ function openProductPicker(onSelect){
     onSelect,
   });
 }
+function openSupplierPicker(onSelect, extraTop){
+  pickerModal({
+    title:'Select Party', placeholder:'Naam ya mobile search karein',
+    fetchItems:(q)=>DB.searchSuppliers(q),
+    renderRow: wrapRowSpread,
+    onSelect, extraTop,
+  });
+}
 
 /* ---------------- WhatsApp helper ---------------- */
 function whatsappLink(mobile, message){
@@ -969,6 +1178,11 @@ function sendReceiptWhatsApp(payment){
   if(!payment.mobile){ toast('Mobile number nahi hai.','err'); return; }
   const msg = 'Dear '+payment.customerName+',\n\nWe received your payment.\nReceipt No: '+payment.id+'\nAmount Received: '+fmtMoney(payment.amountReceived)+'\nBalance Due: '+fmtMoney(clamp0(payment.balanceAfter))+'\n\nThank you — '+App.company.name;
   window.open(whatsappLink(payment.mobile, msg), '_blank');
+}
+function sendPayoutWhatsApp(payout){
+  if(!payout.mobile){ toast('Mobile number nahi hai.','err'); return; }
+  const msg = 'Dear '+payout.supplierName+',\n\nWe have made a payment.\nVoucher No: '+payout.id+'\nAmount Paid: '+fmtMoney(payout.amountPaid)+'\nBalance: '+fmtMoney(clamp0(payout.balanceAfter))+'\n\n— '+App.company.name;
+  window.open(whatsappLink(payout.mobile, msg), '_blank');
 }
 
 /* ---------------- Print views ---------------- */
@@ -1327,7 +1541,7 @@ function filterLedgerRange(rowsDesc, dateFrom, dateTo){
   const closingBalance = filtered.length ? (Number(filtered[filtered.length-1].balance)||0) : openingBalance;
   return { filtered, openingBalance, closingBalance };
 }
-async function generateLedgerPdf(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo){
+async function generateLedgerPdf(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo, partyLabel){
   if(typeof window.jspdf==='undefined') throw new Error('PDF library load nahi ho payi. Internet check karke dobara try karein.');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'mm', format:'a4'});
@@ -1417,7 +1631,7 @@ async function generateLedgerPdf(customer, filtered, openingBalance, closingBala
   doc.setDrawColor(...lineGray); doc.setFillColor(250,248,243);
   doc.rect(marginX, y, 180, 16, 'FD');
   doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...gray);
-  doc.text('CUSTOMER', marginX+4, y+5.5);
+  doc.text(partyLabel||'CUSTOMER', marginX+4, y+5.5);
   doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20,20,20);
   doc.text(String(customer.name||''), marginX+4, y+11.5, {maxWidth:110});
   doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(...gray);
@@ -1490,16 +1704,16 @@ async function generateLedgerPdf(customer, filtered, openingBalance, closingBala
 
   return doc;
 }
-function printLedger(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo){
-  generateLedgerPdf(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo).then(doc=>{
+function printLedger(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo, partyLabel){
+  generateLedgerPdf(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo, partyLabel).then(doc=>{
     window.open(doc.output('bloburl'), '_blank');
   }).catch(e=>{ toast(e.message,'err'); });
 }
-async function shareLedgerPdfWhatsApp(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo){
+async function shareLedgerPdfWhatsApp(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo, partyLabel){
   if(!customer.mobile){ toast('Mobile number nahi hai.','err'); return; }
   const msg = 'Dear '+customer.name+',\n\nApka account statement attached hai.\nClosing Balance: '+fmtMoney(closingBalance)+'\n\n— '+App.company.name;
   let doc;
-  try{ doc = await generateLedgerPdf(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo); }
+  try{ doc = await generateLedgerPdf(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo, partyLabel); }
   catch(e){ toast(e.message,'err'); window.open(whatsappLink(customer.mobile, msg), '_blank'); return; }
   const filename = 'Statement_'+String(customer.name||customer.id).replace(/[^a-z0-9]+/gi,'_')+'.pdf';
   const blob = doc.output('blob');
@@ -1542,6 +1756,122 @@ function printReceipt(payment){
     <div style="margin-top:20px;text-align:center;font-size:11.5px;color:#777;">Thank You!</div>
   </div>`;
   window.print();
+}
+function printPayoutReceipt(payout){
+  const area = $('#print-area');
+  area.innerHTML = `<div class="invoice-doc" style="max-width:420px;">
+    <div style="text-align:center;border-bottom:2px solid #a2732c;padding-bottom:10px;margin-bottom:14px;">
+      <h2 style="margin:0;font-size:20px;">${escapeHtml(App.company.name)}</h2>
+      <div style="font-size:12px;color:#555;">PAYMENT VOUCHER</div>
+    </div>
+    <table style="width:100%;font-size:13px;">
+      <tr><td>Voucher No</td><td class="right"><b>${escapeHtml(payout.id)}</b></td></tr>
+      <tr><td>Date</td><td class="right">${fmtDate(payout.date)}</td></tr>
+      <tr><td>Party</td><td class="right">${escapeHtml(payout.supplierName)}</td></tr>
+      <tr><td>Mobile</td><td class="right">${escapeHtml(payout.mobile)}</td></tr>
+      <tr><td colspan="2"><hr></td></tr>
+      <tr><td>Previous Balance</td><td class="right">${fmtMoney(payout.previousBalance)}</td></tr>
+      <tr><td>Amount Paid</td><td class="right"><b>${fmtMoney(payout.amountPaid)}</b></td></tr>
+      <tr><td>Payment Mode</td><td class="right">${escapeHtml(payout.paymentMode)}</td></tr>
+      <tr><td>Balance Due</td><td class="right">${fmtMoney(clamp0(payout.balanceAfter))}</td></tr>
+      ${payout.remarks?`<tr><td>Remarks</td><td class="right">${escapeHtml(payout.remarks)}</td></tr>`:''}
+    </table>
+    <div style="margin-top:20px;text-align:center;font-size:11.5px;color:#777;">Thank You!</div>
+  </div>`;
+  window.print();
+}
+function printPurchaseVoucher(purchase, items){
+  const area = $('#print-area');
+  const rows = items.map(it=>`<tr><td>${escapeHtml(it.productName)}</td><td class="right">${fmtNum(it.qty)}</td><td class="right">${fmtMoney(it.rate)}</td><td class="right">${fmtMoney(it.amount)}</td></tr>`).join('');
+  area.innerHTML = `<div class="invoice-doc" style="max-width:480px;">
+    <div style="text-align:center;border-bottom:2px solid #a2732c;padding-bottom:10px;margin-bottom:14px;">
+      <h2 style="margin:0;font-size:20px;">${escapeHtml(App.company.name)}</h2>
+      <div style="font-size:12px;color:#555;">PURCHASE VOUCHER</div>
+    </div>
+    <table style="width:100%;font-size:13px;margin-bottom:10px;">
+      <tr><td>Purchase No</td><td class="right"><b>${escapeHtml(purchase.purchaseNo)}</b></td></tr>
+      <tr><td>Date</td><td class="right">${fmtDate(purchase.date)}</td></tr>
+      <tr><td>Party</td><td class="right">${escapeHtml(purchase.supplierName)}</td></tr>
+      <tr><td>Mobile</td><td class="right">${escapeHtml(purchase.mobile)}</td></tr>
+    </table>
+    <table style="width:100%;font-size:12.5px;">
+      <thead><tr><th style="text-align:left;">Item</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <hr>
+    <table style="width:100%;font-size:13px;">
+      <tr><td>Bill Total</td><td class="right"><b>${fmtMoney(purchase.billTotal)}</b></td></tr>
+      <tr><td>Previous Balance</td><td class="right">${fmtMoney(purchase.previousBalance)}</td></tr>
+      <tr><td>Total Payable</td><td class="right">${fmtMoney(purchase.totalPayable)}</td></tr>
+      <tr><td>Paid Amount</td><td class="right">${fmtMoney(purchase.paidAmount)}</td></tr>
+      <tr><td>Balance Due (Payable to Party)</td><td class="right"><b>${fmtMoney(purchase.balanceDue)}</b></td></tr>
+    </table>
+  </div>`;
+  window.print();
+}
+// Standard fixed-layout cheque print — a common Indian cheque leaf is roughly
+// 200mm x 90mm landscape. Field positions (Pay/Amount/Date/Signature) match a
+// typical bank cheque leaf but every printer/cheque-book combination differs
+// slightly, so it's worth a test print on plain paper held against an actual
+// cheque before feeding real cheque leaves through the printer.
+async function generateChequePdf(opts){
+  if(typeof window.jspdf==='undefined') throw new Error('PDF library load nahi ho payi. Internet check karke dobara try karein.');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:[200,90], orientation:'landscape'});
+  const pageW = 200;
+  const gray=[100,95,85], lineGray=[190,190,190];
+
+  const dateISO = opts.date || todayISO();
+  const [yy,mm,dd] = dateISO.split('-');
+  const digits = (dd+mm+yy).split('');
+  const boxW = 6.2, boxH = 7.5, dateX0 = pageW-8-boxW*8, dateY0 = 8;
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...gray);
+  doc.text('Date', dateX0, dateY0-2);
+  digits.forEach((ch,i)=>{
+    const x = dateX0 + i*boxW;
+    doc.setDrawColor(...lineGray); doc.rect(x, dateY0, boxW, boxH, 'D');
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(20,20,20);
+    doc.text(ch, x+boxW/2, dateY0+boxH-2.2, {align:'center'});
+  });
+
+  const payY = 33;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(20,20,20);
+  doc.text('Pay', 10, payY);
+  doc.setFont('helvetica','bold'); doc.setFontSize(12.5);
+  doc.text(String(opts.payeeName||''), 23, payY, {maxWidth:115});
+  doc.setDrawColor(...gray); doc.line(23, payY+1.8, 138, payY+1.8);
+  doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(...gray);
+  doc.text('OR BEARER', 141, payY);
+
+  const amtBoxX = 148, amtBoxY = 22, amtBoxW = 44, amtBoxH = 11;
+  doc.setDrawColor(...lineGray); doc.rect(amtBoxX, amtBoxY, amtBoxW, amtBoxH, 'D');
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...gray);
+  doc.text('Rs.', amtBoxX-6, amtBoxY+amtBoxH-3);
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(20,20,20);
+  doc.text(Number(opts.amount||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}), amtBoxX+amtBoxW-2, amtBoxY+amtBoxH-3, {align:'right'});
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(20,20,20);
+  doc.text('Rupees', 10, 46);
+  const wordsText = amountInWordsIndian(opts.amount||0);
+  doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  const wrapped = doc.splitTextToSize(wordsText, 172);
+  doc.text(wrapped, 30, 46);
+  doc.setDrawColor(...gray); doc.line(10, 54, 190, 54);
+
+  doc.setDrawColor(...lineGray); doc.line(140, 76, 190, 76);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...gray);
+  doc.text('Authorised Signatory', 165, 81, {align:'center'});
+
+  if(opts.remarks){
+    doc.setFont('helvetica','italic'); doc.setFontSize(7); doc.setTextColor(...gray);
+    doc.text(String(opts.remarks), 10, 66, {maxWidth:120});
+  }
+  return doc;
+}
+function printCheque(opts){
+  generateChequePdf(opts).then(doc=>{
+    window.open(doc.output('bloburl'), '_blank');
+  }).catch(e=>{ toast(e.message,'err'); });
 }
 
 /* ---------------- Dashboard ---------------- */
@@ -1863,6 +2193,259 @@ function openInvoiceDetail(inv){
   });
 }
 
+/* ---------------- Purchase Bill (party-wise, item-wise) ----------------
+   Mirrors the Sales Bill (POS) screen above almost exactly: pick/create a
+   Supplier/Party instead of a Customer, add items from the same Products
+   catalog, and saving increases stock (goods coming IN) instead of
+   decreasing it. No GST breakup here — kept simple (qty x rate totals only). */
+let purchaseDraft = null;
+function freshPurchaseDraft(purchaseNo){
+  return {purchaseNo, date: todayISO(), supplierId:null, partyName:'', mobile:'', previousBalance:0, items:[], paymentMode:'CASH', paidAmount:'', editingPurchaseNo:null};
+}
+async function viewPurchaseBill(root){
+  if(!purchaseDraft){ purchaseDraft = freshPurchaseDraft(await DB.nextPurchaseNo()); }
+  renderPurchaseBillScreen(root);
+}
+function purchaseTotals(){
+  return DB.computeTotals(purchaseDraft.items, purchaseDraft.previousBalance, Number(purchaseDraft.paidAmount)||0, false);
+}
+function renderPurchaseBillScreen(root){
+  root.innerHTML='';
+  const wrap = el('div',{class:'stack'});
+
+  wrap.appendChild(el('div',{class:'card pad'},[
+    el('div',{class:'spread'},[
+      el('div',{},[el('div',{class:'tiny muted'},['Purchase No']), el('div',{class:'bold'},[purchaseDraft.purchaseNo])]),
+      el('label',{class:'field', style:'width:150px;'},['Date', el('input',{type:'date', value:purchaseDraft.date, onchange:(e)=>{purchaseDraft.date=e.target.value;}})]),
+    ]),
+    purchaseDraft.editingPurchaseNo ? el('div',{class:'pill pill-credit', style:'margin-top:8px;'},['Editing purchase bill '+purchaseDraft.editingPurchaseNo]) : null,
+  ]));
+
+  const partyCard = el('div',{class:'card pad stack'});
+  partyCard.appendChild(el('div',{class:'bold'},['Party (Supplier)']));
+  const partyRow = el('div',{class:'row'});
+  const mobileInput = el('input',{placeholder:'Mobile number', value:purchaseDraft.mobile, inputmode:'numeric'});
+  const nameInput = el('input',{placeholder:'Party name', value:purchaseDraft.partyName});
+  const prevBalValueEl = el('span',{class:'num bold'},[fmtMoney(purchaseDraft.previousBalance)]);
+  mobileInput.addEventListener('change', async ()=>{
+    purchaseDraft.mobile = mobileInput.value.trim();
+    const sup = await DB.findSupplierByMobile(purchaseDraft.mobile);
+    if(sup){
+      purchaseDraft.supplierId=sup.id; purchaseDraft.previousBalance=Number(sup.balance)||0;
+      if(!nameInput.value.trim()){ purchaseDraft.partyName=sup.name; nameInput.value=sup.name; }
+      toast('Party mil gayi: '+sup.name);
+    } else { purchaseDraft.supplierId=null; purchaseDraft.previousBalance=0; }
+    prevBalValueEl.textContent = fmtMoney(purchaseDraft.previousBalance);
+    updateComputedTotals();
+  });
+  nameInput.addEventListener('input', ()=>{ purchaseDraft.partyName = nameInput.value; });
+  partyRow.appendChild(mobileInput);
+  partyRow.appendChild(el('button',{class:'icon-btn', onclick:()=>openSupplierPicker((s)=>{ purchaseDraft.supplierId=s.id; purchaseDraft.partyName=s.name; purchaseDraft.mobile=s.mobile; purchaseDraft.previousBalance=Number(s.balance)||0; renderPurchaseBillScreen(root); })},[iconSearch()]));
+  partyCard.appendChild(partyRow);
+  partyCard.appendChild(nameInput);
+  partyCard.appendChild(el('div',{class:'spread small muted'},[el('span',{},['Previous Balance (Payable)']), prevBalValueEl]));
+  wrap.appendChild(partyCard);
+
+  const itemsCard = el('div',{class:'card pad stack'});
+  itemsCard.appendChild(el('div',{class:'bold'},['Items']));
+  const scan = el('div',{class:'scanline'});
+  const codeInput = el('input',{placeholder:'Product code scan/type karein aur Enter dabayein'});
+  scan.appendChild(codeInput);
+  scan.appendChild(el('button',{class:'btn btn-sm', onclick:()=>openProductPicker(addItemFromProduct)},[iconSearch()]));
+  codeInput.addEventListener('keydown', async (e)=>{
+    if(e.key==='Enter'){
+      e.preventDefault();
+      const code = codeInput.value.trim();
+      if(!code) return;
+      const p = await DB.findProductByCode(code);
+      if(p){ addItemFromProduct(p); codeInput.value=''; }
+      else{
+        const matches = await DB.searchProducts(code);
+        if(matches.length){ openProductPicker((prod)=>{ addItemFromProduct(prod); codeInput.value=''; }); }
+        else{
+          const goAdd = await confirmDialog('Product "'+escapeHtml(code)+'" nahi mila. Naya product add karein?', 'Add Product');
+          if(goAdd){ openProductForm(null, code); }
+          codeInput.value='';
+        }
+      }
+    }
+  });
+  itemsCard.appendChild(scan);
+
+  if(purchaseDraft.items.length){
+    const tbl = el('div',{class:'stack', style:'gap:6px;'});
+    tbl.appendChild(el('div',{class:'item-row tiny muted'},[el('span',{},['Item']),el('span',{},['Qty']),el('span',{},['Rate']),el('span',{},['Amount']),el('span',{},[''])]));
+    purchaseDraft.items.forEach((it,idx)=>{
+      const qtyInput = el('input',{type:'number', value:it.qty, min:'0', step:'any'});
+      const rateInput = el('input',{type:'number', value:it.rate, min:'0', step:'any'});
+      const amtEl = el('div',{class:'amt num'},[fmtNum(it.qty*it.rate)]);
+      qtyInput.addEventListener('input', ()=>{ it.qty = Number(qtyInput.value)||0; amtEl.textContent=fmtNum(it.qty*it.rate); updateComputedTotals(); });
+      rateInput.addEventListener('input', ()=>{ it.rate = Number(rateInput.value)||0; amtEl.textContent=fmtNum(it.qty*it.rate); updateComputedTotals(); });
+      const rm = el('button',{class:'icon-btn btn-sm', onclick:()=>{ purchaseDraft.items.splice(idx,1); renderPurchaseBillScreen(root); }},[iconTrash()]);
+      const nameCell = el('div',{class:'small'},[it.productName]);
+      tbl.appendChild(el('div',{class:'item-row'},[ nameCell, qtyInput, rateInput, amtEl, rm ]));
+    });
+    itemsCard.appendChild(tbl);
+  } else {
+    itemsCard.appendChild(el('div',{class:'empty small'},['Koi item add nahi hua.']));
+  }
+  wrap.appendChild(itemsCard);
+
+  const totalsCard = el('div',{class:'card pad stack'});
+  const billTotalLine = el('div',{class:'spread'},[el('span',{class:'bold'},['Bill Total']), el('span',{class:'bold num'},['₹0.00'])]);
+  const billTotalValueEl = billTotalLine.lastChild;
+
+  const modeSelect = el('select',{},[
+    el('option',{value:'CASH'},['Cash']), el('option',{value:'UPI'},['UPI']), el('option',{value:'CREDIT'},['Credit']),
+  ]);
+  modeSelect.value = purchaseDraft.paymentMode;
+  const amtLabelText = el('span',{},[]);
+  const amountInput = el('input',{type:'number', min:'0', step:'any', placeholder:'0.00', value: purchaseDraft.paidAmount, inputmode:'decimal'});
+  function syncModeUI(){ amtLabelText.textContent = purchaseDraft.paymentMode==='CREDIT' ? 'Advance Paid (optional)' : 'Paid Amount'; }
+  syncModeUI();
+  modeSelect.addEventListener('change', ()=>{ purchaseDraft.paymentMode = modeSelect.value; syncModeUI(); updateComputedTotals(); });
+  amountInput.addEventListener('input', ()=>{ purchaseDraft.paidAmount = amountInput.value; updateComputedTotals(); });
+
+  const prevBalLine = el('div',{class:'spread small muted'},[el('span',{},['Previous Balance']), el('span',{},[fmtMoney(purchaseDraft.previousBalance)])]);
+  const payableLine = el('div',{class:'spread'},[el('span',{},['Total Payable']), el('span',{class:'bold num'},['₹0.00'])]);
+  const payableValueEl = payableLine.lastChild;
+  const dueLine = el('div',{class:'spread', style:'color:var(--danger);'},[el('span',{class:'bold'},['Balance Due (Payable to Party)']), el('span',{class:'bold num'},['₹0.00'])]);
+  const dueValueEl = dueLine.lastChild;
+  const wordsLine = el('div',{class:'tiny muted', style:'font-style:italic;'});
+
+  totalsCard.appendChild(billTotalLine);
+  totalsCard.appendChild(el('label',{class:'field'},['Payment Mode', modeSelect]));
+  totalsCard.appendChild(el('label',{class:'field'},[amtLabelText, amountInput]));
+  totalsCard.appendChild(prevBalLine);
+  totalsCard.appendChild(payableLine);
+  totalsCard.appendChild(dueLine);
+  totalsCard.appendChild(wordsLine);
+  wrap.appendChild(totalsCard);
+
+  function updateComputedTotals(){
+    const t = purchaseTotals();
+    billTotalValueEl.textContent = fmtMoney(t.billTotal);
+    payableValueEl.textContent = fmtMoney(t.totalPayable);
+    dueValueEl.textContent = fmtMoney(t.balanceDue);
+    wordsLine.textContent = amountInWordsIndian(t.totalPayable);
+  }
+
+  const actions = el('div',{class:'row wrap'},[
+    el('button',{class:'btn btn-primary btn-block', onclick:onSavePurchaseBill},[iconCheck(), purchaseDraft.editingPurchaseNo?'Update Bill':'Save Purchase Bill']),
+  ]);
+  wrap.appendChild(actions);
+  const secondary = el('div',{class:'row wrap'},[
+    el('button',{class:'btn', onclick:async ()=>{ purchaseDraft = freshPurchaseDraft(await DB.nextPurchaseNo()); renderPurchaseBillScreen(root); }},['New Bill']),
+    el('button',{class:'btn', onclick:openLoadPurchasePrompt},['Modify Bill']),
+    el('button',{class:'btn btn-danger', onclick:openCancelPurchasePrompt},['Cancel Bill']),
+  ]);
+  wrap.appendChild(secondary);
+
+  root.appendChild(wrap);
+  updateComputedTotals();
+
+  function addItemFromProduct(p){
+    const existing = purchaseDraft.items.find(it=>it.productCode===p.productCode);
+    if(existing){ existing.qty = Number(existing.qty)+1; }
+    else{ purchaseDraft.items.push({productCode:p.productCode, productName:p.name, qty:1, rate:Number(p.rate)||0}); }
+    renderPurchaseBillScreen(root);
+  }
+}
+async function onSavePurchaseBill(){
+  try{
+    const b = {purchaseNo: purchaseDraft.purchaseNo, date: purchaseDraft.date, partyName: purchaseDraft.partyName, mobile: purchaseDraft.mobile, items: purchaseDraft.items, paymentMode: purchaseDraft.paymentMode, paidAmount: purchaseDraft.paidAmount};
+    let result;
+    if(purchaseDraft.editingPurchaseNo){ result = await DB.modifyPurchaseBill(purchaseDraft.editingPurchaseNo, b); }
+    else{ result = await DB.savePurchaseBill(b); }
+    toast('Purchase bill saved successfully.', 'ok');
+    showPostSavePurchaseOptions(result.purchase);
+  }catch(e){ toast(e.message,'err'); }
+}
+async function showPostSavePurchaseOptions(purchase){
+  const items = await DB.itemsForPurchaseRow(purchase.id);
+  const body = el('div',{class:'stack'},[
+    el('div',{},['Purchase bill ', el('b',{},[purchase.purchaseNo]), ' saved. ', fmtMoney(purchase.billTotal), ' total.']),
+    el('button',{class:'btn btn-block', onclick:()=>printPurchaseVoucher(purchase, items)},[iconPrint(),'Print Purchase Voucher']),
+    el('button',{class:'btn btn-primary btn-block', onclick:async ()=>{ closeModal(); purchaseDraft = freshPurchaseDraft(await DB.nextPurchaseNo()); renderRoute(); }},['New Bill']),
+  ]);
+  openModal('Purchase Bill Saved', body, {persist:true});
+}
+function openLoadPurchasePrompt(){
+  const body = el('div',{class:'stack'});
+  const input = el('input',{placeholder:'e.g. PUR/26-27/000023'});
+  body.appendChild(el('label',{class:'field'},['Purchase Bill Number', input]));
+  body.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+    try{
+      const {row, items} = await DB.loadPurchaseBillForModify(input.value.trim());
+      purchaseDraft = {purchaseNo: row.purchaseNo, date: row.date, supplierId: row.supplierId, partyName: row.supplierName, mobile: row.mobile,
+        previousBalance: row.previousBalance, items: items.map(it=>({productCode:it.productCode, productName:it.productName, qty:it.qty, rate:it.rate})),
+        paymentMode: row.paymentMode, paidAmount: row.paidAmount, editingPurchaseNo: row.purchaseNo};
+      closeModal();
+      renderRoute();
+      toast('Purchase bill loaded. Changes karke Update Bill dabayein.');
+    }catch(e){ toast(e.message,'err'); }
+  }},['Load']));
+  openModal('Modify Purchase Bill', body);
+}
+function openCancelPurchasePrompt(){
+  const body = el('div',{class:'stack'});
+  const input = el('input',{placeholder:'e.g. PUR/26-27/000023'});
+  body.appendChild(el('label',{class:'field'},['Purchase Bill Number', input]));
+  body.appendChild(el('div',{class:'small muted'},['Stock reverse ho jayega aur party balance update ho jayega.']));
+  body.appendChild(el('button',{class:'btn btn-danger btn-block', onclick: async ()=>{
+    const ok = await confirmDialog('Purchase bill cancel karein? Yeh undo nahi ho sakta.', 'Cancel Bill');
+    if(!ok) return;
+    try{ await DB.cancelPurchaseBill(input.value.trim()); closeModal(); toast('Purchase bill cancelled.','ok'); renderRoute(); }
+    catch(e){ toast(e.message,'err'); }
+  }},['Cancel Bill']));
+  openModal('Cancel Purchase Bill', body);
+}
+function openPurchaseDetail(row){
+  DB.itemsForPurchaseRow(row.id).then(items=>{
+    const body = el('div',{class:'stack'},[
+      el('div',{class:'spread'},[el('b',{},[row.purchaseNo]), statusPill(row.status)]),
+      el('div',{class:'small muted'},[row.supplierName+' • '+row.mobile+' • '+fmtDate(row.date)]),
+      el('div',{class:'card pad', style:'padding:10px;'}, items.map(it=> el('div',{class:'spread small', style:'padding:3px 0;'},[el('span',{},[it.productName+' x'+fmtNum(it.qty)]), el('span',{class:'num'},[fmtMoney(it.amount)])]))),
+      el('div',{class:'spread'},[el('span',{},['Total']), el('span',{class:'bold num'},[fmtMoney(row.billTotal)])]),
+      el('div',{class:'spread'},[el('span',{},['Balance Due']), el('span',{class:'num'},[fmtMoney(row.balanceDue)])]),
+      el('div',{class:'row wrap'},[
+        el('button',{class:'btn', onclick:()=>printPurchaseVoucher(row,items)},[iconPrint(),'Print']),
+      ]),
+    ]);
+    openModal('Purchase Bill', body);
+  });
+}
+function purchaseListRow(row){
+  return el('div',{class:'list-row', onclick:()=>openPurchaseDetail(row)},[
+    el('div',{},[ el('div',{class:'bold small'},[row.purchaseNo]), el('div',{class:'tiny muted'},[row.supplierName+' • '+fmtDate(row.date)]) ]),
+    el('div',{style:'text-align:right;'},[ el('div',{class:'bold num'},[fmtMoney(row.billTotal)]), statusPill(row.status) ]),
+  ]);
+}
+async function viewPurchaseRegister(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{},[el('div',{class:'section-title'},['Purchase Register']), el('div',{class:'section-sub'},['Saare purchase bills, ek jagah'])]));
+  const filterRow = el('div',{class:'row wrap'});
+  const fromI = el('input',{type:'date', value: (()=>{const d=new Date(); d.setDate(d.getDate()-30); return d.toISOString().slice(0,10);})()});
+  const toI = el('input',{type:'date', value: todayISO()});
+  const statusI = el('select',{},[el('option',{value:''},['All Status']),el('option',{value:'COMPLETED'},['Completed']),el('option',{value:'CANCELLED'},['Cancelled'])]);
+  filterRow.appendChild(el('label',{class:'field'},['From', fromI]));
+  filterRow.appendChild(el('label',{class:'field'},['To', toI]));
+  filterRow.appendChild(el('label',{class:'field'},['Status', statusI]));
+  wrap.appendChild(filterRow);
+  const list = el('div',{class:'card pad'});
+  wrap.appendChild(list);
+  root.appendChild(wrap);
+  async function refresh(){
+    let rows = await DB.currentPurchasesInRange(fromI.value, toI.value);
+    if(statusI.value) rows = rows.filter(r=>r.status===statusI.value);
+    list.innerHTML='';
+    if(!rows.length){ list.appendChild(el('div',{class:'empty'},['Is range mein koi purchase bill nahi.'])); return; }
+    rows.forEach(r=> list.appendChild(purchaseListRow(r)));
+  }
+  [fromI,toI,statusI].forEach(i=>i.addEventListener('change',refresh));
+  refresh();
+}
+
 /* ---------------- Customers ---------------- */
 async function viewCustomers(root){
   const wrap = el('div',{class:'stack'});
@@ -1975,6 +2558,139 @@ function ledgerTable(rows){
   ])));
   tbl.appendChild(tb);
   return tbl;
+}
+
+/* ---------------- Suppliers / Parties (Purchase side) ---------------- */
+async function viewSuppliers(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{class:'spread'},[
+    el('div',{},[el('div',{class:'section-title'},['Suppliers / Parties']), el('div',{class:'section-sub'},['Purchase parties, job-work vendors — search, add aur balance track karein'])]),
+    el('button',{class:'btn btn-primary', onclick:()=>openSupplierForm(null)},[iconPlus(),'Add']),
+  ]));
+  const searchWrap = el('div',{class:'searchbox'},[iconSearch(), el('input',{id:'sup-search', placeholder:'Naam ya mobile search karein'})]);
+  wrap.appendChild(searchWrap);
+  const list = el('div',{class:'card pad', id:'sup-list'});
+  wrap.appendChild(list);
+  root.appendChild(wrap);
+  async function refresh(){
+    const items = await DB.searchSuppliers($('#sup-search').value);
+    items.sort((a,b)=> (b.balance||0)-(a.balance||0));
+    list.innerHTML='';
+    if(!items.length){ list.appendChild(el('div',{class:'empty'},['Koi party nahi mili.'])); return; }
+    items.forEach(s=>{
+      const row = el('div',{class:'list-row', onclick:()=>openSupplierDetail(s)},[
+        el('div',{class:'row'},[ el('div',{class:'avatar'},[(s.name||'?').charAt(0).toUpperCase()]), el('div',{},[ el('div',{class:'bold'},[s.name]), el('div',{class:'small muted'},[s.mobile]) ]) ]),
+        el('div',{class: (s.balance>0?'pill pill-warning':'pill pill-success')},[fmtMoney(s.balance||0)]),
+      ]);
+      list.appendChild(row);
+    });
+  }
+  $('#sup-search').addEventListener('input', debounce(refresh,150));
+  refresh();
+}
+function openSupplierForm(sup){
+  const isNew = !sup;
+  const nameI = el('input',{value: sup?sup.name:''});
+  const mobileI = el('input',{value: sup?sup.mobile:''});
+  const balanceI = el('input',{type:'number', value: sup?sup.balance:0});
+  const body = el('div',{class:'stack'},[
+    el('label',{class:'field'},['Name', nameI]),
+    el('label',{class:'field'},['Mobile', mobileI]),
+    isNew ? el('label',{class:'field'},['Opening Balance (Payable)', balanceI]) : el('label',{class:'field'},['Balance (manual correction)', balanceI]),
+    el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+      const name = nameI.value.trim(), mobile = mobileI.value.trim();
+      if(!name||!mobile){ toast('Naam aur mobile dono zaroori hain.','err'); return; }
+      const rec = sup || {id: await DB.nextSupplierId(), createdAt: new Date().toISOString()};
+      rec.name=name; rec.mobile=mobile; rec.balance=Number(balanceI.value)||0;
+      await App.store.put('suppliers', rec);
+      closeModal(); toast('Party saved.','ok'); renderRoute();
+    }},[isNew?'Add Party':'Save Changes']),
+  ]);
+  openModal(isNew?'Add Party':'Edit Party', body);
+}
+async function openSupplierDetail(s){
+  const ledgerDesc = await DB.ledgerForSupplier(s.id);
+  let dateFrom = '', dateTo = '';
+
+  const ledgerSection = el('div',{class:'stack'});
+  function refreshLedgerSection(){
+    ledgerSection.innerHTML = '';
+    const {filtered, openingBalance, closingBalance} = filterLedgerRange(ledgerDesc, dateFrom, dateTo);
+    const filterOn = !!(dateFrom || dateTo);
+    ledgerSection.appendChild(el('div',{class:'row wrap'},[
+      el('button',{class:'btn btn-sm', onclick:()=> printLedger(s, filtered, openingBalance, closingBalance, dateFrom, dateTo, 'SUPPLIER')},[iconPrint(),'Print Ledger']),
+      el('button',{class:'btn btn-sm', onclick:()=> shareLedgerPdfWhatsApp(s, filtered, openingBalance, closingBalance, dateFrom, dateTo, 'SUPPLIER')},[iconWhatsapp(),'Send PDF on WhatsApp']),
+    ]));
+    if(filterOn){
+      ledgerSection.appendChild(el('div',{class:'spread small muted', style:'padding:4px 0;'},[el('span',{},['Opening Balance']), el('span',{},[fmtMoney(openingBalance)])]));
+    }
+    ledgerSection.appendChild(
+      filtered.length ? el('div',{class:'scroll-x'},[ ledgerTable(filtered) ])
+        : el('div',{class:'empty small'},[filterOn ? 'Is date range mein koi transaction nahi.' : 'Koi transaction nahi.'])
+    );
+    if(filterOn){
+      ledgerSection.appendChild(el('div',{class:'spread small', style:'padding:4px 0;'},[el('b',{},['Closing Balance']), el('b',{},[fmtMoney(closingBalance)])]));
+    }
+  }
+
+  const fromI = el('input',{type:'date'});
+  const toI = el('input',{type:'date'});
+  fromI.addEventListener('change', ()=>{ dateFrom = fromI.value; refreshLedgerSection(); });
+  toI.addEventListener('change', ()=>{ dateTo = toI.value; refreshLedgerSection(); });
+  const clearBtn = el('button',{class:'btn btn-sm btn-ghost', onclick:()=>{ dateFrom=''; dateTo=''; fromI.value=''; toI.value=''; refreshLedgerSection(); }},['Clear']);
+
+  refreshLedgerSection();
+
+  const body = el('div',{class:'stack'},[
+    el('div',{class:'spread'},[ el('div',{},[el('div',{class:'bold'},[s.name]), el('div',{class:'small muted'},[s.mobile])]), el('div',{class:(s.balance>0?'pill pill-warning':'pill pill-success')},[fmtMoney(s.balance||0)]) ]),
+    el('div',{class:'row wrap'},[
+      el('button',{class:'btn btn-sm', onclick:()=>{ closeModal(); openSupplierForm(s); }},[iconEdit(),'Edit']),
+      el('button',{class:'btn btn-sm', onclick:()=>{ closeModal(); openPaySupplierModal(s); }},[iconWallet(),'Pay Supplier']),
+      el('button',{class:'btn btn-sm', onclick:()=>{ const msg='Dear '+s.name+', apka current payable balance '+fmtMoney(s.balance||0)+' hai. — '+App.company.name; window.open(whatsappLink(s.mobile,msg),'_blank'); }},[iconWhatsapp(),'Balance WhatsApp']),
+    ]),
+    el('div',{class:'divider'}),
+    el('div',{class:'bold small'},['Ledger — date-wise check karein']),
+    el('div',{class:'row wrap', style:'align-items:flex-end;gap:8px;'},[
+      el('label',{class:'field', style:'width:150px;'},['From', fromI]),
+      el('label',{class:'field', style:'width:150px;'},['To', toI]),
+      clearBtn,
+    ]),
+    ledgerSection,
+  ]);
+  openModal('Party', body);
+}
+function openPaySupplierModal(sup){
+  let selected = sup;
+  const body = el('div',{class:'stack'});
+  const pickBtn = el('button',{class:'btn btn-block', onclick:()=>openSupplierPicker(s=>{ selected=s; renderSel(); })},[iconSearch(), selected?('Party: '+selected.name):'Select Party']);
+  const selInfo = el('div',{});
+  const dateI = el('input',{type:'date', value: todayISO()});
+  const amtI = el('input',{type:'number', min:'0', step:'any', placeholder:'0.00'});
+  const modeI = el('select',{},[el('option',{value:'CASH'},['Cash']),el('option',{value:'UPI'},['UPI']),el('option',{value:'BANK'},['Bank Transfer']),el('option',{value:'CHEQUE'},['Cheque'])]);
+  const remarksI = el('input',{placeholder:'Optional'});
+  body.appendChild(pickBtn); body.appendChild(selInfo);
+  body.appendChild(el('label',{class:'field'},['Date', dateI]));
+  body.appendChild(el('label',{class:'field'},['Amount Paid', amtI]));
+  body.appendChild(el('label',{class:'field'},['Payment Mode', modeI]));
+  body.appendChild(el('label',{class:'field'},['Remarks', remarksI]));
+  body.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+    if(!selected){ toast('Party select karein.','err'); return; }
+    try{
+      const payout = await DB.paySupplier({supplierId:selected.id, amount:amtI.value, mode:modeI.value, remarks:remarksI.value, date: dateI.value});
+      closeModal(); toast('Payment recorded.','ok');
+      const body2 = el('div',{class:'stack'},[
+        el('div',{},['Payment ', el('b',{},[payout.id]), ' saved.']),
+        modeI.value==='CHEQUE' ? el('button',{class:'btn btn-primary btn-block', onclick:()=>printCheque({payeeName:payout.supplierName, amount:payout.amountPaid, date:payout.date, remarks:'Payment Ref: '+payout.id})},[iconPrint(),'Print Cheque']) : null,
+        el('button',{class:'btn btn-block', onclick:()=>printPayoutReceipt(payout)},[iconPrint(),'Print Voucher']),
+        el('button',{class:'btn btn-block', onclick:()=>sendPayoutWhatsApp(payout)},[iconWhatsapp(),'WhatsApp']),
+      ]);
+      openModal('Payment Saved', body2, {persist:true});
+      renderRoute();
+    }catch(e){ toast(e.message,'err'); }
+  }},['Save Payment']));
+  openModal('Pay Supplier', body);
+  function renderSel(){ pickBtn.lastChild.textContent = 'Party: '+selected.name; selInfo.innerHTML=''; selInfo.appendChild(el('div',{class:'small muted', style:'padding:4px 0;'},['Current Balance (Payable): '+fmtMoney(selected.balance||0)])); }
+  if(selected) renderSel();
 }
 
 /* ---------------- Products ---------------- */
@@ -2328,6 +3044,7 @@ async function viewSettings(root){
   profCard.appendChild(el('div',{class:'grid2'},[mk('website','Website'), mk('gstin','GSTIN (optional)')]));
   profCard.appendChild(mk('pan','PAN Number (GST na ho to invoice par yeh print hoga)'));
   profCard.appendChild(el('div',{class:'grid2'},[mk('invoicePrefix','Invoice Prefix'), mk('productPrefix','Product Code Prefix')]));
+  profCard.appendChild(mk('purchasePrefix','Purchase Bill Prefix'));
   const lowI = el('input',{type:'number', value:c.lowStockDefault||0}); fields.lowStockDefault=lowI;
   profCard.appendChild(el('label',{class:'field'},['Default Low Stock Limit (naye products ke liye)', lowI]));
 
@@ -2662,6 +3379,9 @@ on('#/products', viewProducts);
 on('#/stock', viewStock);
 on('#/payments', viewPayments);
 on('#/sales-register', viewSalesRegister);
+on('#/purchase', viewPurchaseBill);
+on('#/suppliers', viewSuppliers);
+on('#/purchase-register', viewPurchaseRegister);
 on('#/reports', viewDailyReport);
 on('#/settings', viewSettings);
 routes['#/reports/daily'] = viewDailyReport;

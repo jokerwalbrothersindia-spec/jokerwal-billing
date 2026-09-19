@@ -93,6 +93,21 @@ Yeh link hi aapki app hai — isko phone ke browser mein kholein, aur **"Add to 
 
 ---
 
+## Purchase System (Party-wise Purchase Bill, Payment aur Ledger)
+
+Ab app mein ek poora **Purchase side** bhi hai — jab aap kisi party/vendor se maal khareedte hain (ya job-work material lete hain), uska bill banaiye, party ko payment karne par record ho jayega, aur har party ka apna ledger milega.
+
+- **Suppliers / Parties (naya sidebar menu):** Yeh Customers jaisi hi ek alag list hai, lekin un logon ke liye jinhe aap payment karte hain (vendor, raw-material supplier, job-work party). Naam, mobile aur opening balance (jo aap unhe pehle se owe karte hain) daal kar "Add" karein — ya Purchase Bill banate waqt mobile number se naya party apne aap ban jayega.
+- **Purchase Bill (naya sidebar menu):** Bilkul "New Bill" jaisa hi screen hai — Party select/search karein (ya naam-mobile type karein), phir Products list se items add karein (qty x rate). Yeh **stock ko badhata hai** (kyunki maal andar aa raha hai — Sales Bill ke ulta jo stock ghatata hai). Payment Mode Cash/UPI/Credit choose karke "Save Purchase Bill" dabayein — ek **Purchase Voucher** print ho sakta hai.
+  - **Modify Bill / Cancel Bill:** Purchase No daal kar pichla bill edit ya cancel kar sakte hain — stock aur party balance dono automatically sahi ho jayenge.
+- **Party Ledger:** Suppliers list mein kisi party par click karein — poora ledger (kitna maal khareeda, kitna pay kiya, balance) date-range filter ke saath dikhega, aur **Print Ledger** / **Send PDF on WhatsApp** yahan bhi available hai (bilkul customer statement jaisa, sirf label "SUPPLIER" hoga).
+- **Pay Supplier (payment record):** Party detail mein "Pay Supplier" button se payment record karein — Amount, Date, Payment Mode (Cash/UPI/Bank Transfer/**Cheque**) aur Remarks daalein. Save hote hi party ka balance kam ho jata hai aur ledger mein automatically entry ban jati hai.
+- **Cheque Print:** Pay Supplier mein Payment Mode **"Cheque"** choose karein — payment save hone ke baad ek **"Print Cheque"** button aayega jo ek ready-to-print cheque PDF banata hai (Payee Name, Date boxes, Amount in figures + words, signature line). Yeh ek **standard/generic cheque layout** hai — har bank/cheque-book ka size thoda alag hota hai, isliye pehle plain paper par test print karke apni asli cheque book ke upar hold karke check kar lein ki fields sahi jagah aa rahi hain. Agar position thodi idhar-udhar chahiye ho to bata dijiyega, adjust kiya ja sakta hai.
+- **Purchase Register:** Saare purchase bills date-range/status filter ke saath, ek jagah — Sales Register jaisa hi.
+- **Purchase Bill Prefix:** Settings → Company Profile mein "Purchase Bill Prefix" field se purchase bill number ka prefix (default `PUR`) customize kar sakte hain — jaise Invoice/Product prefix.
+
+---
+
 ## Notes
 
 - Yeh Firebase ka **free (Spark) plan** hai — ek chhoti billing shop ke liye yeh limit kabhi khatam nahi hogi (roughly 50,000 reads/day free milte hain).
