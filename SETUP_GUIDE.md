@@ -117,6 +117,20 @@ Ab app mein ek poora **Purchase side** bhi hai — jab aap kisi party/vendor se 
 
 ---
 
+## Product QR Code Labels (Bulk print — fast scan-billing)
+
+Ab har Product ke liye ek **QR code label** print kar sakte hain jo uske Product Code ko encode karta hai — Sale/Purchase Bill screen ka "Product code scan/type karein" box isi code ko scan/Enter se turant pehchan leta hai, isliye label ko item par chipka kar sirf **scan karte hi bill mein item add ho jayega**, typing ki zaroorat nahi — aur shop bhi zyada professional/premium lagegi.
+
+- **Kahan se print karein:**
+  - **Products page** ke top par "Print QR Labels" button — kisi bhi product(s) ko search karke, har ek ki quantity (kitne label chahiye) set karke ek saath batch print kar sakte hain.
+  - **Kisi bhi product ko Edit karke** — "Print QR Label" button se sirf uska label reprint kar sakte hain.
+  - **Stock Entry** mein stock add karne ke turant baad — "Print QR Labels for last-added stock" button us exact quantity ke hisab se labels bana deta hai (jaise 100 pcs aaye to 100 labels).
+  - **Purchase Bill save hone ke baad** — "Print QR Labels (Batch)" button us poore purchase bill ke saare items (jitni quantity aayi thi) ke liye ek hi baar mein saare labels bana deta hai — yehi woh **"ek saath" (batch) option** hai jab bulk mein naya maal/products aaye.
+- Ek hi product ke saare labels ke liye QR code sirf **ek baar generate hota hai** aur baaki copies mein reuse hota hai — isliye 100+ labels bhi jaldi ban jaate hain.
+- Label sheet A4 page par grid mein print hoti hai (company name, QR code, product naam, code aur rate) — printer/plain paper par print karke kaat lein aur item par chipka dein.
+
+---
+
 ## Notes
 
 - Yeh Firebase ka **free (Spark) plan** hai — ek chhoti billing shop ke liye yeh limit kabhi khatam nahi hogi (roughly 50,000 reads/day free milte hain).
