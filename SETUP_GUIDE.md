@@ -140,6 +140,20 @@ Zyada labels ek hi A4 sheet par (32/40/65 wale dense layouts) chote size ke hote
 
 App mein bhi ab yeh guidance "Print QR Labels" popup ke andar dikhti hai, aur outer margins thode aur bada diye hain taaki dense layouts (40/65 per sheet) mein bhi labels printer ke edge-limit se safe rahein.
 
+### Mera label sheet 0-margin/pre-cut sticker sheet hai (labels ke beech border/gap nahi hai)
+
+Agar aapke paas ready-made sticker/label sheet hai jisme labels ek-doosre se bilkul sath (edge-to-edge) chipke hain — beech mein ya sheet ke side mein koi khaali margin ya gap nahi hai (sheet ka apna physical cutting hi har label ka border hai) — to upar wali normal advice (margins + "Fit to Page") is sheet ke liye sahi nahi baithegi, kyunki app ke print kiye hue margin/gap us sheet ke real sticker positions se match nahi karenge.
+
+Isi ke liye **"Print QR Labels" popup mein ek naya checkbox** add kiya gaya hai:
+
+> **"Yeh ek 0-margin / pre-cut sticker sheet hai (labels edge-to-edge, koi gap nahi)"**
+
+- **Checkbox ON karne par:** App labels ko sheet par bilkul edge-to-edge print karta hai — koi margin nahi, labels ke beech koi gap nahi, aur koi cutting-guide border bhi print nahi hota (kyunki sheet ka apna physical cut hi border hai, printed border sirf sticker se misalign hoga).
+- **Print dialog mein is baar ULTA setting chunein:** Checkbox ON hone par popup mein hi guidance dikhegi — "**Actual Size / 100% / No Scaling**" chunein, "**Fit to Page**" **NAHI** — kyunki auto-scale karne se poora grid sticker sheet ke real positions se thoda idhar-udhar (misalign) ho sakta hai.
+- **Checkbox OFF (default) rehne par** — sab kuch pehle jaisa hi hai: normal bordered/margin wali style, aur "Fit to Page"/"Shrink to Printable Area" wali advice — plain A4 paper par print karne ke liye yehi sahi hai.
+
+Matlab ab dono tarah ke label sheet ke liye app kaam karta hai — plain paper (normal style, default) aur ready-made 0-margin sticker sheet (checkbox ON karke) — jab bhi jo sheet available ho, wahi mode chun lein.
+
 ---
 
 ## Purchase Cost vs Selling Rate — Profit & Loss Report

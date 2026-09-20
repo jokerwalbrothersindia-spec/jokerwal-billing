@@ -2078,10 +2078,20 @@ async function generateProductLabelsPdf(items, layout){
   // few mm of edge clipping visibly cuts into the outer row/column of labels
   // — this is what was reported ("40 label par print kiya to cut ho raha
   // hai"). A bigger outer margin here leaves real breathing room for that.
-  const marginX = 8, marginY = 10;
+  //
+  // Some shops instead use ready-made, pre-cut sticker/label sheets where the
+  // labels already run edge-to-edge with zero gap and zero page margin (the
+  // physical die-cut takes care of separating them) — printing OUR usual
+  // margins/gaps on those would misalign every label against its own sticker.
+  // layout.zeroMargin switches to a plain cols x rows grid filling the full
+  // page with no margin, no gap, and no printed cut-guide border (which would
+  // never line up with the sticker's real edge anyway) — the normal bordered/
+  // gapped style stays the default so plain-paper printing is unaffected.
+  const zeroMargin = !!(layout && layout.zeroMargin);
+  const marginX = zeroMargin ? 0 : 8, marginY = zeroMargin ? 0 : 10;
   const cols = Math.max(1, Math.min(8, (layout&&layout.cols)||3));
   const rows = Math.max(1, Math.min(15, (layout&&layout.rows)||7));
-  const gapX = 2.5, gapY = 2.5;
+  const gapX = zeroMargin ? 0 : 2.5, gapY = zeroMargin ? 0 : 2.5;
   const cellW = (pageW - marginX*2 - gapX*(cols-1)) / cols;
   const cellH = (pageH - marginY*2 - gapY*(rows-1)) / rows;
 
@@ -2107,8 +2117,10 @@ async function generateProductLabelsPdf(items, layout){
   labels.forEach((it, idx)=>{
     const x = marginX + col*(cellW+gapX);
     const y = marginY + row*(cellH+gapY);
-    doc.setDrawColor(205,205,205);
-    doc.rect(x, y, cellW, cellH, 'D');
+    if(!zeroMargin){
+      doc.setDrawColor(205,205,205);
+      doc.rect(x, y, cellW, cellH, 'D');
+    }
     // Company name banner across the top (branding — "shop premium lagegi").
     doc.setFont('helvetica','bold'); doc.setFontSize(Math.max(5, Math.min(6.3, cellW*0.22))); doc.setTextColor(120,90,30);
     doc.text(companyName, x+cellW/2, y+headerH, {align:'center'});
@@ -2159,7 +2171,19 @@ function openPrintLabelsModal(initialItems){
   const layoutSel = el('select',{}, LABEL_LAYOUT_PRESETS.map(p=>el('option',{value:p.value},[p.label])));
   layoutSel.value = '3x7';
   body.appendChild(el('label',{class:'field'},['A4 Sheet par kitne labels', layoutSel]));
-  body.appendChild(el('div',{class:'small muted'},['Zyada labels (32/40/65) ek sheet par chote size ke hote hain, isliye print karte waqt printer dialog mein Paper Size = A4 rakhein aur Scale/Fit option mein "Fit to Page" ya "Shrink to Printable Area" chunein ("Actual Size"/100% mat rakhein) — nahi to printer ke edge-margin ki wajah se bahar wali row/column ke labels thode cut ho sakte hain.']));
+
+  const zeroMarginToggle = el('input',{type:'checkbox'});
+  const zeroMarginNote = el('div',{class:'tiny muted'});
+  function updateZeroMarginNote(){
+    zeroMarginNote.textContent = zeroMarginToggle.checked
+      ? 'Is mode mein labels bilkul edge-to-edge print honge — koi gap ya page margin nahi, aur koi cutting-guide border bhi nahi (sticker sheet ka apna physical cut hi border hai). Print dialog mein iss baar "Actual Size / 100% / No Scaling" chunein — "Fit to Page" NAHI, warna print sticker ke labels se thoda idhar-udhar (misalign) ho sakta hai.'
+      : 'Zyada labels (32/40/65) ek sheet par chote size ke hote hain, isliye print karte waqt printer dialog mein Paper Size = A4 rakhein aur Scale/Fit option mein "Fit to Page" ya "Shrink to Printable Area" chunein ("Actual Size"/100% mat rakhein) — nahi to printer ke edge-margin ki wajah se bahar wali row/column ke labels thode cut ho sakte hain.';
+  }
+  zeroMarginToggle.addEventListener('change', updateZeroMarginNote);
+  updateZeroMarginNote();
+  body.appendChild(el('label',{class:'row', style:'gap:8px; cursor:pointer;'},[zeroMarginToggle, el('span',{},['Yeh ek 0-margin / pre-cut sticker sheet hai (labels edge-to-edge, koi gap nahi)'])]));
+  body.appendChild(zeroMarginNote);
+
   const listWrap = el('div',{class:'stack', style:'gap:8px;'});
   body.appendChild(listWrap);
   body.appendChild(el('button',{class:'btn btn-sm', onclick:()=>openProductPicker(p=>{ rows.push({productCode:p.productCode, name:p.name, rate:p.rate, qty:1}); renderRows(); })},[iconPlus(),'Add Product']));
@@ -2167,7 +2191,7 @@ function openPrintLabelsModal(initialItems){
     const valid = rows.filter(r=>r.qty>0);
     if(!valid.length){ toast('Kam se kam ek product aur quantity daalein.','err'); return; }
     const [c,r] = layoutSel.value.split('x').map(Number);
-    printProductLabels(valid, {cols:c, rows:r});
+    printProductLabels(valid, {cols:c, rows:r, zeroMargin: zeroMarginToggle.checked});
   }},[iconPrint(),'Print QR Labels']));
   function renderRows(){
     listWrap.innerHTML='';
