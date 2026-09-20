@@ -131,6 +131,15 @@ Ab har Product ke liye ek **QR code label** print kar sakte hain jo uske Product
 - Ek hi product ke saare labels ke liye QR code sirf **ek baar generate hota hai** aur baaki copies mein reuse hota hai — isliye 100+ labels bhi jaldi ban jaate hain.
 - Label sheet A4 page par grid mein print hoti hai — printer/plain paper par print karke kaat lein aur item par chipka dein.
 
+### Print karte waqt labels edge se cut ho rahe hain? (jaise 40/65-per-sheet layout mein)
+
+Zyada labels ek hi A4 sheet par (32/40/65 wale dense layouts) chote size ke hote hain, isliye printer ka apna thoda sa "edge margin" (jahan koi bhi printer print nahi kar sakta, aam taur par 4-5mm) in chote labels ko cut kar sakta hai. Do cheezein kar dein:
+
+1. **Print dialog mein Paper Size hamesha "A4" par set karein** (kabhi "Letter" na ho — Letter A4 se chota hota hai aur neeche ki row cut kar dega).
+2. **Scale/Fit option mein "Fit to Page" ya "Shrink to Printable Area" chunein — "Actual Size" ya "100%" NA chunein.** Yeh setting printer ko poori sheet apne aap thoda adjust karke print karne deti hai, taaki koi bhi label edge se cut na ho.
+
+App mein bhi ab yeh guidance "Print QR Labels" popup ke andar dikhti hai, aur outer margins thode aur bada diye hain taaki dense layouts (40/65 per sheet) mein bhi labels printer ke edge-limit se safe rahein.
+
 ---
 
 ## Purchase Cost vs Selling Rate — Profit & Loss Report

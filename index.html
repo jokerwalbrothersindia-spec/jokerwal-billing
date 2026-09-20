@@ -2072,7 +2072,13 @@ async function generateProductLabelsPdf(items, layout){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'mm', format:'a4', orientation:'portrait'});
   const pageW = 210, pageH = 297;
-  const marginX = 6, marginY = 8;
+  // Most home/office printers cannot physically print all the way to the paper
+  // edge (their "unprintable margin" is commonly 4-5mm). At dense layouts
+  // (32/40/65 labels per sheet) each label cell is small enough that even a
+  // few mm of edge clipping visibly cuts into the outer row/column of labels
+  // — this is what was reported ("40 label par print kiya to cut ho raha
+  // hai"). A bigger outer margin here leaves real breathing room for that.
+  const marginX = 8, marginY = 10;
   const cols = Math.max(1, Math.min(8, (layout&&layout.cols)||3));
   const rows = Math.max(1, Math.min(15, (layout&&layout.rows)||7));
   const gapX = 2.5, gapY = 2.5;
@@ -2153,6 +2159,7 @@ function openPrintLabelsModal(initialItems){
   const layoutSel = el('select',{}, LABEL_LAYOUT_PRESETS.map(p=>el('option',{value:p.value},[p.label])));
   layoutSel.value = '3x7';
   body.appendChild(el('label',{class:'field'},['A4 Sheet par kitne labels', layoutSel]));
+  body.appendChild(el('div',{class:'small muted'},['Zyada labels (32/40/65) ek sheet par chote size ke hote hain, isliye print karte waqt printer dialog mein Paper Size = A4 rakhein aur Scale/Fit option mein "Fit to Page" ya "Shrink to Printable Area" chunein ("Actual Size"/100% mat rakhein) — nahi to printer ke edge-margin ki wajah se bahar wali row/column ke labels thode cut ho sakte hain.']));
   const listWrap = el('div',{class:'stack', style:'gap:8px;'});
   body.appendChild(listWrap);
   body.appendChild(el('button',{class:'btn btn-sm', onclick:()=>openProductPicker(p=>{ rows.push({productCode:p.productCode, name:p.name, rate:p.rate, qty:1}); renderRows(); })},[iconPlus(),'Add Product']));
