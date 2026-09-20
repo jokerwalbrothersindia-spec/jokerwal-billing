@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -18,41 +18,66 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f5f3ee; --surface:#ffffff; --surface-2:#faf8f3; --border:#e6e1d4;
-  --text:#211d16; --text-muted:#736b5a; --text-faint:#a49a84;
-  --accent:#a2732c; --accent-ink:#5c4014; --accent-soft:#f1e3c8; --accent-contrast:#fffaf0;
-  --success:#2f7d54; --success-soft:#e1f0e6; --warning:#a5680c; --warning-soft:#faedd2;
+  --bg:#f7f4ec; --surface:#ffffff; --surface-2:#faf7ef; --surface-3:#f2ead6; --border:#e6ddc6;
+  --text:#221c12; --text-muted:#6f6650; --text-faint:#a89b7c;
+  --accent:#b07f34; --accent-2:#8a5a1e; --accent-ink:#4a330f; --accent-soft:#f2e4c4; --accent-contrast:#fffaf0;
+  --tint-bg:var(--accent-soft); --tint-fg:var(--accent-ink);
+  --success:#28825a; --success-soft:#dcf1e4; --warning:#a5680c; --warning-soft:#faedd2;
   --danger:#b5402f; --danger-soft:#f8e2de; --credit:#2f6b8a; --credit-soft:#e2eef3;
-  --shadow: 0 1px 2px rgba(30,24,10,.06), 0 6px 20px -8px rgba(30,24,10,.12);
+  --shadow: 0 1px 2px rgba(30,24,10,.06), 0 10px 28px -10px rgba(30,24,10,.16);
+  --glow: 0 0 20px -6px rgba(176,127,52,.45);
+  --radial-glow: rgba(176,127,52,.09);
+  --scrollbar-thumb: rgba(74,51,15,.22);
   --radius:14px; --radius-sm:9px;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#171410; --surface:#211d16; --surface-2:#292319; --border:#3a3226;
-    --text:#f2ede1; --text-muted:#b3a891; --text-faint:#7d735d;
-    --accent:#d9a24b; --accent-ink:#2a1d0a; --accent-soft:#3a2d15; --accent-contrast:#241a06;
-    --success:#5cbf8b; --success-soft:#193226; --warning:#e0ab4a; --warning-soft:#3a2c10;
-    --danger:#e2796a; --danger-soft:#3a201c; --credit:#7cc0e0; --credit-soft:#132a34;
-    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 24px -8px rgba(0,0,0,.5);
+    --bg:#0e0c08; --surface:#171209; --surface-2:#1e180d; --surface-3:#292014; --border:#362b17;
+    --text:#f4eddb; --text-muted:#b7a984; --text-faint:#7d7156;
+    --accent:#e8b955; --accent-2:#c88f34; --accent-ink:#1c1406; --accent-soft:#3d2f16; --accent-contrast:#1c1406;
+    --tint-bg:var(--accent-soft); --tint-fg:var(--accent);
+    --success:#5ecd94; --success-soft:#153322; --warning:#e8b255; --warning-soft:#3a2c10;
+    --danger:#e88b7a; --danger-soft:#3a1e19; --credit:#82c6e8; --credit-soft:#122938;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 36px -12px rgba(0,0,0,.62);
+    --glow: 0 0 26px -4px rgba(232,185,85,.4);
+    --radial-glow: rgba(232,185,85,.10);
+    --scrollbar-thumb: rgba(232,185,85,.18);
   }
 }
 :root[data-theme="dark"]{
-  --bg:#171410; --surface:#211d16; --surface-2:#292319; --border:#3a3226;
-  --text:#f2ede1; --text-muted:#b3a891; --text-faint:#7d735d;
-  --accent:#d9a24b; --accent-ink:#2a1d0a; --accent-soft:#3a2d15; --accent-contrast:#241a06;
-  --success:#5cbf8b; --success-soft:#193226; --warning:#e0ab4a; --warning-soft:#3a2c10;
-  --danger:#e2796a; --danger-soft:#3a201c; --credit:#7cc0e0; --credit-soft:#132a34;
-  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 24px -8px rgba(0,0,0,.5);
+  --bg:#0e0c08; --surface:#171209; --surface-2:#1e180d; --surface-3:#292014; --border:#362b17;
+  --text:#f4eddb; --text-muted:#b7a984; --text-faint:#7d7156;
+  --accent:#e8b955; --accent-2:#c88f34; --accent-ink:#1c1406; --accent-soft:#3d2f16; --accent-contrast:#1c1406;
+  --tint-bg:var(--accent-soft); --tint-fg:var(--accent);
+  --success:#5ecd94; --success-soft:#153322; --warning:#e8b255; --warning-soft:#3a2c10;
+  --danger:#e88b7a; --danger-soft:#3a1e19; --credit:#82c6e8; --credit-soft:#122938;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 36px -12px rgba(0,0,0,.62);
+  --glow: 0 0 26px -4px rgba(232,185,85,.4);
+  --radial-glow: rgba(232,185,85,.10);
+  --scrollbar-thumb: rgba(232,185,85,.18);
 }
 *{box-sizing:border-box;}
-body{background:var(--bg); color:var(--text); font-family:'Inter',system-ui,sans-serif;}
+html{background:var(--bg);}
+body{
+  background:
+    radial-gradient(1000px 520px at 12% -8%, var(--radial-glow), transparent 60%),
+    radial-gradient(800px 500px at 110% 10%, var(--radial-glow), transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--text); font-family:'Inter',system-ui,sans-serif;
+}
 .brandfont{font-family:'Fraunces',Georgia,serif;}
 h1,h2,h3{font-family:'Fraunces',Georgia,serif; text-wrap:balance; margin:0;}
 button,input,select,textarea{font-family:inherit; font-size:inherit; color:inherit;}
 ::selection{background:var(--accent-soft);}
 .num{font-variant-numeric:tabular-nums;}
 a{color:var(--credit);}
+
+/* Premium scrollbar (webkit) — degrades gracefully elsewhere */
+::-webkit-scrollbar{width:10px; height:10px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb); border-radius:8px; border:2px solid transparent; background-clip:padding-box;}
 
 #app{min-height:100%; display:flex; flex-direction:column;}
 
@@ -61,28 +86,39 @@ a{color:var(--credit);}
   position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
   background:var(--surface); border-bottom:1px solid var(--border);
   display:flex; align-items:center; gap:10px; padding:10px 14px;
+  position:relative;
+}
+.topbar::after{
+  content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px; pointer-events:none;
+  background:linear-gradient(90deg, transparent 4%, var(--accent) 45%, var(--accent-2) 55%, transparent 96%);
+  opacity:.6;
 }
 .topbar .brand{display:flex; align-items:center; gap:9px; min-width:0; flex:1;}
 .brand-badge{
-  width:34px; height:34px; border-radius:9px; background:linear-gradient(155deg,var(--accent),var(--accent-ink));
-  color:var(--accent-contrast); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex:none;
-  font-family:'Fraunces',serif;
+  width:36px; height:36px; border-radius:10px; background:linear-gradient(155deg,var(--accent),var(--accent-2));
+  color:var(--accent-ink); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; flex:none;
+  font-family:'Fraunces',serif; position:relative; overflow:hidden;
+  box-shadow:0 4px 14px -5px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.4);
 }
-.brand-name{font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.brand-badge::after{
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(120deg, rgba(255,255,255,.35) 0%, transparent 35%);
+}
+.brand-name{font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:.005em;}
 .brand-sub{font-size:11.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .icon-btn{
   width:36px; height:36px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2);
   display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;
-  transition:transform .12s ease, box-shadow .15s ease, background-color .15s ease;
+  transition:transform .12s ease, box-shadow .15s ease, background-color .15s ease, border-color .15s ease;
 }
-@media (hover:hover){ .icon-btn:hover{background:var(--accent-soft); box-shadow:0 3px 10px -4px rgba(30,24,10,.25);} }
+@media (hover:hover){ .icon-btn:hover{background:var(--tint-bg); border-color:var(--accent); box-shadow:0 4px 14px -5px rgba(30,24,10,.3);} }
 .icon-btn:active{transform:scale(.94);}
 
 /* ---------- Layout shell ---------- */
 .shell{display:flex; flex:1; min-height:0;}
 .sidenav{
-  width:216px; flex:none; border-right:1px solid var(--border); background:var(--surface);
-  padding:14px 10px; display:none; flex-direction:column; gap:2px;
+  width:220px; flex:none; border-right:1px solid var(--border); background:var(--surface);
+  padding:16px 12px; display:none; flex-direction:column; gap:3px;
 }
 .main{flex:1; min-width:0; padding:16px 16px 96px; max-width:980px; margin:0 auto; width:100%;}
 @media (min-width:860px){
@@ -91,20 +127,31 @@ a{color:var(--credit);}
   .bottomnav{display:none !important;}
 }
 .navitem{
-  display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px; cursor:pointer;
+  display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; cursor:pointer;
   color:var(--text-muted); font-size:13.5px; font-weight:500; border:1px solid transparent;
+  transition:background-color .15s ease, color .15s ease, box-shadow .15s ease;
 }
-.navitem svg{flex:none; opacity:.85;}
-.navitem.active{background:var(--accent-soft); color:var(--accent-ink); font-weight:700;}
-.navitem:hover:not(.active){background:var(--surface-2);}
+.navitem svg{flex:none; opacity:.8; transition:opacity .15s ease;}
+.navitem:hover:not(.active){background:var(--surface-2); color:var(--text);}
+.navitem:hover:not(.active) svg{opacity:1;}
+.navitem.active{
+  background:var(--tint-bg); color:var(--tint-fg); font-weight:700;
+  box-shadow: inset 3px 0 0 var(--accent), 0 0 18px -8px var(--accent);
+}
+.navitem.active svg{opacity:1;}
 .navgroup-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-faint); padding:14px 11px 4px;}
 
 .bottomnav{
   position:sticky; bottom:0; z-index:20; background:var(--surface); border-top:1px solid var(--border);
   display:flex; padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));
 }
-.bottomnav .navitem{flex:1; flex-direction:column; gap:3px; text-align:center; font-size:10.5px; padding:6px 2px; border-radius:10px;}
-.bottomnav .navitem.active{background:transparent; color:var(--accent-ink);}
+.bottomnav .navitem{flex:1; flex-direction:column; gap:3px; text-align:center; font-size:10.5px; padding:6px 2px; border-radius:10px; position:relative;}
+.bottomnav .navitem.active{background:transparent; color:var(--tint-fg); box-shadow:none;}
+.bottomnav .navitem.active::before{
+  content:''; position:absolute; top:-6px; left:50%; transform:translateX(-50%);
+  width:18px; height:3px; border-radius:2px; background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  box-shadow:0 0 8px -1px var(--accent);
+}
 .bottomnav svg{width:20px; height:20px;}
 
 /* ---------- Primitives ---------- */
@@ -131,8 +178,9 @@ label.field{display:flex; flex-direction:column; gap:5px; font-size:12.5px; colo
 input,select,textarea{
   background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:9px 11px;
   color:var(--text); width:100%; outline:none;
+  transition:border-color .15s ease, box-shadow .15s ease;
 }
-input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+input:focus,select:focus,textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft);}
 textarea{resize:vertical; min-height:64px;}
 .inline-input{width:auto;}
 
@@ -143,11 +191,15 @@ textarea{resize:vertical; min-height:64px;}
 }
 @media (hover:hover){
   .btn:hover{transform:translateY(-1px); box-shadow:0 4px 14px -4px rgba(30,24,10,.22); filter:brightness(1.04);}
+  .btn-primary:hover{box-shadow:0 8px 24px -8px var(--accent-2), inset 0 1px 0 rgba(255,255,255,.3); filter:brightness(1.06); transform:translateY(-1px);}
   .btn-ghost:hover{background:var(--surface-2); box-shadow:none; filter:none;}
   .btn-danger:hover{background:var(--danger-soft);}
 }
 .btn:active{transform:scale(.98); box-shadow:none; filter:none;}
-.btn-primary{background:var(--accent); border-color:var(--accent); color:var(--accent-contrast);}
+.btn-primary{
+  background:linear-gradient(135deg, var(--accent), var(--accent-2)); border-color:var(--accent-2); color:var(--accent-contrast);
+  box-shadow:0 4px 16px -6px var(--accent-2), inset 0 1px 0 rgba(255,255,255,.22);
+}
 .btn-success{background:var(--success); border-color:var(--success); color:#fff;}
 .btn-danger{background:transparent; border-color:var(--danger); color:var(--danger);}
 .btn-ghost{background:transparent; border-color:transparent;}
@@ -170,15 +222,36 @@ tr:last-child td{border-bottom:none;}
 .right{text-align:right;}
 .center{text-align:center;}
 
-.stat-tile{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; display:flex; flex-direction:column; gap:6px;}
+.stat-tile{
+  background:linear-gradient(180deg, var(--surface), var(--surface-2));
+  border:1px solid var(--border); border-left:3px solid var(--tone, var(--accent));
+  border-radius:var(--radius); padding:14px; display:flex; flex-direction:column; gap:6px;
+  box-shadow:var(--shadow); transition:transform .15s ease, box-shadow .15s ease;
+}
+@media (hover:hover){ .stat-tile:hover{transform:translateY(-2px); box-shadow:var(--shadow), 0 0 0 1px var(--tone, var(--accent)) inset;} }
 .stat-num{font-size:21px; font-weight:700; font-family:'Fraunces',serif;}
 .stat-label{font-size:11.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;}
 
-.modal-backdrop{position:fixed; inset:0; background:rgba(20,16,8,.45); z-index:100; display:flex; align-items:flex-end; justify-content:center;}
+.modal-backdrop{
+  position:fixed; inset:0; background:rgba(12,9,4,.55); z-index:100; display:flex; align-items:flex-end; justify-content:center;
+  backdrop-filter:blur(3px) saturate(1.1); -webkit-backdrop-filter:blur(3px) saturate(1.1);
+  animation:jbFadeIn .18s ease both;
+}
 @media (min-width:640px){.modal-backdrop{align-items:center;}}
-.modal{background:var(--surface); width:100%; max-width:480px; max-height:88vh; overflow-y:auto; border-radius:18px 18px 0 0; box-shadow:0 -8px 30px rgba(0,0,0,.25); padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));}
+.modal{
+  background:var(--surface); width:100%; max-width:480px; max-height:88vh; overflow-y:auto; border-radius:18px 18px 0 0;
+  box-shadow:0 -10px 40px rgba(0,0,0,.35), 0 0 0 1px var(--border);
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));
+  position:relative; animation:jbSlideUp .22s cubic-bezier(.2,.8,.2,1) both;
+}
+.modal::before{
+  content:''; position:absolute; top:0; left:16px; right:16px; height:2px; border-radius:2px;
+  background:linear-gradient(90deg, transparent, var(--accent), transparent); opacity:.7;
+}
 @media (min-width:640px){.modal{border-radius:16px;}}
 .modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+@keyframes jbFadeIn{from{opacity:0;} to{opacity:1;}}
+@keyframes jbSlideUp{from{opacity:0; transform:translateY(18px);} to{opacity:1; transform:translateY(0);}}
 
 .empty{padding:34px 14px; text-align:center; color:var(--text-muted);}
 .empty svg{opacity:.4; margin-bottom:8px;}
@@ -196,7 +269,7 @@ tr:last-child td{border-bottom:none;}
 
 .bar-chart{display:flex; align-items:flex-end; gap:6px; height:110px; padding-top:6px;}
 .bar-chart .bar-col{flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; justify-content:flex-end; height:100%;}
-.bar-chart .bar{width:100%; max-width:26px; background:var(--accent); border-radius:5px 5px 2px 2px; min-height:2px;}
+.bar-chart .bar{width:100%; max-width:26px; background:linear-gradient(180deg, var(--accent), var(--accent-2)); border-radius:5px 5px 2px 2px; min-height:2px; box-shadow:0 0 10px -3px var(--accent);}
 .bar-chart .bar-label{font-size:9.5px; color:var(--text-faint); white-space:nowrap;}
 
 .searchbox{position:relative;}
@@ -208,11 +281,18 @@ tr:last-child td{border-bottom:none;}
 .item-row .amt{font-size:12.5px; font-weight:600; text-align:right; padding-right:4px;}
 
 .linklike{background:none; border:none; padding:0; color:var(--credit); font-weight:600; cursor:pointer; font-size:inherit;}
-.list-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 4px; border-top:1px solid var(--border); cursor:pointer; margin:0 -8px; padding-left:8px; padding-right:8px; border-radius:8px; transition:background-color .15s ease;}
-@media (hover:hover){ .list-row:hover{background:var(--surface-2);} }
+.list-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 8px; border-top:1px solid var(--border);
+  cursor:pointer; margin:0 -8px; border-radius:8px; transition:background-color .15s ease, transform .12s ease;
+}
+@media (hover:hover){ .list-row:hover{background:var(--surface-2); transform:translateX(2px);} }
 .list-row:first-child{border-top:none;}
-.list-row:active{background:var(--surface-2);}
-.avatar{width:36px; height:36px; border-radius:10px; background:var(--accent-soft); color:var(--accent-ink); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex:none;}
+.list-row:active{background:var(--surface-2); transform:scale(.997);}
+.avatar{
+  width:36px; height:36px; border-radius:10px; background:linear-gradient(155deg, var(--tint-bg), var(--surface-2));
+  color:var(--tint-fg); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex:none;
+  box-shadow:inset 0 0 0 1px var(--border);
+}
 
 .print-sheet{display:none;}
 @media print{
@@ -230,10 +310,16 @@ tr:last-child td{border-bottom:none;}
 [hidden]{display:none !important;}
 .scanline{display:flex; gap:8px;}
 .scanline input{flex:1;}
-.lock-screen{min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:24px; background:var(--bg);}
+.lock-screen{
+  min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:24px;
+  background:
+    radial-gradient(900px 480px at 20% -10%, var(--radial-glow), transparent 60%),
+    radial-gradient(700px 460px at 100% 100%, var(--radial-glow), transparent 55%),
+    var(--bg);
+}
 .pin-dots{display:flex; gap:12px; justify-content:center; margin:18px 0;}
-.pin-dot{width:14px; height:14px; border-radius:50%; border:2px solid var(--border);}
-.pin-dot.filled{background:var(--accent); border-color:var(--accent);}
+.pin-dot{width:14px; height:14px; border-radius:50%; border:2px solid var(--border); transition:background-color .15s ease, box-shadow .15s ease;}
+.pin-dot.filled{background:linear-gradient(155deg,var(--accent),var(--accent-2)); border-color:var(--accent); box-shadow:0 0 10px -2px var(--accent);}
 .keypad{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:260px; margin:0 auto;}
 .keypad button{padding:16px; font-size:18px; border-radius:12px;}
 </style>
@@ -306,6 +392,32 @@ const fmtDate = (iso)=>{ if(!iso) return ''; const [y,m,d]=iso.split('-'); if(!d
 const fmtDateTime = (iso)=>{ if(!iso) return ''; const d = new Date(iso); if(isNaN(d)) return iso; return d.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); };
 const monthLabel = (ym)=>{ const [y,m]=ym.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('en-IN',{month:'short',year:'numeric'}); };
 function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+// Wraps a list-view's async `refresh()` so a failed Firestore read (a network
+// blip, a transient offline-cache miss, etc.) shows a clear "connection
+// problem, tap to retry" message inside that view's own container instead of
+// silently leaving it blank — which is what used to happen: `refresh()` was
+// called without `await` at the bottom of each view function, so if it threw,
+// the rejection fired after the view's own try/catch in renderRoute() had
+// already returned, and the error vanished with nothing shown on screen. The
+// list looked like it had "disappeared", and reloading the page (a fresh
+// renderRoute() call, a fresh Firestore read) usually succeeded, which is
+// exactly the "gayab ho jata hai, refresh karne par wapas aa jata hai" pattern.
+function guardedRefresh(fn, container){
+  const wrapped = async (...args)=>{
+    try{ await fn(...args); }
+    catch(e){
+      console.error(e);
+      container.innerHTML='';
+      container.appendChild(el('div',{class:'empty', style:'color:var(--danger);'},[
+        el('div',{},['Connection mein problem aa gayi — data load nahi ho paya.']),
+        el('div',{class:'tiny muted', style:'margin-top:4px;'},[String(e && e.message || e)]),
+        el('button',{class:'btn btn-sm', style:'margin-top:8px;', onclick:()=>wrapped(...args)},['Dobara Try Karein']),
+      ]));
+    }
+  };
+  return wrapped;
+}
 
 function toast(msg, kind){
   const root = $('#toast-root');
@@ -493,7 +605,7 @@ async function switchCompany(companyId){
   const DEFAULT_PROFILE = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
     mobile:'', email:'', website:'', gstin:'', pan:'', invoicePrefix:'INV', productPrefix:'PRD', purchasePrefix:'PUR', lowStockDefault:5, pin:'',
     gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', invoiceTerms:'', logoDataUrl:'', upiId:'',
-    headerColor:'#a2732c', footerColor:'#a2732c', logoSizeMm:16};
+    headerColor:'#a2732c', footerColor:'#a2732c', logoSizeMm:16, showWatermark:true};
   let profile = await App.store.get('settings','profile');
   if(!profile){
     profile = Object.assign({}, DEFAULT_PROFILE);
@@ -1298,7 +1410,10 @@ async function generateInvoicePdf(invoice, items){
     }catch(e){}
   }
   function paintWatermark(){
-    if(!c.logoDataUrl) return;
+    // Watermark is opt-out: on by default when a logo exists (existing
+    // behaviour), but Settings > Invoice Customization has a toggle to turn
+    // it off so the printed sheet comes out plain even with a logo set.
+    if(!c.logoDataUrl || c.showWatermark===false) return;
     try{
       const boxSize = 130;
       let wmW = boxSize, wmH = boxSize;
@@ -1538,6 +1653,21 @@ function printInvoice(invoice, items){
     window.open(doc.output('bloburl'), '_blank');
   }).catch(e=>{ toast(e.message,'err'); });
 }
+// Shows a clear, persistent modal (never a transient toast) explaining that
+// this device/browser can't hand a file straight to WhatsApp from a website —
+// only the native phone Share Sheet can do that (see below) — so the PDF has
+// been downloaded instead and must be attached by hand. A transient toast
+// combined with an immediately-opened WhatsApp tab made it look like nothing
+// had happened beyond "just a message", which is exactly what was reported.
+function openManualAttachPdfModal(mobile, filename, msg){
+  const body = el('div',{class:'stack'},[
+    el('div',{},['PDF file (', el('b',{},[filename]), ') aapke device par download ho gayi hai.']),
+    el('div',{class:'small muted'},['Is phone/browser mein website se seedha WhatsApp par PDF attach karke bhejna support nahi hai — yeh ek phone/browser ki limitation hai. Neeche "WhatsApp Kholein" dabayein, phir waha 📎 (Attach) se abhi downloaded hui PDF file chunkar bhej dein.']),
+    el('button',{class:'btn btn-primary btn-block', onclick:()=>{ closeModal(); window.open(whatsappLink(mobile, msg), '_blank'); }},[iconWhatsapp(),'WhatsApp Kholein']),
+    el('button',{class:'btn btn-block', onclick:closeModal},['Band Karein']),
+  ]);
+  openModal('PDF Download Ho Gayi', body, {persist:true});
+}
 async function shareInvoicePdfWhatsApp(invoice, items){
   if(!invoice.mobile){ toast('Mobile number nahi hai.','err'); return; }
   const msg = 'Dear '+invoice.customerName+',\n\nThank you for shopping with '+App.company.name+'.\n'+
@@ -1545,25 +1675,31 @@ async function shareInvoicePdfWhatsApp(invoice, items){
     'Thank you for your valuable purchase.';
   let doc;
   try{ doc = await generateInvoicePdf(invoice, items); }
-  catch(e){ toast(e.message,'err'); window.open(whatsappLink(invoice.mobile, msg), '_blank'); return; }
+  catch(e){ toast(e.message,'err'); return; }
   const filename = 'Invoice_'+invoice.invoiceNo.replace(/[^a-z0-9]+/gi,'_')+'.pdf';
   const blob = doc.output('blob');
   try{
     const file = new File([blob], filename, {type:'application/pdf'});
     if(navigator.canShare && navigator.canShare({files:[file]})){
       await navigator.share({files:[file], title:filename, text:msg});
-      toast('WhatsApp mein PDF ke saath share karein.','ok');
+      toast('Share ho gaya.','ok');
       return;
     }
-  }catch(e){ /* user cancelled share sheet, or unsupported — fall through */ }
-  // Fallback: download the PDF, then open WhatsApp text chat so it can be attached manually.
+  }catch(e){
+    // User themselves tapped "Cancel"/back on the native share sheet — respect
+    // that and stop, instead of forcing a download + WhatsApp popup on them.
+    if(e && e.name==='AbortError') return;
+    /* real failure or Web Share unsupported here — fall through to the manual-attach flow below */
+  }
+  // Fallback: this device/browser has no Web Share (files) support at all, so
+  // there is genuinely no way for a website to hand WhatsApp a file directly —
+  // download the PDF and walk the user through attaching it by hand.
   try{
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 4000);
   }catch(e){}
-  toast('PDF download ho gaya — WhatsApp chat mein manually attach kar dein (yeh phone ka feature hai, apne aap attach nahi ho sakta).');
-  window.open(whatsappLink(invoice.mobile, msg), '_blank');
+  openManualAttachPdfModal(invoice.mobile, filename, msg);
 }
 function sendInvoiceWhatsApp(invoice, items){
   if(items){ shareInvoicePdfWhatsApp(invoice, items); return; }
@@ -1610,7 +1746,10 @@ async function generateLedgerPdf(customer, filtered, openingBalance, closingBala
     }catch(e){}
   }
   function paintWatermark(){
-    if(!c.logoDataUrl) return;
+    // Watermark is opt-out: on by default when a logo exists (existing
+    // behaviour), but Settings > Invoice Customization has a toggle to turn
+    // it off so the printed sheet comes out plain even with a logo set.
+    if(!c.logoDataUrl || c.showWatermark===false) return;
     try{
       const boxSize = 130; let wmW=boxSize, wmH=boxSize;
       if(wmAspect>1) wmH = boxSize/wmAspect; else wmW = boxSize*wmAspect;
@@ -1759,24 +1898,25 @@ async function shareLedgerPdfWhatsApp(customer, filtered, openingBalance, closin
   const msg = 'Dear '+customer.name+',\n\nApka account statement attached hai.\nClosing Balance: '+fmtMoney(closingBalance)+'\n\n— '+App.company.name;
   let doc;
   try{ doc = await generateLedgerPdf(customer, filtered, openingBalance, closingBalance, dateFrom, dateTo, partyLabel); }
-  catch(e){ toast(e.message,'err'); window.open(whatsappLink(customer.mobile, msg), '_blank'); return; }
+  catch(e){ toast(e.message,'err'); return; }
   const filename = 'Statement_'+String(customer.name||customer.id).replace(/[^a-z0-9]+/gi,'_')+'.pdf';
   const blob = doc.output('blob');
   try{
     const file = new File([blob], filename, {type:'application/pdf'});
     if(navigator.canShare && navigator.canShare({files:[file]})){
       await navigator.share({files:[file], title:filename, text:msg});
-      toast('WhatsApp mein PDF ke saath share karein.','ok');
+      toast('Share ho gaya.','ok');
       return;
     }
-  }catch(e){ /* user cancelled share sheet, or unsupported — fall through */ }
+  }catch(e){
+    if(e && e.name==='AbortError') return;
+  }
   try{
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 4000);
   }catch(e){}
-  toast('PDF download ho gaya — WhatsApp chat mein manually attach kar dein (yeh phone ka feature hai, apne aap attach nahi ho sakta).');
-  window.open(whatsappLink(customer.mobile, msg), '_blank');
+  openManualAttachPdfModal(customer.mobile, filename, msg);
 }
 
 function printReceipt(payment){
@@ -2092,7 +2232,11 @@ async function viewDashboard(root){
 }
 function statTile(label,val,tone){
   const toneColor = tone==='success'?'var(--success)':tone==='warning'?'var(--warning)':tone==='danger'?'var(--danger)':'var(--text)';
-  return el('div',{class:'stat-tile'},[ el('div',{class:'stat-num num', style:'color:'+toneColor},[val]), el('div',{class:'stat-label'},[label]) ]);
+  // A separate accent-bar color (--tone custom property, read by .stat-tile's CSS
+  // border-left): 'neutral'/untoned tiles still get a premium gold accent bar even
+  // though their NUMBER stays plain text-colored (unchanged from before).
+  const barColor = tone==='success'?'var(--success)':tone==='warning'?'var(--warning)':tone==='danger'?'var(--danger)':'var(--accent)';
+  return el('div',{class:'stat-tile', style:'--tone:'+barColor},[ el('div',{class:'stat-num num', style:'color:'+toneColor},[val]), el('div',{class:'stat-label'},[label]) ]);
 }
 function quickAction(label, icon, onclick){
   return el('button',{class:'btn', style:'justify-content:flex-start;padding:14px;', onclick},[icon(), label]);
@@ -2306,14 +2450,20 @@ async function showPostSaveOptions(invoice){
   const body = el('div',{class:'stack'},[
     el('div',{},['Invoice ', el('b',{},[invoice.invoiceNo]), ' saved. ', fmtMoney(invoice.billTotal), ' total.']),
     el('button',{class:'btn btn-block', onclick:()=>printInvoice(invoice, items)},[iconPrint(),'Print Invoice']),
-    el('button',{class:'btn btn-block', onclick:()=>sendInvoiceWhatsApp(invoice, items)},[iconWhatsapp(),'Send PDF on WhatsApp']),
-    el('button',{class:'btn btn-primary btn-block', onclick:async ()=>{ closeModal(); billDraft = freshDraft(await DB.nextInvoiceNo()); renderRoute(); }},['New Bill']),
+    el('button',{class:'btn btn-primary btn-block', onclick:()=>sendInvoiceWhatsApp(invoice, items)},[iconWhatsapp(),'Send PDF on WhatsApp']),
+    el('div',{class:'small muted'},[invoice.mobile ? 'Confirmation message customer ko already chala gaya hai. Yeh button dabate hi phone ka Share menu khulega jisme PDF invoice attached hoga — WhatsApp chunkar seedha bhej dein.' : 'Neeche button se PDF invoice generate karke phone ke Share menu se WhatsApp par bhej sakte hain.']),
+    el('button',{class:'btn btn-block', onclick:async ()=>{ closeModal(); billDraft = freshDraft(await DB.nextInvoiceNo()); renderRoute(); }},['New Bill']),
   ]);
   openModal('Bill Saved', body, {persist:true});
-  // Auto-open WhatsApp with the bill's mobile number right after save, as requested —
-  // "WhatsApp" button above stays as a manual fallback in case the browser blocks
-  // this automatic popup (some browsers only allow window.open right on a click).
-  if(invoice.mobile){ sendInvoiceWhatsApp(invoice, items); }
+  // Auto-send only a plain TEXT confirmation right after save (as previously
+  // requested) — this always works since wa.me only ever supports pre-filled
+  // text, never a file. The actual PDF can only reach WhatsApp through the
+  // phone's native Share Sheet, which requires a fresh, direct tap on the
+  // "Send PDF on WhatsApp" button above — browsers block navigator.share()
+  // once too much async work (saving the bill, generating the PDF) has
+  // happened since the last real tap, so attempting it here automatically
+  // always silently failed and fell back to a confusing background download.
+  if(invoice.mobile){ sendInvoiceWhatsApp(invoice); }
 }
 function openLoadInvoicePrompt(){
   const body = el('div',{class:'stack'});
@@ -2631,8 +2781,9 @@ async function viewPurchaseRegister(root){
     if(!rows.length){ list.appendChild(el('div',{class:'empty'},['Is range mein koi purchase bill nahi.'])); return; }
     rows.forEach(r=> list.appendChild(purchaseListRow(r)));
   }
-  [fromI,toI,statusI].forEach(i=>i.addEventListener('change',refresh));
-  refresh();
+  const safeRefresh = guardedRefresh(refresh, list);
+  [fromI,toI,statusI].forEach(i=>i.addEventListener('change',safeRefresh));
+  await safeRefresh();
 }
 
 /* ---------------- Customers ---------------- */
@@ -2660,8 +2811,9 @@ async function viewCustomers(root){
       list.appendChild(row);
     });
   }
-  $('#cust-search').addEventListener('input', debounce(refresh,150));
-  refresh();
+  const safeRefresh = guardedRefresh(refresh, list);
+  $('#cust-search').addEventListener('input', debounce(safeRefresh,150));
+  await safeRefresh();
 }
 function openCustomerForm(cust, prefill, onSaved){
   const isNew = !cust;
@@ -2777,8 +2929,9 @@ async function viewSuppliers(root){
       list.appendChild(row);
     });
   }
-  $('#sup-search').addEventListener('input', debounce(refresh,150));
-  refresh();
+  const safeRefresh = guardedRefresh(refresh, list);
+  $('#sup-search').addEventListener('input', debounce(safeRefresh,150));
+  await safeRefresh();
 }
 function openSupplierForm(sup, prefill, onSaved){
   const isNew = !sup;
@@ -2928,8 +3081,9 @@ async function viewProducts(root){
       ]));
     });
   }
-  $('#prod-search').addEventListener('input', debounce(refresh,150));
-  refresh();
+  const safeRefresh = guardedRefresh(refresh, list);
+  $('#prod-search').addEventListener('input', debounce(safeRefresh,150));
+  await safeRefresh();
 }
 async function openProductForm(p, prefillCode, prefillName, onSaved){
   const isNew = !p;
@@ -3090,8 +3244,9 @@ async function viewSalesRegister(root){
     if(!rows.length){ list.appendChild(el('div',{class:'empty'},['Is range mein koi invoice nahi.'])); return; }
     rows.forEach(r=> list.appendChild(invoiceListRow(r)));
   }
-  [fromI,toI,statusI].forEach(i=>i.addEventListener('change',refresh));
-  refresh();
+  const safeRefresh = guardedRefresh(refresh, list);
+  [fromI,toI,statusI].forEach(i=>i.addEventListener('change',safeRefresh));
+  await safeRefresh();
 }
 
 /* ---------------- Reports ---------------- */
@@ -3124,8 +3279,9 @@ async function viewDailyReport(root){
     else rows.forEach(r=>card.appendChild(invoiceListRow(r)));
     out.appendChild(card);
   }
-  dateI.addEventListener('change',refresh);
-  refresh();
+  const safeRefresh = guardedRefresh(refresh, out);
+  dateI.addEventListener('change',safeRefresh);
+  await safeRefresh();
 }
 async function viewMonthlyReport(root){
   const wrap = el('div',{class:'stack'});
@@ -3172,8 +3328,9 @@ async function viewMonthlyReport(root){
     else rows.forEach(r=>card.appendChild(invoiceListRow(r)));
     out.appendChild(card);
   }
-  monthI.addEventListener('change',refresh);
-  refresh();
+  const safeRefresh = guardedRefresh(refresh, out);
+  monthI.addEventListener('change',safeRefresh);
+  await safeRefresh();
 }
 async function viewProfitLossReport(root){
   const wrap = el('div',{class:'stack'});
@@ -3220,8 +3377,9 @@ async function viewProfitLossReport(root){
     }
     out.appendChild(card);
   }
-  [fromI,toI].forEach(i=>i.addEventListener('change',refresh));
-  refresh();
+  const safeRefresh = guardedRefresh(refresh, out);
+  [fromI,toI].forEach(i=>i.addEventListener('change',safeRefresh));
+  await safeRefresh();
 }
 
 /* ---------------- Backup / Restore ---------------- */
@@ -3380,6 +3538,10 @@ async function viewSettings(root){
   logoSizeSel.value = String([12,16,22,28].includes(Number(c.logoSizeMm)) ? Number(c.logoSizeMm) : 16);
   fields.logoSizeMm = logoSizeSel;
   invCard.appendChild(el('label',{class:'field'},['Logo Size (invoice/ledger PDF ke header mein)', logoSizeSel]));
+
+  const watermarkToggle = el('input',{type:'checkbox'}); watermarkToggle.checked = c.showWatermark!==false; fields.showWatermark = watermarkToggle;
+  invCard.appendChild(el('label',{class:'row', style:'gap:8px; cursor:pointer;'},[watermarkToggle, el('span',{},['Background watermark logo print par dikhayein'])]));
+  invCard.appendChild(el('div',{class:'tiny muted'},['ON rehne par bill/statement ke beech mein aapka logo halka sa (faint) background watermark ki tarah dikhta hai. OFF karne par sheet bilkul plain print hoga — sirf header mein chota logo dikhega (agar upload kiya ho).']));
 
   const noteI = el('input',{value:c.invoiceNote||'', placeholder:'e.g. Thank you for your business!'}); fields.invoiceNote = noteI;
   invCard.appendChild(el('label',{class:'field'},['Footer Note', noteI]));

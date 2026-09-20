@@ -146,6 +146,49 @@ Ab har Product mein **do alag rate** hain: **Rate (₹)** — jis par aap bechte
 
 ---
 
+## Product/Customer list "gayab" hone ka fix (connection error ab saaf dikhega)
+
+Pehle kabhi-kabhi Products ya Customers (ya Suppliers, Sales/Purchase Register, Reports) ki list khaali dikhti thi — kuch bhi error nahi dikhta tha, sirf list gayab lagti thi, aur page refresh/reload karne par wapas sahi dikhne lagti thi. Iski wajah yeh thi ki agar us waqt internet mein thoda sa bhi hiccup ho (ek Firestore read fail ho jaye), to woh error kahin dikhta nahi tha — app chup-chap list khaali chod deta tha.
+
+Ab har list is tarah se load hoti hai ki agar koi bhi aisi problem aaye, to list khaali nahi rahegi — iske bajaye ek saaf message dikhega: **"Connection mein problem aa gayi — data load nahi ho paya"** ke saath ek **"Dobara Try Karein"** button. Us button ko ek baar dabane se list turant dobara load ho jayegi (bina page refresh kiye) — is se pata bhi chal jayega ki kab connection weak tha, aur ek tap mein theek bhi ho jayega. Yeh fix Products, Customers, Suppliers, Sales Register, Purchase Register, Daily/Monthly Report, aur Profit & Loss Report — sabhi list-wali screens par lagaya gaya hai.
+
+---
+
+## Bill save hone ke baad "Send PDF on WhatsApp" — ab kaise kaam karta hai
+
+Pehle bill save karte hi WhatsApp automatic khulta tha, lekin sirf ek text message ke saath — invoice ki PDF file kabhi nahi lagti thi, kyunki koi bhi website WhatsApp mein seedha ek specific number par PDF automatic attach NAHI kar sakti (yeh WhatsApp/phone ki apni limitation hai, hamari app ki nahi) — sirf phone ka apna "Share" menu hi file attach kar sakta hai, aur woh menu sirf ek DIRECT button-tap par hi khulta hai, apne aap nahi.
+
+Isliye ab:
+- **Bill save karte hi** — jaisa pehle tha, customer ko ek WhatsApp confirmation MESSAGE turant automatic chala jata hai (invoice number, amount, balance ke saath).
+- **Asli PDF invoice bhejne ke liye** — "Bill Saved" popup mein "Send PDF on WhatsApp" button khud dabayein. Zyadatar phones (Android/iPhone) par yeh turant phone ka Share menu khol dega jisme PDF already attached hoga — bas WhatsApp aur customer chunkar bhej dein.
+- Agar aapka phone/browser yeh Share menu support nahi karta, to PDF file download ho jayegi aur ek saaf popup dikhega jisme step-by-step bataya jayega ki WhatsApp kholkar 📎 (Attach) se woh downloaded PDF manually kaise lagayein.
+
+---
+
+## Naya Premium Look (Dark theme fix + rich UI)
+
+Interface poora refresh kar diya hai — ab zyada premium aur rich dikhega:
+
+- **Selected/highlighted tile ab saaf dikhta hai:** Pehle Dark mode mein jab aap kisi sidebar item (jaise "Customers") par ho, to uska text aur background dono itne dark the ki naam kabhi-kabhi ghayab jaisa lagta tha. Ab selected item par bright gold text, ek glowing gold left-bar aur saaf background hai — turant pata chal jayega aap kahan ho.
+- Isi wajah se **customer/supplier avatar ka pehla letter bhi** (jo pehle dark mode mein mushkil se dikhta tha) ab bright aur saaf dikhta hai.
+- **Naye premium effects:** gold gradient buttons, glowing accent lines, stat tiles par colored side-bar, cards par soft depth/shadow, modal popup par smooth glass-blur background aur gold top-accent.
+- **App ab hamesha Light theme mein khulegi** — phone/browser ki Dark mode setting chahe kuch bhi ho. (Dark theme wala code abhi bhi maujood hai, bas app use force-light kar deti hai, taaki look hamesha consistent rahe.)
+- Yeh sirf look-and-feel ka update hai — koi data, calculation ya feature nahi badla.
+- **Agar update ke baad bhi purana look dikhe**, niche diye "Update ke baad bhi purani app dikhe to" section ke steps follow karein (cache clear karna padega, kyunki yeh ek badi visual change hai).
+
+---
+
+## Print Bill — Background Watermark Logo ab Optional Hai
+
+Agar aapne Settings mein Company Logo upload kiya hai, to pehle woh logo har print (invoice/statement) ke beech mein ek halka (faint) background watermark ki tarah bhi automatically dikhta tha. Ab yeh **optional** hai:
+
+- Settings → **Invoice Customization** mein "**Background watermark logo print par dikhayein**" naam ka ek checkbox hai.
+- **ON** (default, jaisa pehle tha) — bill/statement ke beech mein logo ka halka background watermark dikhta hai.
+- **OFF** — sheet bilkul **plain** print hoti hai, sirf upar header mein chota logo dikhega (agar upload kiya ho) — beech mein koi watermark nahi.
+- Yeh setting ek baar save karne ke baad har naye print (invoice aur ledger/statement dono) par apply hoti hai.
+
+---
+
 ## Notes
 
 - Yeh Firebase ka **free (Spark) plan** hai — ek chhoti billing shop ke liye yeh limit kabhi khatam nahi hogi (roughly 50,000 reads/day free milte hain).
