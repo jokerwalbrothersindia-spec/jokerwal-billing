@@ -2113,7 +2113,13 @@ async function generateProductLabelsPdf(items, layout){
 
   let col=0, row=0;
   const companyName = String(App.company.name||'').slice(0,30);
-  const headerH = Math.min(4.2, cellH*0.18);
+  // Company name banner: a FILLED background band (shop's own header colour,
+  // defaults to the gold theme) with bigger, bold, white text — reads like a
+  // proper brand header instead of a thin line of small text. Capped at 6.5mm
+  // tall so it stays sensible even on the biggest (12-per-sheet) labels.
+  const headerH = Math.min(6.5, Math.max(4.5, cellH*0.24));
+  const headerFontSize = Math.max(6, Math.min(9.5, headerH*1.45));
+  const bannerRgb = hexToRgb(App.company.headerColor, [162,115,44]);
   labels.forEach((it, idx)=>{
     const x = marginX + col*(cellW+gapX);
     const y = marginY + row*(cellH+gapY);
@@ -2122,27 +2128,37 @@ async function generateProductLabelsPdf(items, layout){
       doc.rect(x, y, cellW, cellH, 'D');
     }
     // Company name banner across the top (branding — "shop premium lagegi").
-    doc.setFont('helvetica','bold'); doc.setFontSize(Math.max(5, Math.min(6.3, cellW*0.22))); doc.setTextColor(120,90,30);
-    doc.text(companyName, x+cellW/2, y+headerH, {align:'center'});
-    doc.setDrawColor(225,225,225);
-    doc.line(x+1, y+headerH+0.8, x+cellW-1, y+headerH+0.8);
+    doc.setFillColor(bannerRgb[0], bannerRgb[1], bannerRgb[2]);
+    doc.rect(x, y, cellW, headerH, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(headerFontSize); doc.setTextColor(255,255,255);
+    doc.text(companyName, x+cellW/2, y+headerH/2+headerFontSize*0.14, {align:'center'});
 
-    // Body: product details on the LEFT, QR code on the RIGHT.
-    const bodyY = y+headerH+1.6, bodyH = cellH-headerH-2.6;
+    // Body: QR code on the LEFT, product details (name/MRP/code) on the RIGHT.
+    const bodyY = y+headerH+1.4, bodyH = cellH-headerH-2.2;
     const qrSize = Math.max(6, Math.min(bodyH, cellW*0.4));
-    const qrX = x+cellW-qrSize-1.3, qrY = bodyY+(bodyH-qrSize)/2;
+    const qrX = x+1.3, qrY = bodyY+(bodyH-qrSize)/2;
     const qrData = qrCache[it.productCode];
     if(qrData){ try{ doc.addImage(qrData,'PNG', qrX, qrY, qrSize, qrSize); }catch(e){} }
 
-    const textX = x+1.5, textW = qrX-textX-1.2;
-    const maxChars = Math.max(8, Math.floor(textW/1.7));
-    let ty = bodyY+3;
-    doc.setFont('helvetica','bold'); doc.setFontSize(Math.max(5.2, Math.min(7, cellW*0.24))); doc.setTextColor(20,20,20);
-    doc.text(String(it.name||'').slice(0,maxChars), textX, ty);
-    ty += Math.max(3.2, bodyH*0.28);
+    const textX = qrX+qrSize+1.6, textW = (x+cellW-1.3)-textX;
+    let ty = bodyY+2.6;
+    // Product name: wraps onto up to TWO lines (instead of being cut off
+    // mid-word on a single line) so a longer product name stays fully
+    // readable rather than getting truncated.
+    const nameFontSize = Math.max(5, Math.min(6.6, cellW*0.22));
+    doc.setFont('helvetica','bold'); doc.setFontSize(nameFontSize); doc.setTextColor(20,20,20);
+    let nameLines = doc.splitTextToSize(String(it.name||''), textW);
+    if(nameLines.length > 2){
+      const secondLine = String(nameLines[1]||'').replace(/.{0,3}$/, '') + '...';
+      nameLines = [nameLines[0], secondLine];
+    }
+    const nameLineGap = Math.max(2.4, nameFontSize*0.42);
+    nameLines.slice(0,2).forEach((line, li)=>{ doc.text(line, textX, ty + li*nameLineGap); });
+    ty += nameLineGap*Math.min(nameLines.length,2) + Math.max(2.4, bodyH*0.2);
+
     doc.setFont('helvetica','bold'); doc.setFontSize(Math.max(5.5, Math.min(7.5, cellW*0.26))); doc.setTextColor(20,20,20);
     doc.text('MRP: '+fmtMoneyPdf(it.rate), textX, ty, {maxWidth:textW});
-    ty += Math.max(3, bodyH*0.26);
+    ty += Math.max(3, bodyH*0.22);
     doc.setFont('helvetica','normal'); doc.setFontSize(Math.max(4.8, Math.min(6, cellW*0.2))); doc.setTextColor(110,110,110);
     doc.text(String(it.productCode||''), textX, ty);
 
@@ -2167,7 +2183,7 @@ const LABEL_LAYOUT_PRESETS = [
 function openPrintLabelsModal(initialItems){
   let rows = (initialItems||[]).map(it=>({productCode:it.productCode, name:it.name, rate:it.rate, qty: Math.max(1, Math.min(500, Number(it.qty)||1))}));
   const body = el('div',{class:'stack'});
-  body.appendChild(el('div',{class:'small muted'},['Har label mein: upar company name, LEFT side par product naam/MRP/code (text mein), RIGHT side par QR code. Product Code text mein bhi likha hota hai, isliye scanner na ho to bhi manually type karke bill mein item name/rate apne aap aa jata hai.']));
+  body.appendChild(el('div',{class:'small muted'},['Har label mein: upar company name ek bold filled banner mein (bada, background-color ke saath), LEFT side par QR code, RIGHT side par product naam/MRP/code (text mein — naam bada ho to do line mein aayega, cut nahi hoga). Product Code text mein bhi likha hota hai, isliye scanner na ho to bhi manually type karke bill mein item name/rate apne aap aa jata hai.']));
   const layoutSel = el('select',{}, LABEL_LAYOUT_PRESETS.map(p=>el('option',{value:p.value},[p.label])));
   layoutSel.value = '3x7';
   body.appendChild(el('label',{class:'field'},['A4 Sheet par kitne labels', layoutSel]));
