@@ -388,6 +388,11 @@ function hexToRgb(hex, fallback){
 const darkenRgb = (rgb, factor)=> rgb.map(v=> Math.max(0, Math.round(v*factor)));
 const lightenRgb = (rgb, factor)=> rgb.map(v=> Math.min(255, Math.round(v + (255-v)*factor)));
 const fmtNum = (n)=> Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:3});
+// Short unit suffix shown next to a product's stock quantity, based on its Qty Type
+// (Piece/pcs, Weight/gm, or Length in Meter/Feet — for products like lace, chain,
+// thread, ribbon etc. sold by length rather than by piece or weight).
+const QTY_UNIT_LABELS = {WEIGHT:'gm', METER:'meter', FEET:'feet'};
+const qtyUnitLabel = (qtyType)=> QTY_UNIT_LABELS[qtyType] || 'pcs';
 const fmtDate = (iso)=>{ if(!iso) return ''; const [y,m,d]=iso.split('-'); if(!d) return iso; const dt=new Date(+y,+m-1,+d); return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); };
 const fmtDateTime = (iso)=>{ if(!iso) return ''; const d = new Date(iso); if(isNaN(d)) return iso; return d.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); };
 const monthLabel = (ym)=>{ const [y,m]=ym.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('en-IN',{month:'short',year:'numeric'}); };
@@ -582,9 +587,26 @@ async function ensureSeeded(){
 /* One-time, explicit import of the original JOKERWAL BROTHERS Excel history
    into the CURRENTLY ACTIVE company. Only relevant on the deployment built
    from that Excel file (window.__JB_SEED__ is embedded in index.html), and
-   meant to be run once, into a fresh/empty company. */
+   meant to be run once, into a fresh/empty company.
+
+   IMPORTANT: window.__JB_SEED__ is baked into every copy of this app's
+   built HTML — it is NOT scoped to any one login. This same app is used by
+   more than one business (different email/password logins on the same
+   cloud project), so this whole feature (button + function) must only ever
+   be usable by the real JOKERWAL BROTHERS account — otherwise a different
+   shop's login could import Jokerwal Brothers' own customers/products/
+   invoices/ledger into THEIR company (exactly the bug reported: "Jokerwal
+   ka data other account me update ho raha hai"). See isJbHistoryOwner()
+   and JB_HISTORY_OWNER_EMAILS below, and removeImportedJbHistory() for the
+   cleanup option offered to any account this already happened to. */
+const JB_HISTORY_OWNER_EMAILS = ['jokerwalbrothers@gmail.com'];
+function isJbHistoryOwner(){
+  const email = String(App.userEmail||'').toLowerCase().trim();
+  return !!email && JB_HISTORY_OWNER_EMAILS.indexOf(email) !== -1;
+}
 async function importHistoricalSeed(){
   if(typeof window.__JB_SEED__ === 'undefined'){ toast('Is version mein koi purani history data available nahi hai.','err'); return; }
+  if(!isJbHistoryOwner()){ toast('Yeh option sirf JOKERWAL BROTHERS ke apne account ke liye hai.','err'); return; }
   const ok = await confirmDialog('Yeh "'+App.company.name+'" company mein JOKERWAL BROTHERS ki purani Excel history (customers, products, invoices, payments, ledger) add kar dega. Sirf khali/nayi company mein use karein — existing data ke saath mix ho sakta hai. Continue?', 'Import History');
   if(!ok) return;
   const seed = window.__JB_SEED__;
@@ -598,6 +620,43 @@ async function importHistoricalSeed(){
   App.company = await App.store.get('settings','profile');
   toast('History import ho gayi.','ok');
   navigate('#/dashboard'); renderShell2();
+}
+
+/* Cleanup for any account that already got JOKERWAL BROTHERS' history data
+   imported by mistake (before the isJbHistoryOwner() restriction above
+   existed). Since seed records were not tagged at import time, we detect
+   them by matching against the seed's own fixed record IDs (window.__JB_SEED__
+   never changes per-deployment) — so only the exact records that came from
+   that import are found/removed, and anything the shop entered themselves
+   (even a customer/product added after the import) is left untouched. */
+async function findImportedJbHistoryIds(){
+  if(typeof window.__JB_SEED__ === 'undefined' || !App.store) return null;
+  const seed = window.__JB_SEED__;
+  const storesToCheck = ['customers','products','invoices','saleItems','payments','ledger'];
+  const result = {};
+  let total = 0;
+  for(const s of storesToCheck){
+    const seedIds = new Set((seed.data[s]||[]).map(r=>r.id));
+    if(!seedIds.size){ result[s] = []; continue; }
+    let current = [];
+    try{ current = await App.store.all(s); }catch(e){ current = []; }
+    const matchIds = (current||[]).filter(r=>seedIds.has(r.id)).map(r=>r.id);
+    result[s] = matchIds;
+    total += matchIds.length;
+  }
+  return total>0 ? result : null;
+}
+async function removeImportedJbHistory(matches){
+  const ok = await confirmDialog('Is "'+App.company.name+'" company mein JOKERWAL BROTHERS ki purani import ki hui history data mili hai (shayad galti se import ho gaya tha). Sirf wahi customers/products/invoices/payments/ledger records hatenge jo us import se aaye the — aapka khud ka baaki data bilkul safe rahega, kuch bhi extra delete nahi hoga. Note: Company Profile (naam/address/GST) agar import ki wajah se badla ho, to woh upar diye gaye fields mein khud check/sahi kar lein. Continue?', 'Remove Imported Data');
+  if(!ok) return;
+  toast('Data remove ho raha hai...');
+  for(const storeName of Object.keys(matches)){
+    for(const id of matches[storeName]){
+      try{ await App.store.del(storeName, id); }catch(e){}
+    }
+  }
+  toast('Imported JOKERWAL BROTHERS history data hata di gayi.','ok');
+  renderRoute();
 }
 
 async function switchCompany(companyId){
@@ -1285,7 +1344,7 @@ function productPickerRow(p){
   const low = p.lowStockLimit>0 && p.stock<=p.lowStockLimit;
   return el('div',{class:'spread'},[
     el('div',{},[ el('div',{class:'bold'},[p.name||'—']), el('div',{class:'small muted'},[p.productCode+' • '+fmtMoney(p.rate)+' / '+p.qtyType]) ]),
-    el('div',{class:'pill '+(low?'pill-danger':'pill-neutral')},[fmtNum(p.stock)+' '+ (p.qtyType==='WEIGHT'?'gm':'pcs')]),
+    el('div',{class:'pill '+(low?'pill-danger':'pill-neutral')},[fmtNum(p.stock)+' '+ qtyUnitLabel(p.qtyType)]),
   ]);
 }
 
@@ -3124,7 +3183,7 @@ async function viewProducts(root){
       const low = p.lowStockLimit>0 && p.stock<=p.lowStockLimit;
       list.appendChild(el('div',{class:'list-row', onclick:()=>openProductForm(p)},[
         el('div',{},[ el('div',{class:'bold'},[p.name]), el('div',{class:'small muted'},[p.productCode+' • '+fmtMoney(p.rate)]) ]),
-        el('div',{class:'pill '+(low?'pill-danger':'pill-neutral')},[fmtNum(p.stock)+' '+(p.qtyType==='WEIGHT'?'gm':'pcs')]),
+        el('div',{class:'pill '+(low?'pill-danger':'pill-neutral')},[fmtNum(p.stock)+' '+qtyUnitLabel(p.qtyType)]),
       ]));
     });
   }
@@ -3138,7 +3197,7 @@ async function openProductForm(p, prefillCode, prefillName, onSaved){
   const nameI = el('input',{value: p?p.name:(prefillName||'')});
   const rateI = el('input',{type:'number', value: p?p.rate:''});
   const costI = el('input',{type:'number', value: p? (p.purchaseRate||0) : '', placeholder:'0.00'});
-  const typeI = el('select',{},[el('option',{value:'PIECE'},['Piece']), el('option',{value:'WEIGHT'},['Weight (gm)'])]);
+  const typeI = el('select',{},[el('option',{value:'PIECE'},['Piece']), el('option',{value:'WEIGHT'},['Weight (gm)']), el('option',{value:'METER'},['Length (Meter)']), el('option',{value:'FEET'},['Length (Feet)'])]);
   typeI.value = p?p.qtyType:'PIECE';
   const stockI = el('input',{type:'number', value: p? p.stock : 0});
   const lowI = el('input',{type:'number', value: p? (p.lowStockLimit||0) : (App.company.lowStockDefault||0)});
@@ -3657,9 +3716,19 @@ async function viewSettings(root){
     ]));
   });
   companyMgmt.appendChild(el('button',{class:'btn btn-block', onclick:openAddCompany},[iconPlus(),'Add New Company']));
-  if(typeof window.__JB_SEED__ !== 'undefined'){
+  // Owner-only: this button (and the import it triggers) must NEVER be visible to
+  // a different business's login — see isJbHistoryOwner() for why.
+  if(typeof window.__JB_SEED__ !== 'undefined' && isJbHistoryOwner()){
     companyMgmt.appendChild(el('button',{class:'btn btn-block', onclick:importHistoricalSeed},[iconUpload(),'Import JOKERWAL BROTHERS Excel History']));
     companyMgmt.appendChild(el('div',{class:'tiny muted'},['Sirf ek khaali/nayi company mein ek baar use karein — purani Excel history isi active company mein load ho jayegi.']));
+  }
+  // Cleanup option for any account (including non-owner accounts) whose active
+  // company already has this history data present — likely imported by mistake
+  // before the owner-only restriction above existed.
+  const importedJbMatches = await findImportedJbHistoryIds();
+  if(importedJbMatches){
+    companyMgmt.appendChild(el('button',{class:'btn btn-block btn-danger', onclick:()=>removeImportedJbHistory(importedJbMatches)},[iconTrash(),'Remove Imported JOKERWAL BROTHERS Data']));
+    companyMgmt.appendChild(el('div',{class:'tiny muted'},['Is company mein JOKERWAL BROTHERS ki purani history data mil gaya hai (shayad galti se import ho gaya tha). Yeh button sirf wahi records hatayega, aapka khud ka data safe rahega.']));
   }
   wrap.appendChild(companyMgmt);
 

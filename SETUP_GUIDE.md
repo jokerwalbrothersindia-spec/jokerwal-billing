@@ -61,7 +61,7 @@ Yeh link hi aapki app hai — isko phone ke browser mein kholein, aur **"Add to 
 1. Upar wala link phone/computer ke browser mein kholein — seedha **Login screen** aayega (Cloud Setup screen nahi aayegi, Firebase pehle se connected hai).
 2. Pehli baar hai, isliye **"Naya account banayein"** par click karein.
 3. Apna email aur ek password (kam se kam 6 characters) daal kar **Sign Up** karein — yehi aapka business login hoga. Naya account hamesha ek khaali company ("My Business") ke saath shuru hota hai — koi purani/demo data automatically nahi aati, taaki har alag login/company ka data sirf usi ka rahe.
-4. Apni asli JOKERWAL BROTHERS ki Excel history (customers, products, invoices, payments, ledger) load karne ke liye: **Settings** kholein → neeche **"Import JOKERWAL BROTHERS Excel History"** button dabayein → confirm karein. Yeh sirf ek baar, ek khaali/nayi company mein use karein.
+4. Apni asli JOKERWAL BROTHERS ki Excel history (customers, products, invoices, payments, ledger) load karne ke liye: **Settings** kholein → neeche **"Import JOKERWAL BROTHERS Excel History"** button dabayein → confirm karein. Yeh sirf ek baar, ek khaali/nayi company mein use karein. **(Note: yeh button sirf jokerwalbrothers@gmail.com wale login mein hi dikhta hai — kisi bhi doosre email se Sign Up kiya hua account (jaise koi aur business isi app ko use kar raha ho) yeh button bilkul nahi dekhega, taaki Jokerwal Brothers ka data galti se kisi doosre account mein na chala jaye.)**
 
 **Bas ho gaya — ab yeh ek proper cloud app hai.**
 
@@ -209,6 +209,28 @@ Agar aapne Settings mein Company Logo upload kiya hai, to pehle woh logo har pri
 - **ON** (default, jaisa pehle tha) — bill/statement ke beech mein logo ka halka background watermark dikhta hai.
 - **OFF** — sheet bilkul **plain** print hoti hai, sirf upar header mein chota logo dikhega (agar upload kiya ho) — beech mein koi watermark nahi.
 - Yeh setting ek baar save karne ke baad har naye print (invoice aur ledger/statement dono) par apply hoti hai.
+
+---
+
+## Fix: Doosre account mein Jokerwal ka data nahi aayega ab (+ cleanup option)
+
+Pehle ek bug tha — is app ki har copy mein JOKERWAL BROTHERS ki purani Excel history built-in hoti hai (taaki asli owner ek click mein apni history import kar sake), lekin **"Import JOKERWAL BROTHERS Excel History"** button Settings mein HAR account (har alag email se Sign Up kiya hua login) ko dikh raha tha — matlab agar koi doosra business isi app ko use kar raha ho aur woh button dabaye, to Jokerwal Brothers ka data (customers, products, invoices, ledger) unke apne account mein aa jata tha.
+
+**Ab yeh fix ho gaya hai:**
+
+- **"Import JOKERWAL BROTHERS Excel History"** button ab sirf **jokerwalbrothers@gmail.com** wale login mein hi dikhta hai — kisi bhi doosre email/account mein yeh option bilkul nahi dikhega.
+- **Agar kisi account mein pehle se galti se yeh data aa chuka hai** (is fix se pehle import ho gaya tha), to us account ke Settings mein ek naya button apne aap dikhega: **"Remove Imported JOKERWAL BROTHERS Data"**. Yeh button sirf tabhi dikhta hai jab aisa data mile.
+  - Isse sirf wahi records hatenge jo asli Jokerwal history se match karte hain (fixed IDs se pehchane jaate hain) — us account ka apna khud ka data (khud ke add kiye customers/products/bills) bilkul safe rehta hai, kuch bhi extra delete nahi hota.
+  - Note: agar import ki wajah se Company Profile (naam/address/GST) bhi badal gaya ho, to woh automatically wapas nahi hota — Settings ke upar wale Company Profile fields mein khud check karke sahi kar lein.
+
+## Products — Qty Type mein Length (Meter/Feet) add kiya
+
+Product add/edit karte waqt "Qty Type" dropdown mein pehle sirf **Piece** aur **Weight (gm)** the. Ab lace/chain/thread/ribbon jaise saamaan ke liye jo length (lambai) mein bikte hain, do naye options add kiye hain:
+
+- **Length (Meter)** — stock aur bill dono mein quantity "meter" mein dikhegi.
+- **Length (Feet)** — stock aur bill dono mein quantity "feet" mein dikhegi.
+
+Product add/edit karte waqt "Qty Type" mein bas apna sahi type chun lein — baaki sab (rate, bill, stock tracking) pehle jaisa hi kaam karega.
 
 ---
 
