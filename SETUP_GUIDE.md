@@ -331,7 +331,17 @@ service cloud.firestore {
 
    Yeh Rules ensure karta hai: (a) sirf app owner (`jokerwalbrothers@gmail.com`) kisi bhi account ko "Paid" mark kar sakta hai, koi apne aap nahi kar sakta; (b) jab tak account "Paid" na ho, uska koi bhi business data (customers/products/bills waghera) padha/likha nahi ja sakta — sirf app ki UI band karne se nahi, asal mein database level par lock hai.
 
-2. **Apna Razorpay Payment Link aur WhatsApp number set karein** — is `index.html` file ko kisi text/code editor (Notepad, VS Code) mein kholein, `Ctrl+F` se **`PASTE_YOUR_RAZORPAY_PAYMENT_LINK_HERE`** dhoondein aur apna Razorpay Payment Link (Razorpay Dashboard → Payment Links → Create Payment Link) us jagah paste kar dein. Usi tarah **`PASTE_YOUR_WHATSAPP_NUMBER_HERE`** dhoond kar apna WhatsApp number country code ke saath, bina `+` ya space ke (jaise `919876543210`) daal dein. Yeh 2 jagah edit karne ke baad hi file ko GitHub Pages par dobara upload karein.
+2. **Apna Razorpay Payment Page aur WhatsApp number set karein** — is `index.html` file ko kisi text/code editor (Notepad, VS Code) mein kholein, `Ctrl+F` se **`PASTE_YOUR_RAZORPAY_PAYMENT_PAGE_LINK_HERE`** dhoondein aur apna Razorpay **Payment Page** ka link (Razorpay Dashboard → Payment Pages → "+ Create Payment Page") us jagah paste kar dein.
+
+   ⚠️ **Zaroori:** Razorpay ke "**Payment Links**" wale option ka use MAT karein — ek Payment Link sirf EK hi customer ke liye kaam karta hai (Razorpay khud customer ka number/email maangta hai aur dobara wahi link kisi aur se pay nahi karwa sakte). Aapko chahiye **"Payment Pages"** — yeh ek hi reusable link deta hai jise kitne bhi alag-alag naye customers (yaani aapke naye shop-owners) use karke pay kar sakte hain. Step-by-step:
+   1. Razorpay Dashboard mein login karein → left menu mein **Payment Pages** par jaayein.
+   2. **"+ Create Payment Page"** button dabayein.
+   3. Ek title dein (jaise "Jokerwal Billing App — Activation"), chahen to short description bhi.
+   4. Amount field ko **Fixed Amount** rakhein aur apna one-time activation price daal dein (ya "Customer Decides" bhi rakh sakte hain agar flexible rakhna ho).
+   5. Business/contact details bhar kar **Save & Publish** karein.
+   6. Publish hote hi ek shareable link milega (jaise `https://pages.razorpay.com/...`) — yehi link **`PASTE_YOUR_RAZORPAY_PAYMENT_PAGE_LINK_HERE`** ki jagah paste karna hai. Yeh EK link sabhi naye customers baar-baar use kar sakte hain, har baar apna khud ka naam/number/email bharke.
+
+   Usi tarah **`PASTE_YOUR_WHATSAPP_NUMBER_HERE`** dhoond kar apna WhatsApp number country code ke saath, bina `+` ya space ke (jaise `919876543210`) daal dein. Yeh 2 jagah edit karne ke baad hi file ko GitHub Pages par dobara upload karein.
 
 3. **Apna khud ka account** (`jokerwalbrothers@gmail.com`) hamesha **kabhi lock nahi hota** — aap khud kabhi "Payment Pending" screen nahi dekhenge, chahe Rules update ho ya na ho.
 

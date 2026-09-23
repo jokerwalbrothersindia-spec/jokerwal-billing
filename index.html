@@ -517,10 +517,13 @@ const FORCE_SETUP_KEY = 'jberp_force_setup_v1';
 // Firebase Console; this feature does nothing until those Rules are updated.
 const ADMIN_EMAIL = 'jokerwalbrothers@gmail.com';
 const PAYMENT_CONFIG = {
-  // Razorpay dashboard -> Payment Links -> Create Payment Link -> yahan paste karein.
-  razorpayLink: 'PASTE_YOUR_RAZORPAY_PAYMENT_LINK_HERE',
+  // Use a Razorpay PAYMENT PAGE here, not a Payment Link — a Payment Link is tied to
+  // one specific customer's phone/email and cannot be reused, while a Payment Page is
+  // one shareable link any number of different customers can pay through (Razorpay
+  // Dashboard -> Payment Pages -> Create Payment Page -> paste that page's link here).
+  razorpayLink: 'https://rzp.io/rzp/fIySILDq',
   // Apna WhatsApp number country code ke saath, bina '+' ya spaces (jaise '919876543210').
-  whatsappNumber: 'PASTE_YOUR_WHATSAPP_NUMBER_HERE',
+  whatsappNumber: '918511916363',
   amountLabel: 'One-time Activation Payment',
 };
 async function fetchOrCreateLicense(uid, email){
