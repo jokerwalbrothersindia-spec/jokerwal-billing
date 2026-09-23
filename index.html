@@ -279,6 +279,27 @@ tr:last-child td{border-bottom:none;}
 .item-row{display:grid; grid-template-columns:1fr 52px 78px 78px 30px; gap:6px; align-items:center;}
 .item-row input{padding:7px 8px; font-size:12.5px;}
 .item-row .amt{font-size:12.5px; font-weight:600; text-align:right; padding-right:4px;}
+/* On narrow phones a long product name in the 1fr column forced qty/rate/amount/delete
+   into a single squeezed row floating beside several wrapped lines of the name — looks
+   broken. Below 600px, reflow to two rows instead: name (+ delete) on its own row, then
+   qty/rate/amount below it. Children are always in a fixed order (name, qty, rate,
+   amount, delete) so we can target them positionally without touching the JS. */
+@media (max-width:600px){
+  .item-row{grid-template-columns: 1fr 1fr 1fr 26px; grid-template-areas:"name name name del" "qty rate amt amt"; row-gap:8px;}
+  .item-row > *:nth-child(1){grid-area:name;}
+  .item-row > *:nth-child(2){grid-area:qty;}
+  .item-row > *:nth-child(3){grid-area:rate;}
+  .item-row > *:nth-child(4){grid-area:amt; text-align:right;}
+  .item-row > *:nth-child(5){grid-area:del; justify-self:end; align-self:start;}
+}
+/* Doc header (Invoice/Quotation No + Date): give the date field less forced width on
+   narrow phones so a longer invoice number doesn't crowd/wrap right up against it. */
+.doc-head{align-items:flex-start;}
+.doc-head > div:first-child{min-width:0; flex:1;}
+@media (max-width:480px){
+  .doc-head .field{width:120px !important;}
+  .doc-head .bold{font-size:14px; word-break:break-word;}
+}
 
 .linklike{background:none; border:none; padding:0; color:var(--credit); font-weight:600; cursor:pointer; font-size:inherit;}
 .list-row{
@@ -1279,8 +1300,19 @@ const NAV_ITEMS = [
   {key:'#/profit-loss', label:'Profit & Loss', icon:iconChart},
   {key:'#/settings', label:'Settings', icon:iconGear},
 ];
-const BOTTOM_ITEMS = ['#/dashboard','#/bill','#/customers','#/products','#/settings'];
-const BOTTOM_LABELS = {'#/dashboard':'Home','#/bill':'New Bill','#/customers':'Customers','#/products':'Products','#/settings':'More'};
+const BOTTOM_ITEMS = ['#/dashboard','#/bill','#/customers','#/products','#/more'];
+const BOTTOM_LABELS = {'#/dashboard':'Home','#/bill':'New Bill','#/customers':'Customers','#/products':'Products','#/more':'More'};
+// Everything NOT already on a primary bottom tab — shown on the mobile-only "More"
+// screen (the desktop sidenav shows the full NAV_ITEMS list directly, so it never
+// needs this). Grouped so Purchase/Quotation/Reports etc. are easy to find on a phone,
+// where the full sidenav is hidden and only these 5 bottom tabs are visible.
+const MORE_GROUPS = [
+  {label:'Billing', keys:['#/stock','#/payments','#/sales-register']},
+  {label:'Quotations', keys:['#/quotation','#/quotations']},
+  {label:'Purchase', keys:['#/purchase','#/suppliers','#/purchase-register']},
+  {label:'Reports', keys:['#/reports/daily','#/reports/monthly','#/profit-loss']},
+  {label:'Settings', keys:['#/settings']},
+];
 
 function shellBuilt(){ return !!document.getElementById('view-root'); }
 function renderShell(){
@@ -1304,7 +1336,9 @@ function renderShell(){
   const shell = el('div',{class:'shell'},[sidenav, main]);
   const bottomnav = el('div',{class:'bottomnav'});
   BOTTOM_ITEMS.forEach(k=>{
-    const item = NAV_ITEMS.find(n=>n.key===k);
+    // '#/more' is a bottom-nav-only entry (not a real sidenav item), so it has no
+    // matching NAV_ITEMS record — fall back to the dedicated dots icon for it.
+    const item = NAV_ITEMS.find(n=>n.key===k) || {icon: iconMore};
     const b = el('div',{class:'navitem', 'data-key':k, onclick:()=>navigate(k)},[item.icon(), el('span',{},[BOTTOM_LABELS[k]])]);
     bottomnav.appendChild(b);
   });
@@ -1317,8 +1351,15 @@ function navItem(it){
   return el('div',{class:'navitem','data-key':it.key, onclick:()=>navigate(it.key)},[it.icon(), el('span',{},[it.label])]);
 }
 function highlightNav(activeKey){
+  // The mobile bottom-nav's "More" tab (data-key="#/more") stands in for every
+  // screen that isn't one of the 4 primary bottom tabs — including screens (like
+  // Purchase/Quotation/Reports/Settings) that are only reachable THROUGH the More
+  // screen on mobile — so it should stay highlighted while any of those are open.
+  const primaryBottomKeys = ['#/dashboard','#/bill','#/customers','#/products'];
   document.querySelectorAll('.navitem').forEach(n=>{
-    n.classList.toggle('active', n.getAttribute('data-key')===activeKey);
+    const k = n.getAttribute('data-key');
+    const isActive = k===activeKey || (k==='#/more' && !primaryBottomKeys.includes(activeKey));
+    n.classList.toggle('active', isActive);
   });
 }
 function updateClock(){
@@ -1354,6 +1395,8 @@ function iconDownload(){ return svg('<path d="M12 3v13"/><path d="M7 11l5 5 5-5"
 function iconUpload(){ return svg('<path d="M12 21V8"/><path d="M7 13l5-5 5 5"/><path d="M5 21h14"/>'); }
 function iconLock(){ return svg('<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>'); }
 function iconTruck(){ return svg('<path d="M2.5 6.5h11v10h-11z"/><path d="M13.5 10h4l3 3.5v3h-7z"/><circle cx="6.5" cy="18.5" r="1.7"/><circle cx="17" cy="18.5" r="1.7"/>'); }
+function iconMore(){ return svg('<circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none"/>'); }
+function iconChevronRight(){ return svg('<path d="m9 6 6 6-6 6"/>'); }
 
 /* ---------------- Modal helper ---------------- */
 /* Modals stack: opening a modal (eg. a search picker) from inside an
@@ -2457,6 +2500,30 @@ async function viewDashboard(root){
     ]),
   ]));
 }
+/* "More" screen — mobile-only. The bottom nav bar can only fit 4 primary tabs
+   (Home/New Bill/Customers/Products) plus this one; the desktop sidenav shows every
+   NAV_ITEMS entry directly and never routes here. Without this screen, features like
+   Purchase Bill, Quotations and Reports would have NO way to be opened on a phone,
+   since the full sidenav is display:none below the desktop breakpoint. */
+async function viewMore(root){
+  root.innerHTML='';
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{},[el('div',{class:'section-title'},['More']), el('div',{class:'section-sub'},['Baaki saare features yahan milenge.'])]));
+  MORE_GROUPS.forEach(group=>{
+    const items = group.keys.map(k=>NAV_ITEMS.find(n=>n.key===k)).filter(Boolean);
+    if(!items.length) return;
+    const card = el('div',{class:'card pad stack'});
+    card.appendChild(el('div',{class:'navgroup-label', style:'padding:0;'},[group.label]));
+    items.forEach(it=>{
+      card.appendChild(el('div',{class:'list-row', onclick:()=>navigate(it.key)},[
+        el('div',{class:'row'},[el('div',{class:'avatar'},[it.icon()]), el('div',{class:'bold small'},[it.label])]),
+        iconChevronRight(),
+      ]));
+    });
+    wrap.appendChild(card);
+  });
+  root.appendChild(wrap);
+}
 function statTile(label,val,tone){
   const toneColor = tone==='success'?'var(--success)':tone==='warning'?'var(--warning)':tone==='danger'?'var(--danger)':'var(--text)';
   // A separate accent-bar color (--tone custom property, read by .stat-tile's CSS
@@ -2499,7 +2566,7 @@ function renderBillScreen(root){
   const wrap = el('div',{class:'stack'});
 
   wrap.appendChild(el('div',{class:'card pad'},[
-    el('div',{class:'spread'},[
+    el('div',{class:'spread doc-head'},[
       el('div',{},[el('div',{class:'tiny muted'},['Invoice No']), el('div',{class:'bold'},[billDraft.invoiceNo])]),
       el('label',{class:'field', style:'width:150px;'},['Date', el('input',{type:'date', value:billDraft.date, onchange:(e)=>{billDraft.date=e.target.value;}})]),
     ]),
@@ -2772,7 +2839,7 @@ function renderQuoteScreen(root){
   const wrap = el('div',{class:'stack'});
 
   wrap.appendChild(el('div',{class:'card pad'},[
-    el('div',{class:'spread'},[
+    el('div',{class:'spread doc-head'},[
       el('div',{},[el('div',{class:'tiny muted'},['Quotation No']), el('div',{class:'bold'},[quoteDraft.quoteNo])]),
       el('label',{class:'field', style:'width:150px;'},['Date', el('input',{type:'date', value:quoteDraft.date, onchange:(e)=>{quoteDraft.date=e.target.value;}})]),
     ]),
@@ -3033,7 +3100,7 @@ function renderPurchaseBillScreen(root){
   const wrap = el('div',{class:'stack'});
 
   wrap.appendChild(el('div',{class:'card pad'},[
-    el('div',{class:'spread'},[
+    el('div',{class:'spread doc-head'},[
       el('div',{},[el('div',{class:'tiny muted'},['Purchase No']), el('div',{class:'bold'},[purchaseDraft.purchaseNo])]),
       el('label',{class:'field', style:'width:150px;'},['Date', el('input',{type:'date', value:purchaseDraft.date, onchange:(e)=>{purchaseDraft.date=e.target.value;}})]),
     ]),
@@ -4404,6 +4471,7 @@ function renderLockScreen(){
 
 /* ---------------- Routes ---------------- */
 on('#/dashboard', viewDashboard);
+on('#/more', viewMore);
 on('#/bill', viewBill);
 on('#/customers', viewCustomers);
 on('#/products', viewProducts);
