@@ -25,14 +25,27 @@ Part 1 (Firebase project banana) sirf reference ke liye rakha hai — agar kabhi
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'jokerwalbrothers@gmail.com';
+    }
+    function isPaid(uid) {
+      return exists(/databases/$(database)/documents/licenses/$(uid)) &&
+             get(/databases/$(database)/documents/licenses/$(uid)).data.paid == true;
+    }
+    match /licenses/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == uid
+                    && request.resource.data.paid == false;
+      allow update: if isAdmin();
+    }
     match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if request.auth != null && request.auth.uid == uid && (isAdmin() || isPaid(uid));
     }
   }
 }
 ```
 
-   Yeh rule ensure karta hai ki **sirf aap** (login kiya hua account) apna data dekh/badal sakte hain, koi aur nahi. **Publish** dabayein.
+   Yeh rule ensure karta hai ki **sirf aap** (login kiya hua account) apna data dekh/badal sakte hain, koi aur nahi — aur saath hi naye sign-up ko owner ke activate kiye bina locked bhi rakhta hai (poora detail neeche **"Paid Access"** section mein hai). **Publish** dabayein.
 
 8. Ab left menu mein gear icon (⚙️) → **Project settings** par jaayein → "Your apps" section → **`</>`** (Web) icon → app register karein → `firebaseConfig = {...}` wali 6 values note kar lein.
 9. App ke andar: **Login screen ke neeche "Firebase project badlein"** link dabayein → confirm karein → ek "Cloud Setup" screen khulegi jahan yeh 6 values paste kar sakte hain.
@@ -277,6 +290,59 @@ Agar ek hi Gmail login se aapne 2 ya zyada companies banayi hain (jaise ek hi sh
 4. **Sharing band karni ho** (agar user na chahe) to dropdown mein wapas **"Nahi — is company ka apna alag Master Data rakhein"** chun kar Save Sharing Setting dabayein. Is company apne **purane, alag (independent)** Products/Customers data par wapas chali jayegi — sharing shuru karne se pehle jo bhi data tha wahi wapas dikhega.
 
 **Zaroori baat:** Yeh sirf ek OPTION hai, default mein sab companies ka master data hamesha alag-alag hi rehta hai — sirf jab aap khud jaakar ek company mein sharing ON karte hain, tabhi woh doosri company ka data dikhna shuru hota hai.
+
+---
+
+## Paid Access — Naye Users Ko App Bechne Ka System (Admin/Owner ke liye)
+
+Yeh app ab ek hi link/Firebase project se **multiple alag-alag businesses** ko serve kar sakta hai (har Gmail sign-up ka data poori tarah alag/private rehta hai). Isko doosre users ko **paid** product ke roop mein dene ke liye ek "Paid Access Gate" add kiya gaya hai:
+
+- Jab bhi koi NAYA Gmail account is app link se sign up karta hai, uska account shuru mein **LOCKED** rehta hai — usse "Payment Pending" screen dikhti hai, koi bhi feature use nahi kar sakta, jab tak **aap** (app owner) usse activate na karein.
+- Sirf app ka LINK share karna bilkul safe hai — link se sign up karke koi apne aap access nahi le sakta, use activate sirf aap kar sakte hain.
+- Yeh sirf ek UI screen nahi hai — Firestore Security Rules ke level par bhi lock kiya gaya hai, isliye koi technical user bhi browser ke "Developer Tools" se isko bypass nahi kar sakta.
+
+**Zaroori Setup (3 kaam, ek hi baar karne hain):**
+
+1. **Firestore Rules update karein** — Firebase Console → Firestore Database → Rules tab mein jaake, PART 1 mein di gayi purani Rules ko neeche wali se **replace** kar dein (dono paste kiye bina yeh feature kaam nahi karega):
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'jokerwalbrothers@gmail.com';
+    }
+    function isPaid(uid) {
+      return exists(/databases/$(database)/documents/licenses/$(uid)) &&
+             get(/databases/$(database)/documents/licenses/$(uid)).data.paid == true;
+    }
+    match /licenses/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == uid
+                    && request.resource.data.paid == false;
+      allow update: if isAdmin();
+    }
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid && (isAdmin() || isPaid(uid));
+    }
+  }
+}
+```
+
+   Yeh Rules ensure karta hai: (a) sirf app owner (`jokerwalbrothers@gmail.com`) kisi bhi account ko "Paid" mark kar sakta hai, koi apne aap nahi kar sakta; (b) jab tak account "Paid" na ho, uska koi bhi business data (customers/products/bills waghera) padha/likha nahi ja sakta — sirf app ki UI band karne se nahi, asal mein database level par lock hai.
+
+2. **Apna Razorpay Payment Link aur WhatsApp number set karein** — is `index.html` file ko kisi text/code editor (Notepad, VS Code) mein kholein, `Ctrl+F` se **`PASTE_YOUR_RAZORPAY_PAYMENT_LINK_HERE`** dhoondein aur apna Razorpay Payment Link (Razorpay Dashboard → Payment Links → Create Payment Link) us jagah paste kar dein. Usi tarah **`PASTE_YOUR_WHATSAPP_NUMBER_HERE`** dhoond kar apna WhatsApp number country code ke saath, bina `+` ya space ke (jaise `919876543210`) daal dein. Yeh 2 jagah edit karne ke baad hi file ko GitHub Pages par dobara upload karein.
+
+3. **Apna khud ka account** (`jokerwalbrothers@gmail.com`) hamesha **kabhi lock nahi hota** — aap khud kabhi "Payment Pending" screen nahi dekhenge, chahe Rules update ho ya na ho.
+
+**Naye customer ko activate kaise karein:**
+
+1. Jab koi naya user sign up karega, wo "Payment Pending" screen dekhega — wahan se woh aapka Razorpay link ya WhatsApp button use karke payment kar sakta hai.
+2. Payment confirm hone ke baad (Razorpay dashboard ya WhatsApp screenshot se check karein), apne account se login karein aur menu mein **"Paid Accounts (Admin)"** (Settings ke sidenav mein, ya mobile par "More" menu ke "Admin" section mein) par jaayein.
+3. Wahan har naya sign-up "Pending" status ke saath dikhega — us par **"Activate Karein"** dabayein. Customer ka account turant unlock ho jayega (unhe bas "Maine Payment Kar Diya Hai — Status Check Karein" dabana hai, ya dobara login karna hai).
+4. Agar kabhi kisi ka access wapas band karna ho (jaise payment fail/refund), usi list se **"Lock Karein"** dabakar unlock kiya hua account wapas lock kar sakte hain.
+
+**Note:** Yeh ek-baar (one-time) payment model hai — ek baar activate hone ke baad account hamesha ke liye unlocked rehta hai (jab tak aap khud "Lock Karein" na dabayein). Agar future mein recurring/monthly subscription chahiye ho, to iske liye alag se kaam karna padega.
 
 ---
 

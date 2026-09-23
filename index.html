@@ -501,6 +501,117 @@ const DEFAULT_FIREBASE_CONFIG = {
 };
 const FB_CONFIG_KEY = 'jberp_fb_config_v1';
 const FORCE_SETUP_KEY = 'jberp_force_setup_v1';
+
+/* ---------------- Paid Access Gate ---------------- */
+// One deployment (one Firebase project, one GitHub Pages link) can host MANY
+// independent businesses — every Gmail sign-up gets its own fully isolated
+// company data (see Store/App.masterStore above). This gate makes every NEW
+// sign-up start LOCKED (licenses/{uid}.paid = false) until the app owner
+// (ADMIN_EMAIL below) marks it paid, after a one-time payment. Just sharing
+// the app's link is harmless — a brand-new account created from that link
+// cannot do anything until the owner approves it from the Admin screen.
+//
+// IMPORTANT: this is enforced by Firestore Security Rules too, not only by
+// this screen — otherwise a technical user could bypass the paywall via
+// browser dev tools. See SETUP_GUIDE.md for the exact Rules to paste in
+// Firebase Console; this feature does nothing until those Rules are updated.
+const ADMIN_EMAIL = 'jokerwalbrothers@gmail.com';
+const PAYMENT_CONFIG = {
+  // Razorpay dashboard -> Payment Links -> Create Payment Link -> yahan paste karein.
+  razorpayLink: 'PASTE_YOUR_RAZORPAY_PAYMENT_LINK_HERE',
+  // Apna WhatsApp number country code ke saath, bina '+' ya spaces (jaise '919876543210').
+  whatsappNumber: 'PASTE_YOUR_WHATSAPP_NUMBER_HERE',
+  amountLabel: 'One-time Activation Payment',
+};
+async function fetchOrCreateLicense(uid, email){
+  const ref = fbDb.collection('licenses').doc(uid);
+  const snap = await ref.get();
+  if(snap.exists) return snap.data();
+  const lic = {uid, email: email||'', paid:false, createdAt:new Date().toISOString()};
+  await ref.set(lic);
+  return lic;
+}
+async function isAccountPaid(){
+  if((App.userEmail||'').toLowerCase()===ADMIN_EMAIL.toLowerCase()) return true;
+  try{
+    const lic = await fetchOrCreateLicense(App.uid, App.userEmail);
+    return !!lic.paid;
+  }catch(e){
+    console.error(e);
+    // If the check itself fails (most likely the Firestore Rules haven't been
+    // updated to include the licenses/{uid} + isPaid(uid) rules yet), fail
+    // CLOSED — locked — rather than silently letting everyone through.
+    return false;
+  }
+}
+function renderPaywallScreen(){
+  const app = $('#app'); app.innerHTML='';
+  const waText = encodeURIComponent('Namaste, maine payment kar diya hai. Mera account activate kar dein.\nEmail: '+(App.userEmail||''));
+  const waLink = (PAYMENT_CONFIG.whatsappNumber && !PAYMENT_CONFIG.whatsappNumber.startsWith('PASTE_'))
+    ? ('https://wa.me/'+PAYMENT_CONFIG.whatsappNumber+'?text='+waText) : null;
+  const payHref = (PAYMENT_CONFIG.razorpayLink && !PAYMENT_CONFIG.razorpayLink.startsWith('PASTE_')) ? PAYMENT_CONFIG.razorpayLink : null;
+  app.appendChild(el('div',{class:'lock-screen'},[
+    el('div',{class:'stack', style:'align-items:center;max-width:340px;text-align:center;'},[
+      el('div',{class:'brand-badge', style:'width:56px;height:56px;font-size:22px;'},['₹']),
+      el('h2',{},['Payment Pending']),
+      el('div',{class:'muted small'},['Aapka account ('+(App.userEmail||'')+') abhi activate nahi hua hai. Ek baar payment karke activate karwa lein.']),
+      el('div',{class:'bold', style:'font-size:16px;'},[PAYMENT_CONFIG.amountLabel||'']),
+      el('div',{class:'stack', style:'width:100%;gap:10px;margin-top:6px;'},[
+        payHref ? el('a',{class:'btn btn-primary btn-block', href:payHref, target:'_blank', rel:'noopener'},['Pay Now (Razorpay)'])
+                : el('div',{class:'tiny muted'},['(App owner ne abhi payment link set nahi kiya — WhatsApp par contact karein.)']),
+        waLink ? el('a',{class:'btn btn-block', href:waLink, target:'_blank', rel:'noopener'},['WhatsApp par Screenshot Bhejein']) : null,
+        el('button',{class:'btn btn-block', onclick: async ()=>{
+          toast('Check kar rahe hain...');
+          const paid = await isAccountPaid();
+          if(paid){ toast('Account activate ho gaya!','ok'); await bootApp(); }
+          else{ toast('Abhi tak activate nahi hua. Payment ke thodi der baad dobara try karein.','err'); }
+        }},['Maine Payment Kar Diya Hai — Status Check Karein']),
+        el('button',{class:'btn btn-ghost btn-block', onclick:()=>fbAuth.signOut()},['Sign Out']),
+      ]),
+    ]),
+  ]));
+}
+async function viewAdmin(root){
+  root.innerHTML='';
+  if((App.userEmail||'').toLowerCase()!==ADMIN_EMAIL.toLowerCase()){
+    root.appendChild(el('div',{class:'card pad'},['Yeh page sirf app owner ke liye hai.']));
+    return;
+  }
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{},[el('div',{class:'section-title'},['Paid Accounts (Admin)']), el('div',{class:'section-sub'},['Naye sign-up yahan "Pending" dikhenge — payment confirm hone ke baad "Activate Karein" dabayein.'])]));
+  const listCard = el('div',{class:'card pad stack'});
+  listCard.appendChild(el('div',{class:'small muted'},['Load ho raha hai...']));
+  wrap.appendChild(listCard);
+  root.appendChild(wrap);
+  try{
+    const snap = await fbDb.collection('licenses').get();
+    const rows = snap.docs.map(d=>({id:d.id, data:d.data()})).sort((a,b)=> (b.data.createdAt||'')<(a.data.createdAt||'')?-1:1);
+    listCard.innerHTML='';
+    if(!rows.length){ listCard.appendChild(el('div',{class:'empty small'},['Abhi tak koi naya sign-up nahi.'])); return; }
+    rows.forEach(({id,data:lic})=>{
+      listCard.appendChild(el('div',{class:'list-row'},[
+        el('div',{},[
+          el('div',{class:'bold small'},[lic.email||id]),
+          el('div',{class:'tiny muted'},['Signup: '+fmtDate((lic.createdAt||'').slice(0,10))+(lic.paidAt?(' • Paid: '+fmtDate(lic.paidAt.slice(0,10))):'')]),
+        ]),
+        el('div',{class:'row'},[
+          lic.paid ? el('span',{class:'pill pill-success'},['Paid']) : el('span',{class:'pill pill-warning'},['Pending']),
+          el('button',{class:'btn btn-sm '+(lic.paid?'btn-danger':'btn-primary'), onclick: async ()=>{
+            const ok = await confirmDialog(lic.paid ? 'Is account ko wapas LOCK kar dein?' : 'Payment confirm ho gaya? Is account ko ACTIVATE kar dein?', lic.paid?'Lock Karein':'Activate Karein');
+            if(!ok) return;
+            const updated = Object.assign({}, lic, {paid: !lic.paid, paidAt: !lic.paid ? new Date().toISOString() : null});
+            await fbDb.collection('licenses').doc(id).set(updated);
+            toast(!lic.paid ? 'Account activate ho gaya.' : 'Account lock kar diya.', 'ok');
+            viewAdmin(root);
+          }},[lic.paid?'Lock Karein':'Activate Karein']),
+        ]),
+      ]));
+    });
+  }catch(e){
+    listCard.innerHTML='';
+    listCard.appendChild(el('div',{class:'small', style:'color:var(--danger);'},['Load nahi ho paya: '+e.message+' — shayad Firestore Rules update karna baaki hai (SETUP_GUIDE dekhein).']));
+  }
+}
 function loadFirebaseConfig(){
   try{ const saved = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'null'); if(saved) return saved; }catch(e){}
   return DEFAULT_FIREBASE_CONFIG;
@@ -1332,6 +1443,9 @@ function renderShell(){
   ]);
   const sidenav = el('div',{class:'sidenav'});
   NAV_ITEMS.forEach(it=> sidenav.appendChild(navItem(it)));
+  if((App.userEmail||'').toLowerCase()===ADMIN_EMAIL.toLowerCase()){
+    sidenav.appendChild(navItem({key:'#/admin', label:'Paid Accounts (Admin)', icon:iconLock}));
+  }
   const main = el('div',{class:'main', id:'view-root'});
   const shell = el('div',{class:'shell'},[sidenav, main]);
   const bottomnav = el('div',{class:'bottomnav'});
@@ -2522,6 +2636,15 @@ async function viewMore(root){
     });
     wrap.appendChild(card);
   });
+  if((App.userEmail||'').toLowerCase()===ADMIN_EMAIL.toLowerCase()){
+    const adminCard = el('div',{class:'card pad stack'});
+    adminCard.appendChild(el('div',{class:'navgroup-label', style:'padding:0;'},['Admin']));
+    adminCard.appendChild(el('div',{class:'list-row', onclick:()=>navigate('#/admin')},[
+      el('div',{class:'row'},[el('div',{class:'avatar'},[iconLock()]), el('div',{class:'bold small'},['Paid Accounts'])]),
+      iconChevronRight(),
+    ]));
+    wrap.appendChild(adminCard);
+  }
   root.appendChild(wrap);
 }
 function statTile(label,val,tone){
@@ -4472,6 +4595,7 @@ function renderLockScreen(){
 /* ---------------- Routes ---------------- */
 on('#/dashboard', viewDashboard);
 on('#/more', viewMore);
+on('#/admin', viewAdmin);
 on('#/bill', viewBill);
 on('#/customers', viewCustomers);
 on('#/products', viewProducts);
@@ -4492,6 +4616,7 @@ routes['#/reports/monthly'] = viewMonthlyReport;
 /* ---------------- Boot (runs once user is logged in) ---------------- */
 async function bootApp(){
   try{
+    if(!(await isAccountPaid())){ renderPaywallScreen(); return; }
     const companies = await ensureSeeded();
     let activeId = getActiveCompanyId();
     if(!companies.find(c=>c.id===activeId)) activeId = companies[0].id;
