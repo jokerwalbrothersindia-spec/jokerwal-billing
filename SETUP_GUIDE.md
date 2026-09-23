@@ -1,25 +1,25 @@
-# Jokerwal Billing — Cloud Setup Guide (Hinglish)
+# Jokerwal Billing — Cloud Setup Guide
 
-**Good news: is copy mein aapka Firebase project (`jokerwal-billing`) already andar se connect kiya hua hai.** Koi bhi device jab yeh link kholega, seedha **Login/Sign Up** screen aayegi — kabhi "Cloud Setup / API Key" screen nahi maangegi. Aapko sirf niche di gayi **PART 2 (GitHub Pages hosting)** karni hai, taaki ek link ban jaye.
+**Good news: this copy already has your Firebase project (`jokerwal-billing`) connected inside it.** Whenever any device opens this app's link, it will go straight to the **Login/Sign Up** screen — it will never ask for a "Cloud Setup / API Key" screen. All you need to do is **PART 2 (GitHub Pages hosting)** below, so that a link gets created.
 
-Part 1 (Firebase project banana) sirf reference ke liye rakha hai — agar kabhi **doosra** Firebase project use karna ho.
+Part 1 (creating a Firebase project) is kept only for reference — in case you ever need to use a **different** Firebase project.
 
 ---
 
-## PART 1 — (Optional/Reference) Naya Firebase Cloud Database Banana
+## PART 1 — (Optional/Reference) Creating a New Firebase Cloud Database
 
-1. Browser mein jaayein: **console.firebase.google.com** aur apne Google account (Gmail) se login karein.
-2. **"Add project"** (ya "Create a project") par click karein.
-3. Project ka naam daalein aur **Continue** dabayein.
-4. Google Analytics ka option aayega — usko **OFF/skip** kar sakte hain (zaroori nahi hai). **Create project** dabayein aur wait karein.
-5. Project ready hone ke baad, left side menu mein **Build → Authentication** par jaayein.
-   - **Get started** dabayein.
-   - **Email/Password** provider par click karein → **Enable** karein → **Save**.
-6. Left menu mein **Build → Firestore Database** par jaayein.
-   - **Create database** dabayein.
-   - Location choose karein (koi bhi nearby region, e.g. `asia-south1 (Mumbai)`).
-   - **Start in production mode** select karein → **Create**.
-7. Firestore ban jaane ke baad, **Rules** tab par jaayein aur neeche di gayi Rules paste kar dein (purani sab hata kar):
+1. Go to **console.firebase.google.com** in your browser and log in with your Google account (Gmail).
+2. Click **"Add project"** (or "Create a project").
+3. Enter a name for the project and click **Continue**.
+4. You will see a Google Analytics option — you can turn this **OFF/skip** it (it is not required). Click **Create project** and wait.
+5. Once the project is ready, go to **Build → Authentication** in the left-side menu.
+   - Click **Get started**.
+   - Click the **Email/Password** provider → click **Enable** → **Save**.
+6. Go to **Build → Firestore Database** in the left menu.
+   - Click **Create database**.
+   - Choose a location (any nearby region, e.g. `asia-south1 (Mumbai)`).
+   - Select **Start in production mode** → **Create**.
+7. Once Firestore is created, go to the **Rules** tab and paste in the Rules below (removing everything that was there before):
 
 ```
 rules_version = '2';
@@ -45,265 +45,265 @@ service cloud.firestore {
 }
 ```
 
-   Yeh rule ensure karta hai ki **sirf aap** (login kiya hua account) apna data dekh/badal sakte hain, koi aur nahi — aur saath hi naye sign-up ko owner ke activate kiye bina locked bhi rakhta hai (poora detail neeche **"Paid Access"** section mein hai). **Publish** dabayein.
+   This rule makes sure that **only you** (the logged-in account) can see or change your own data, and no one else can — and it also keeps every new sign-up locked until the owner activates it (full details are in the **"Paid Access"** section below). Click **Publish**.
 
-8. Ab left menu mein gear icon (⚙️) → **Project settings** par jaayein → "Your apps" section → **`</>`** (Web) icon → app register karein → `firebaseConfig = {...}` wali 6 values note kar lein.
-9. App ke andar: **Login screen ke neeche "Firebase project badlein"** link dabayein → confirm karein → ek "Cloud Setup" screen khulegi jahan yeh 6 values paste kar sakte hain.
+8. Now go to the gear icon (⚙️) → **Project settings** in the left menu → the "Your apps" section → the **`</>`** (Web) icon → register the app → note down the 6 values inside `firebaseConfig = {...}`.
+9. Inside the app: click the **"Change Firebase project"** link below the Login screen → confirm → a "Cloud Setup" screen will open where you can paste these 6 values.
 
 ---
 
-## PART 2 — App ko Internet par Host Karein (GitHub Pages)
+## PART 2 — Host the App on the Internet (GitHub Pages)
 
-1. **github.com** par jaayein aur free account banayein (agar pehle se nahi hai).
-2. Login karne ke baad, top-right **"+"** icon → **New repository** par click karein.
-3. Repository ka naam daalein — jaise `jokerwal-billing` → **Public** select karein → **Create repository**.
-4. Naye repository page par, **"uploading an existing file"** link par click karein (ya "Add file → Upload files").
-5. Is folder ki saari files (`index.html`, `manifest.json`, `sw.js`, `icon.svg`) ek saath drag-drop karein.
-6. Neeche **Commit changes** dabayein.
-7. Ab **Settings** tab (repository ke andar, top mein) par jaayein → left menu mein **Pages** par click karein.
-8. "Branch" mein **main** select karein, folder **`/ (root)`** rakhein → **Save**.
-9. 1-2 minute wait karein, phir yeh page refresh karein — upar ek green box mein aapka live link milega, jaisे:
+1. Go to **github.com** and create a free account (if you don't already have one).
+2. After logging in, click the top-right **"+"** icon → **New repository**.
+3. Enter a name for the repository — for example `jokerwal-billing` → select **Public** → **Create repository**.
+4. On the new repository's page, click the **"uploading an existing file"** link (or "Add file → Upload files").
+5. Drag and drop all the files in this folder (`index.html`, `manifest.json`, `sw.js`, `icon.svg`) together.
+6. Click **Commit changes** below.
+7. Now go to the **Settings** tab (inside the repository, at the top) → click **Pages** in the left menu.
+8. Under "Branch", select **main**, keep the folder as **`/ (root)`** → **Save**.
+9. Wait 1-2 minutes, then refresh this page — you will see your live link in a green box at the top, something like:
    `https://yourusername.github.io/jokerwal-billing/`
 
-Yeh link hi aapki app hai — isko phone ke browser mein kholein, aur **"Add to Home Screen"** kar lein (ek app icon ban jayega, bilkul real app ki tarah).
+This link is your app — open it in your phone's browser, and use **"Add to Home Screen"** (an app icon will be created, just like a real app).
 
 ---
 
-## PART 3 — Pehli Baar App Kholna
+## PART 3 — Opening the App for the First Time
 
-1. Upar wala link phone/computer ke browser mein kholein — seedha **Login screen** aayega (Cloud Setup screen nahi aayegi, Firebase pehle se connected hai).
-2. Pehli baar hai, isliye **"Naya account banayein"** par click karein.
-3. Apna email aur ek password (kam se kam 6 characters) daal kar **Sign Up** karein — yehi aapka business login hoga. Naya account hamesha ek khaali company ("My Business") ke saath shuru hota hai — koi purani/demo data automatically nahi aati, taaki har alag login/company ka data sirf usi ka rahe.
-4. Apni asli JOKERWAL BROTHERS ki Excel history (customers, products, invoices, payments, ledger) load karne ke liye: **Settings** kholein → neeche **"Import JOKERWAL BROTHERS Excel History"** button dabayein → confirm karein. Yeh sirf ek baar, ek khaali/nayi company mein use karein. **(Note: yeh button sirf jokerwalbrothers@gmail.com wale login mein hi dikhta hai — kisi bhi doosre email se Sign Up kiya hua account (jaise koi aur business isi app ko use kar raha ho) yeh button bilkul nahi dekhega, taaki Jokerwal Brothers ka data galti se kisi doosre account mein na chala jaye.)**
+1. Open the link above in your phone/computer browser — you will go straight to the **Login screen** (the Cloud Setup screen will not appear, since Firebase is already connected).
+2. Since this is your first time, click **"Create a new account"**.
+3. Enter your email and a password (at least 6 characters) and click **Sign Up** — this will be your business login. A new account always starts with one empty company ("My Business") — no old/demo data is added automatically, so each separate login/company keeps only its own data.
+4. To load your actual JOKERWAL BROTHERS Excel history (customers, products, invoices, payments, ledger): open **Settings** → click the **"Import JOKERWAL BROTHERS Excel History"** button below → confirm. Use this only once, on an empty/new company. **(Note: this button only shows up when logged in with jokerwalbrothers@gmail.com — an account signed up with any other email (for example, another business using this same app) will never see this button, so that Jokerwal Brothers' data can never accidentally end up in someone else's account.)**
 
-**Bas ho gaya — ab yeh ek proper cloud app hai.**
+**That's it — this is now a proper cloud app.**
 
-- Kisi bhi doosre phone/computer par wahi link kholiye, wahi email-password se login kijiye — poora data turant wahan bhi dikhega, aur kisi ko bhi kabhi API key/setup nahi maangi jayegi.
-- Phone kho jaaye/kharab ho jaaye to koi tension nahi — data Google ke Firebase cloud mein safe hai, naye phone se login karte hi wapas mil jayega.
-- **Multi-company (alag business):** Ek hi login se Settings → "Add New Company" se dusri company bana sakte hain (har company ka data poori tarah alag hota hai), YA phir bilkul alag email se naya Sign Up karke ek doosra independent account bana sakte hain — dono tarike se ek company ka data doosri company mein kabhi nahi dikhega.
-- **GST bills:** Settings → GST card mein "GST" ON karein aur Default GST % daalein. Fir Products mein har product ka HSN Code aur GST % set karein. Bill banate waqt GST automatically judega, aur invoice PDF par HSN, GST%, CGST/SGST breakup dikhega.
-
----
-
-## Naye Premium Invoice Features
-
-- **Company Logo:** Settings → Invoice Customization → "Company Logo" mein apna logo image upload karein — yeh invoice PDF ke top-left corner mein dikhega, aur ek halka watermark ki tarah page ke beech mein bhi print hoga (isse bill zyada premium/branded lagta hai aur khali jagah bhi nahi lagti).
-- **Scan & Pay QR Code:** Settings → Invoice Customization mein apna **UPI ID** (jaise `yourname@okhdfc`) daal dein. Ab jab bhi kisi bill ka **Balance Due zero se zyada** ho, invoice PDF par ek UPI QR code automatically ban jayega — customer seedha GPay/PhonePe/Paytm se scan karke pay kar sakta hai.
-- **Terms & Conditions:** Settings → Invoice Customization mein "Terms & Conditions" mein apni shartein likh dein (jaise "Goods once sold will not be taken back") — yeh totals ke bagal, ek box mein print hoga.
-- **GSTIN / PAN print (highlighted):** Settings → Company Profile mein GSTIN daala hai to woh invoice par print hoga. Agar GST registered nahi hain (GSTIN khaali hai), to niche wala **PAN Number** field bhar dein — GSTIN na hone par invoice par automatically PAN print hoga (dono khaali honge to kuch nahi dikhega). Yeh GSTIN/PAN line ab bold aur highlight color mein print hoti hai taaki aasani se dikh jaye.
-- **Non-Registered Business tag:** Agar company ka GSTIN khaali hai, to company name/tagline ke niche header mein automatically "(Non-Registered Business)" likha aayega — GSTIN daalte hi yeh tag apne aap hat jayega.
-- **Header/Footer Colour Customization:** Settings → Invoice Customization mein "Invoice Header Colour" aur "Invoice Footer Colour" ke color-picker se apni pasand ka colour choose kar sakte hain — dono alag-alag set kar sakte hain. Yeh colour Invoice PDF aur Customer Ledger (statement) PDF, dono par apply hota hai, taaki dono documents ek jaisi branding rakhein.
-- **Customer Ledger (statement) — Print/WhatsApp/date-wise check:** Customers list se kisi customer par click karke uski detail kholein. Yahan ab **From/To date** daal kar sirf uss period ke transactions dekh sakte hain (Opening Balance + Closing Balance bhi dikhega). "Print Ledger" se ek premium PDF statement banta hai (jaisa invoice), aur "Send PDF on WhatsApp" se woh seedha WhatsApp share-sheet ke through customer ko bhej sakte hain.
-- **Signature ke liye jagah:** "Authorized Signatory" line ab bill ke bilkul bottom-right corner mein hai, aur line ke upar ek khaali jagah chodi gayi hai taaki asli pen se signature kiya ja sake.
-- **Premium A4 Invoice:** "Print Invoice" ab ek proper **A4-size, single-page PDF** banata hai (gold header, company details, items table, GST breakup, amount in words, bank details, terms box, signature space) — pehle wale simple HTML print se kaafi behtar. Yeh naya browser tab mein khulta hai jahan se aap print ya save kar sakte hain.
-- **Invoice customization:** Settings → Invoice Customization mein apna khud ka Footer Note (jaise "Thank you!" ya koi terms) aur Bank Details (bank transfer ke liye) daal sakte hain — Footer Note ab bottom mein ek colored band (aapke chune footer colour ka) mein print hota hai, taaki bank details aur footer ke beech khaali/awkward gap na lage — signature line bhi ab content ke turant baad aati hai, na ki page ke bilkul niche fix hokar.
-- **Terms & Conditions box:** poori width (jitni jagah totals column ke left mein khaali thi) wapas use karta hai, background ab **transparent** hai (sirf border dikhega), aur ek wrapping bug fix ki gayi hai jiski wajah se text box ki poori width mein sahi se fit hota hai (pehle text galat tarike se jaldi wrap ho raha tha aur box mein khaali jagah dikh rahi thi). Height text ke hisab se compact rehti hai, aur "Amount in words" line kabhi box ke upar overlap nahi karti. Amount in words ab thoda **bold** bhi print hota hai.
-- **Logo Size:** Settings → Invoice Customization mein logo upload ke turant niche "Logo Size" dropdown se Small/Medium/Large/Extra Large choose kar sakte hain — Invoice aur Customer Ledger, dono PDF ke header mein bada/chota logo print hoga (header band bhi bade logo ke hisab se apne aap thodi badi ho jayegi taaki logo cut na ho).
-- **WhatsApp par PDF bhejna:** Bill save hone ke baad "Send PDF on WhatsApp" button dabayein.
-  - **Mobile par (Android/iPhone):** ek share-sheet khulegi jisme WhatsApp choose karke ek tap mein PDF invoice seedha customer ko bhej sakte hain.
-  - **Computer/laptop par** (jahan yeh share-sheet feature nahi hota): PDF automatically download ho jayegi aur WhatsApp Web/App ek chat khul jayegi — bas download hui PDF ko chat mein manually attach kar dein (yeh ek phone/browser ki limitation hai — koi bhi website apne aap kisi doosre app mein file "silently" nahi bhej sakti, user ko ek baar select/attach karna hi padta hai).
-- **Note:** Logo, QR code aur naya PDF banane ke liye do chhoti libraries (jsPDF, QR code) internet se load hoti hain — isliye invoice **print/share karte waqt** phone/computer par internet ON hona chahiye (baaki poora app — bill banana, customer/product data — bina internet ke bhi kaam karta hai, kyunki Firestore data local mein bhi cache rehta hai).
+- Open the same link on any other phone/computer and log in with the same email-password — all the data will show up there instantly too, and no one will ever be asked for an API key/setup.
+- If your phone is lost or damaged, there is nothing to worry about — the data is safe in Google's Firebase cloud, and logging in on a new phone will bring it right back.
+- **Multi-company (separate businesses):** From the same login, you can create another company from Settings → "Add New Company" (each company's data stays completely separate), OR you can sign up with a completely different email to create a second, independent account — either way, one company's data will never show up in another company.
+- **GST bills:** In Settings → GST card, turn "GST" ON and enter the Default GST %. Then, in Products, set the HSN Code and GST % for each product. GST will be added automatically when you create a bill, and the invoice PDF will show the HSN, GST%, and the CGST/SGST breakup.
 
 ---
 
-## Purchase System (Party-wise Purchase Bill, Payment aur Ledger)
+## New Premium Invoice Features
 
-Ab app mein ek poora **Purchase side** bhi hai — jab aap kisi party/vendor se maal khareedte hain (ya job-work material lete hain), uska bill banaiye, party ko payment karne par record ho jayega, aur har party ka apna ledger milega.
+- **Company Logo:** In Settings → Invoice Customization → "Company Logo", upload your logo image — it will appear in the top-left corner of the invoice PDF, and will also print as a faint watermark in the middle of the page (this makes the bill look more premium/branded and fills empty space too).
+- **Scan & Pay QR Code:** In Settings → Invoice Customization, enter your **UPI ID** (for example `yourname@okhdfc`). Now, whenever a bill's **Balance Due is more than zero**, a UPI QR code will be generated automatically on the invoice PDF — the customer can scan it directly with GPay/PhonePe/Paytm and pay.
+- **Terms & Conditions:** In Settings → Invoice Customization, write your terms in "Terms & Conditions" (for example "Goods once sold will not be taken back") — this will print in a box beside the totals.
+- **GSTIN / PAN print (highlighted):** If you have entered a GSTIN in Settings → Company Profile, it will print on the invoice. If you are not GST-registered (GSTIN is blank), fill in the **PAN Number** field below it — when there is no GSTIN, the PAN will print automatically on the invoice instead (if both are blank, nothing will show). This GSTIN/PAN line now prints in bold and a highlighted colour so it stands out clearly.
+- **Non-Registered Business tag:** If a company's GSTIN is blank, "(Non-Registered Business)" will automatically appear in the header under the company name/tagline — this tag disappears automatically as soon as you enter a GSTIN.
+- **Header/Footer Colour Customization:** In Settings → Invoice Customization, you can choose your own colours using the "Invoice Header Colour" and "Invoice Footer Colour" colour-pickers — both can be set separately. This colour applies to both the Invoice PDF and the Customer Ledger (statement) PDF, so both documents keep the same branding.
+- **Customer Ledger (statement) — Print/WhatsApp/date-wise check:** Click on any customer from the Customers list to open their details. You can now enter a **From/To date** to see only that period's transactions (the Opening Balance and Closing Balance are also shown). "Print Ledger" creates a premium PDF statement (like the invoice), and "Send PDF on WhatsApp" lets you send it straight to the customer through the WhatsApp share sheet.
+- **Space for a signature:** The "Authorized Signatory" line is now at the very bottom-right corner of the bill, with blank space above the line so it can be signed by hand with a real pen.
+- **Premium A4 Invoice:** "Print Invoice" now creates a proper **A4-size, single-page PDF** (gold header, company details, items table, GST breakup, amount in words, bank details, terms box, signature space) — a big improvement over the earlier simple HTML print. It opens in a new browser tab from where you can print or save it.
+- **Invoice customization:** In Settings → Invoice Customization, you can add your own Footer Note (for example "Thank you!" or some terms) and Bank Details (for bank transfers) — the Footer Note now prints in a coloured band (using your chosen footer colour) at the bottom, so there is no empty/awkward gap between the bank details and the footer — the signature line now also follows right after the content instead of being fixed at the very bottom of the page.
+- **Terms & Conditions box:** now uses the full width (whatever space was empty to the left of the totals column), the background is now **transparent** (only the border shows), and a wrapping bug has been fixed so the text now fits properly across the full width of the box (previously the text wrapped too early and left empty space in the box). The height stays compact based on the text, and the "Amount in words" line never overlaps the box above it. The amount in words now also prints slightly **bold**.
+- **Logo Size:** In Settings → Invoice Customization, right below the logo upload, use the "Logo Size" dropdown to choose Small/Medium/Large/Extra Large — both the Invoice and Customer Ledger PDF headers will print a bigger/smaller logo (the header band also automatically grows a little for a bigger logo so it doesn't get cut off).
+- **Sending a PDF on WhatsApp:** After saving a bill, click the "Send PDF on WhatsApp" button.
+  - **On mobile (Android/iPhone):** a share sheet will open where you can choose WhatsApp and send the PDF invoice straight to the customer in one tap.
+  - **On a computer/laptop** (where this share-sheet feature doesn't exist): the PDF will download automatically and a WhatsApp Web/App chat will open — just attach the downloaded PDF to the chat manually (this is a phone/browser limitation — no website can "silently" send a file into another app automatically; the user always has to select/attach it once).
+- **Note:** Two small libraries (jsPDF, QR code) are loaded from the internet to generate the logo, QR code and the new PDF — so your phone/computer needs internet **at the time you print/share** an invoice (the rest of the app — creating bills, customer/product data — works fine without internet, since Firestore data also stays cached locally).
 
-- **Suppliers / Parties (naya sidebar menu):** Yeh Customers jaisi hi ek alag list hai, lekin un logon ke liye jinhe aap payment karte hain (vendor, raw-material supplier, job-work party). Naam, mobile aur opening balance (jo aap unhe pehle se owe karte hain) daal kar "Add" karein — ya Purchase Bill banate waqt mobile number se naya party apne aap ban jayega.
-- **Purchase Bill (naya sidebar menu):** Bilkul "New Bill" jaisa hi screen hai — Party select/search karein (ya naam-mobile type karein), phir Products list se items add karein (qty x rate). Yeh **stock ko badhata hai** (kyunki maal andar aa raha hai — Sales Bill ke ulta jo stock ghatata hai). Payment Mode Cash/UPI/Credit choose karke "Save Purchase Bill" dabayein — ek **Purchase Voucher** print ho sakta hai.
-  - **Modify Bill / Cancel Bill:** Purchase No daal kar pichla bill edit ya cancel kar sakte hain — stock aur party balance dono automatically sahi ho jayenge.
-- **Party Ledger:** Suppliers list mein kisi party par click karein — poora ledger (kitna maal khareeda, kitna pay kiya, balance) date-range filter ke saath dikhega, aur **Print Ledger** / **Send PDF on WhatsApp** yahan bhi available hai (bilkul customer statement jaisa, sirf label "SUPPLIER" hoga).
-- **Pay Supplier (payment record):** Party detail mein "Pay Supplier" button se payment record karein — Amount, Date, Payment Mode (Cash/UPI/Bank Transfer/**Cheque**) aur Remarks daalein. Save hote hi party ka balance kam ho jata hai aur ledger mein automatically entry ban jati hai.
-- **Cheque Print:** Pay Supplier mein Payment Mode **"Cheque"** choose karein — payment save hone ke baad ek **"Print Cheque"** button aayega jo ek ready-to-print cheque PDF banata hai (Payee Name, Date boxes, Amount in figures + words, signature line). Yeh ek **standard/generic cheque layout** hai — har bank/cheque-book ka size thoda alag hota hai, isliye pehle plain paper par test print karke apni asli cheque book ke upar hold karke check kar lein ki fields sahi jagah aa rahi hain. Agar position thodi idhar-udhar chahiye ho to bata dijiyega, adjust kiya ja sakta hai.
-- **Purchase Register:** Saare purchase bills date-range/status filter ke saath, ek jagah — Sales Register jaisa hi.
-- **Purchase Bill Prefix:** Settings → Company Profile mein "Purchase Bill Prefix" field se purchase bill number ka prefix (default `PUR`) customize kar sakte hain — jaise Invoice/Product prefix.
+---
+
+## Purchase System (Party-wise Purchase Bill, Payment and Ledger)
+
+The app now also has a complete **Purchase side** — when you buy goods from a party/vendor (or take job-work material), you can create a bill for it, record payments made to the party, and get a ledger for each party.
+
+- **Suppliers / Parties (new sidebar menu):** This is a separate list, similar to Customers, but for the people you make payments to (vendors, raw-material suppliers, job-work parties). Enter the name, mobile and opening balance (what you already owe them) and click "Add" — or a new party will be created automatically from the mobile number while creating a Purchase Bill.
+- **Purchase Bill (new sidebar menu):** This screen works just like "New Bill" — select/search a Party (or type their name-mobile), then add items from the Products list (qty x rate). This **increases stock** (since goods are coming in — the opposite of a Sales Bill, which decreases stock). Choose the Payment Mode (Cash/UPI/Credit) and click "Save Purchase Bill" — a **Purchase Voucher** can be printed.
+  - **Modify Bill / Cancel Bill:** Enter the Purchase No to edit or cancel a previous bill — the stock and party balance will both be automatically corrected.
+- **Party Ledger:** Click on any party from the Suppliers list — you'll see the full ledger (how much was bought, how much was paid, the balance) with a date-range filter, and **Print Ledger** / **Send PDF on WhatsApp** are also available here (just like a customer statement, with the label "SUPPLIER").
+- **Pay Supplier (payment record):** Use the "Pay Supplier" button in the party's details to record a payment — enter the Amount, Date, Payment Mode (Cash/UPI/Bank Transfer/**Cheque**) and Remarks. As soon as it's saved, the party's balance decreases and a ledger entry is created automatically.
+- **Cheque Print:** In Pay Supplier, choose Payment Mode **"Cheque"** — after saving the payment, a **"Print Cheque"** button will appear that creates a ready-to-print cheque PDF (Payee Name, Date boxes, Amount in figures + words, signature line). This is a **standard/generic cheque layout** — every bank/chequebook is sized slightly differently, so do a test print on plain paper first and hold it against your actual chequebook to check the fields line up correctly. If the position needs to shift a little, let us know and it can be adjusted.
+- **Purchase Register:** All purchase bills with a date-range/status filter, in one place — just like the Sales Register.
+- **Purchase Bill Prefix:** In Settings → Company Profile, use the "Purchase Bill Prefix" field to customize the purchase bill number's prefix (default `PUR`) — same as the Invoice/Product prefix.
 
 ---
 
 ## Latest Fixes — Party Details, Payment Bug, Auto-WhatsApp, Inline Add
 
-- **Supplier/Party ki poori detail:** "Add Party" / "Edit Party" form mein ab Name, Mobile ke saath **Address Line 1/2, GSTIN aur PAN** bhi hai (bilkul Company Profile jaisa) — Party detail screen mein yeh address/GSTIN ab dikhta bhi hai.
-- **"Receive Payment" button fix:** Pehle jab Receive Payment modal khol kar "Select Customer" se customer choose karte the, to poora modal gayab ho jaata tha aur payment record nahi ho pata tha. Yeh ek modal-system ka bug tha — jab ek modal ke andar se doosra modal (jaise search picker) khulta tha, to pehla wala destroy ho jaata tha. Ab modals theek se ek-doosre ke upar "stack" hote hain, isliye Receive Payment ho ya Pay Supplier — dono mein "Select Customer/Party" search button ab sahi kaam karta hai.
-- **Bill save hote hi WhatsApp apne aap khulta hai:** Ab Sale Bill ho ya Purchase Bill, save karte hi bill/party ke mobile number ka WhatsApp automatically khul jaata hai (jaisa "Send PDF on WhatsApp" / "WhatsApp" button manually dabane par hota hai) — manual button bhi wahin available rehta hai agar browser ne automatic popup block kar diya ho (kuch browsers sirf ek direct click par hi naya tab khulne dete hain).
-- **Product/Customer/Party list mein na ho to wahin se "Add New":** Sale Bill ya Purchase Bill banate waqt jab aap search-icon se Product ya Party/Customer dhoondte hain aur woh list mein nahi milta, to picker ke top par ek **"+ Add New Product" / "+ Add New Customer" / "+ Add New Party"** button dikhega — jo aapne search box mein type kiya tha woh naam pehle se bhara hua aayega, bas baaki detail bharke save karein — naya record turant bill mein select ho jayega, dobara dhoondhne ki zaroorat nahi.
+- **Full Supplier/Party details:** The "Add Party" / "Edit Party" form now also has **Address Line 1/2, GSTIN and PAN** along with Name and Mobile (just like Company Profile) — this address/GSTIN now also shows on the Party details screen.
+- **"Receive Payment" button fix:** Previously, when you opened the Receive Payment modal and chose a customer via "Select Customer", the whole modal used to disappear and the payment couldn't be recorded. This was a bug in the modal system — when a second modal (like a search picker) opened from inside another modal, the first one used to get destroyed. Modals now properly "stack" on top of each other, so whether it's Receive Payment or Pay Supplier, the "Select Customer/Party" search button now works correctly in both.
+- **WhatsApp opens automatically as soon as a bill is saved:** Now, for both a Sale Bill and a Purchase Bill, WhatsApp opens automatically with the bill's/party's mobile number as soon as you save (just like manually pressing the "Send PDF on WhatsApp" / "WhatsApp" button) — the manual button is still available too in case the browser blocked the automatic popup (some browsers only allow a new tab to open on a direct click).
+- **"Add New" right from the Product/Customer/Party list if not found:** While creating a Sale Bill or Purchase Bill, if you search for a Product or Party/Customer using the search icon and it isn't found in the list, a **"+ Add New Product" / "+ Add New Customer" / "+ Add New Party"** button now shows up at the top of the picker — whatever you typed in the search box will already be filled in as the name, so just fill in the rest of the details and save — the new record will be selected in the bill right away, with no need to search again.
 
 ---
 
 ## Product QR Code Labels (Bulk print — fast scan-billing)
 
-Ab har Product ke liye ek **QR code label** print kar sakte hain jo uske Product Code ko encode karta hai — Sale/Purchase Bill screen ka "Product code scan/type karein" box isi code ko scan/Enter se turant pehchan leta hai, isliye label ko item par chipka kar sirf **scan karte hi bill mein item add ho jayega**, typing ki zaroorat nahi — aur shop bhi zyada professional/premium lagegi.
+You can now print a **QR code label** for every Product that encodes its Product Code — the "Scan or type product code" box on the Sale/Purchase Bill screen instantly recognizes this same code on scan/Enter, so once the label is stuck on the item, **just scanning it will add the item to the bill** — no typing needed — and the shop will also look more professional/premium.
 
-- **Kahan se print karein:**
-  - **Products page** ke top par "Print QR Labels" button — kisi bhi product(s) ko search karke, har ek ki quantity (kitne label chahiye) set karke ek saath batch print kar sakte hain.
-  - **Kisi bhi product ko Edit karke** — "Print QR Label" button se sirf uska label reprint kar sakte hain.
-  - **Stock Entry** mein stock add karne ke turant baad — "Print QR Labels for last-added stock" button us exact quantity ke hisab se labels bana deta hai (jaise 100 pcs aaye to 100 labels).
-  - **Purchase Bill save hone ke baad** — "Print QR Labels (Batch)" button us poore purchase bill ke saare items (jitni quantity aayi thi) ke liye ek hi baar mein saare labels bana deta hai — yehi woh **"ek saath" (batch) option** hai jab bulk mein naya maal/products aaye. Label par yahan bhi hamesha **Selling Price (MRP)** hi print hoti hai, purchase bill ka cost rate kabhi nahi (chahe purchase alag rate par hui ho).
-- **Label design (naya, updated look):** Upar company name ab ek **bold, bigger, filled-background banner** mein print hota hai (background wahi color jo aapne Invoice Header Colour mein set kiya hai) — pehle se zyada premium aur clearly dikhta hai. **LEFT side par QR code, RIGHT side par product ka naam, MRP aur Product Code (sab text mein, padhne layak)**. Product naam agar lamba ho to ab woh **do line mein wrap ho jata hai** (pehle jaisa beech se cut nahi hota) — poora naam padhne layak rehta hai. Product Code text mein bhi print hota hai — isliye agar kabhi QR scan na ho paye to bhi wahi code manually Sale/Purchase Bill ke "scan/type" box mein type karke Enter dabayein, item ka naam/rate automatically bill mein aa jayega.
-- **A4 sheet par kitne label aayenge — aap choose karein:** "Print QR Labels" modal mein "A4 Sheet par kitne labels" dropdown se choose karein — 12 (bade label), 21 (default), 32, 40 (chhote), ya 65 (extra chhote) labels per sheet.
-- Ek hi product ke saare labels ke liye QR code sirf **ek baar generate hota hai** aur baaki copies mein reuse hota hai — isliye 100+ labels bhi jaldi ban jaate hain.
-- Label sheet A4 page par grid mein print hoti hai — printer/plain paper par print karke kaat lein aur item par chipka dein.
+- **Where to print from:**
+  - The **Products page**'s "Print QR Labels" button at the top — search for any product(s), set the quantity (how many labels are needed) for each, and print them all together in a batch.
+  - **Editing any product** — use the "Print QR Label" button to reprint just that one label.
+  - **Stock Entry**, right after adding stock — the "Print QR Labels for last-added stock" button creates labels matching that exact quantity (for example, if 100 pcs came in, it creates 100 labels).
+  - **After saving a Purchase Bill** — the "Print QR Labels (Batch)" button creates all the labels in one go for every item in that entire purchase bill (matching the quantity received) — this is the **"batch" option** for when new stock/products arrive in bulk. The label here always prints the **Selling Price (MRP)**, never the purchase bill's cost rate (even if the purchase was made at a different rate).
+- **Label design (new, updated look):** The company name at the top now prints in a **bold, bigger, filled-background banner** (using the same colour you set as the Invoice Header Colour) — it looks more premium and clear than before. **QR code on the LEFT, product name, MRP and Product Code on the RIGHT (all as readable text)**. If the product name is long, it now **wraps onto two lines** (instead of being cut off in the middle as before) — the full name stays readable. The Product Code is also printed as text — so if the QR ever fails to scan, that same code can be typed manually into the "scan/type" box on the Sale/Purchase Bill, and the item's name/rate will fill in automatically.
+- **How many labels fit on an A4 sheet — you choose:** In the "Print QR Labels" popup, use the "Labels per A4 sheet" dropdown to choose — 12 (large labels), 21 (default), 32, 40 (small), or 65 (extra small) labels per sheet.
+- The QR code for a given product is generated **only once** and reused for all its copies — so even 100+ labels are created quickly.
+- The label sheet is printed as a grid on an A4 page — print it on plain paper, cut it out and stick it on the item.
 
-### Print karte waqt labels edge se cut ho rahe hain? (jaise 40/65-per-sheet layout mein)
+### Are labels getting cut off at the edge while printing? (for example, in a 40/65-per-sheet layout)
 
-Zyada labels ek hi A4 sheet par (32/40/65 wale dense layouts) chote size ke hote hain, isliye printer ka apna thoda sa "edge margin" (jahan koi bhi printer print nahi kar sakta, aam taur par 4-5mm) in chote labels ko cut kar sakta hai. Do cheezein kar dein:
+A larger number of labels on one A4 sheet (dense layouts like 32/40/65) means each label is smaller, so a printer's own small "edge margin" (the area no printer can print in, usually around 4-5mm) can cut into these small labels. Do these two things:
 
-1. **Print dialog mein Paper Size hamesha "A4" par set karein** (kabhi "Letter" na ho — Letter A4 se chota hota hai aur neeche ki row cut kar dega).
-2. **Scale/Fit option mein "Fit to Page" ya "Shrink to Printable Area" chunein — "Actual Size" ya "100%" NA chunein.** Yeh setting printer ko poori sheet apne aap thoda adjust karke print karne deti hai, taaki koi bhi label edge se cut na ho.
+1. **Always set Paper Size to "A4" in the print dialog** (never "Letter" — Letter is smaller than A4 and will cut off the bottom row).
+2. **In the Scale/Fit option, choose "Fit to Page" or "Shrink to Printable Area" — do NOT choose "Actual Size" or "100%".** This setting lets the printer automatically adjust the whole sheet slightly so that no label gets cut off at the edge.
 
-App mein bhi ab yeh guidance "Print QR Labels" popup ke andar dikhti hai, aur outer margins thode aur bada diye hain taaki dense layouts (40/65 per sheet) mein bhi labels printer ke edge-limit se safe rahein.
+This guidance is now also shown inside the "Print QR Labels" popup in the app, and the outer margins have been made a little bigger so that dense layouts (40/65 per sheet) also stay safely within the printer's edge limit.
 
-### Mera label sheet 0-margin/pre-cut sticker sheet hai (labels ke beech border/gap nahi hai)
+### My label sheet is a 0-margin/pre-cut sticker sheet (no border/gap between labels)
 
-Agar aapke paas ready-made sticker/label sheet hai jisme labels ek-doosre se bilkul sath (edge-to-edge) chipke hain — beech mein ya sheet ke side mein koi khaali margin ya gap nahi hai (sheet ka apna physical cutting hi har label ka border hai) — to upar wali normal advice (margins + "Fit to Page") is sheet ke liye sahi nahi baithegi, kyunki app ke print kiye hue margin/gap us sheet ke real sticker positions se match nahi karenge.
+If you have a ready-made sticker/label sheet where the labels sit right next to each other (edge-to-edge) — with no empty margin or gap in the middle or at the sides of the sheet (the sheet's own physical die-cut is each label's border) — then the normal advice above (margins + "Fit to Page") will not work for this sheet, because the app's printed margins/gaps won't match that sheet's real sticker positions.
 
-Isi ke liye **"Print QR Labels" popup mein ek naya checkbox** add kiya gaya hai:
+For this, a **new checkbox has been added in the "Print QR Labels" popup**:
 
-> **"Yeh ek 0-margin / pre-cut sticker sheet hai (labels edge-to-edge, koi gap nahi)"**
+> **"This is a 0-margin / pre-cut sticker sheet (labels edge-to-edge, no gap)"**
 
-- **Checkbox ON karne par:** App labels ko sheet par bilkul edge-to-edge print karta hai — koi margin nahi, labels ke beech koi gap nahi, aur koi cutting-guide border bhi print nahi hota (kyunki sheet ka apna physical cut hi border hai, printed border sirf sticker se misalign hoga).
-- **Print dialog mein is baar ULTA setting chunein:** Checkbox ON hone par popup mein hi guidance dikhegi — "**Actual Size / 100% / No Scaling**" chunein, "**Fit to Page**" **NAHI** — kyunki auto-scale karne se poora grid sticker sheet ke real positions se thoda idhar-udhar (misalign) ho sakta hai.
-- **Checkbox OFF (default) rehne par** — sab kuch pehle jaisa hi hai: normal bordered/margin wali style, aur "Fit to Page"/"Shrink to Printable Area" wali advice — plain A4 paper par print karne ke liye yehi sahi hai.
+- **When this checkbox is ON:** The app prints the labels completely edge-to-edge on the sheet — no margin, no gap between labels, and no cutting-guide border is printed either (since the sheet's own physical cut is already the border — a printed border would just misalign with the sticker).
+- **Choose the OPPOSITE setting in the print dialog this time:** when the checkbox is ON, the popup itself will show this guidance — choose "**Actual Size / 100% / No Scaling**", **NOT** "**Fit to Page**" — because auto-scaling could misalign the whole grid slightly against the sticker sheet's real positions.
+- **When the checkbox is OFF (default)** — everything works as before: the normal bordered/margin style, with the "Fit to Page"/"Shrink to Printable Area" advice — this is correct for printing on plain A4 paper.
 
-Matlab ab dono tarah ke label sheet ke liye app kaam karta hai — plain paper (normal style, default) aur ready-made 0-margin sticker sheet (checkbox ON karke) — jab bhi jo sheet available ho, wahi mode chun lein.
+This means the app now works for both kinds of label sheets — plain paper (normal style, default) and a ready-made 0-margin sticker sheet (with the checkbox turned ON) — just choose whichever mode matches the sheet you have available.
 
 ---
 
 ## Purchase Cost vs Selling Rate — Profit & Loss Report
 
-Ab har Product mein **do alag rate** hain: **Rate (₹)** — jis par aap bechte hain (selling), aur **Purchase Cost (₹)** — jis par aapne khareeda tha (cost). Pehle sirf ek hi "Rate" tha, isliye agar kabhi selling price aur cost price same rakhni pade to profit/loss pata karna mushkil tha — ab dono alag track hote hain.
+Every Product now has **two separate rates**: **Rate (₹)** — the price you sell at, and **Purchase Cost (₹)** — the price you bought it at (cost). Previously there was only one "Rate", so it was hard to work out profit/loss if the selling price and cost price ever needed to be the same — now both are tracked separately.
 
-- **Product mein Purchase Cost daalein:** Products → kisi bhi product ko Add/Edit karein — "Purchase Cost (₹)" field mein wo rate daalein jis par aapne wo maal khareeda tha.
-- **Purchase Bill khud-ba-khud update kar deta hai:** Jab bhi koi Purchase Bill save hota hai, us bill mein jo rate diya gaya tha wahi us product ka naya Purchase Cost ban jata hai (latest cost hamesha up-to-date rehta hai) — Purchase Bill mein product add karte waqt bhi ab default rate Purchase Cost se hi aata hai (Selling Rate se nahi).
-- **Sale Bill profit save karta hai:** Jab bhi koi Sale Bill banta hai, us waqt product ka jo Purchase Cost tha wo us bill ke saath hamesha ke liye save ho jata hai — isliye baad mein Purchase Cost badal bhi jaye, to purane bills ka profit galat nahi hoga.
-- **Profit & Loss Report (naya sidebar menu):** Date range choose karke Total Sales, Total Purchase Cost, **Gross Profit** aur Profit Margin % dekhein — har bill ka apna profit bhi list mein dikhta hai. Yehi report bataegi ki agar aap Selling Rate aur Purchase Cost same rakh rahe hain to profit zero/negative aa raha hai — turant pata chal jayega.
-- Daily aur Monthly Report mein bhi ab ek **"Profit"** tile add hui hai, quick check ke liye.
-- **Note:** Jo purane bills Purchase Cost set karne se PEHLE bane the, unka profit yahan 0 dikhega (kyunki us waqt cost record nahi thi) — Purchase Cost bharne ke baad ke saare naye bills sahi profit dikhayenge.
-
----
-
-## Product/Customer list "gayab" hone ka fix (connection error ab saaf dikhega)
-
-Pehle kabhi-kabhi Products ya Customers (ya Suppliers, Sales/Purchase Register, Reports) ki list khaali dikhti thi — kuch bhi error nahi dikhta tha, sirf list gayab lagti thi, aur page refresh/reload karne par wapas sahi dikhne lagti thi. Iski wajah yeh thi ki agar us waqt internet mein thoda sa bhi hiccup ho (ek Firestore read fail ho jaye), to woh error kahin dikhta nahi tha — app chup-chap list khaali chod deta tha.
-
-Ab har list is tarah se load hoti hai ki agar koi bhi aisi problem aaye, to list khaali nahi rahegi — iske bajaye ek saaf message dikhega: **"Connection mein problem aa gayi — data load nahi ho paya"** ke saath ek **"Dobara Try Karein"** button. Us button ko ek baar dabane se list turant dobara load ho jayegi (bina page refresh kiye) — is se pata bhi chal jayega ki kab connection weak tha, aur ek tap mein theek bhi ho jayega. Yeh fix Products, Customers, Suppliers, Sales Register, Purchase Register, Daily/Monthly Report, aur Profit & Loss Report — sabhi list-wali screens par lagaya gaya hai.
+- **Enter the Purchase Cost on a product:** Go to Products → Add/Edit any product — enter the rate you bought that stock at in the "Purchase Cost (₹)" field.
+- **The Purchase Bill updates it automatically:** Whenever a Purchase Bill is saved, the rate entered in that bill becomes that product's new Purchase Cost (the latest cost always stays up to date) — when adding a product to a Purchase Bill, the default rate now also comes from the Purchase Cost (not the Selling Rate).
+- **A Sale Bill saves the profit at that time:** Whenever a Sale Bill is created, the product's Purchase Cost at that moment is saved permanently with that bill — so even if the Purchase Cost changes later, the profit on old bills will never be wrong.
+- **Profit & Loss Report (new sidebar menu):** Choose a date range to see Total Sales, Total Purchase Cost, **Gross Profit** and Profit Margin % — each bill's own profit is also shown in the list. This report will show you right away if profit is coming out at zero/negative because Selling Rate and Purchase Cost are the same.
+- The Daily and Monthly Reports now also have a **"Profit"** tile for a quick check.
+- **Note:** Bills created BEFORE the Purchase Cost was set will show 0 profit here (since no cost was recorded at that time) — all new bills created after entering the Purchase Cost will show the correct profit.
 
 ---
 
-## Bill save hone ke baad "Send PDF on WhatsApp" — ab kaise kaam karta hai
+## Fix for Products/Customers list "disappearing" (connection errors now show clearly)
 
-Pehle bill save karte hi WhatsApp automatic khulta tha, lekin sirf ek text message ke saath — invoice ki PDF file kabhi nahi lagti thi, kyunki koi bhi website WhatsApp mein seedha ek specific number par PDF automatic attach NAHI kar sakti (yeh WhatsApp/phone ki apni limitation hai, hamari app ki nahi) — sirf phone ka apna "Share" menu hi file attach kar sakta hai, aur woh menu sirf ek DIRECT button-tap par hi khulta hai, apne aap nahi.
+Previously, the Products or Customers list (or Suppliers, Sales/Purchase Register, Reports) sometimes appeared empty — no error would show, the list would just seem to have disappeared, and refreshing/reloading the page would make it show correctly again. This happened because if there was even a small internet hiccup at that moment (a Firestore read failing), that error wasn't shown anywhere — the app quietly left the list empty.
 
-Isliye ab:
-- **Bill save karte hi** — jaisa pehle tha, customer ko ek WhatsApp confirmation MESSAGE turant automatic chala jata hai (invoice number, amount, balance ke saath).
-- **Asli PDF invoice bhejne ke liye** — "Bill Saved" popup mein "Send PDF on WhatsApp" button khud dabayein. Zyadatar phones (Android/iPhone) par yeh turant phone ka Share menu khol dega jisme PDF already attached hoga — bas WhatsApp aur customer chunkar bhej dein.
-- Agar aapka phone/browser yeh Share menu support nahi karta, to PDF file download ho jayegi aur ek saaf popup dikhega jisme step-by-step bataya jayega ki WhatsApp kholkar 📎 (Attach) se woh downloaded PDF manually kaise lagayein.
+Now, every list is built so that if a problem like this occurs, the list won't stay empty — instead, a clear message will show: **"Connection problem — could not load data"** along with a **"Try Again"** button. Pressing that button once will reload the list right away (without refreshing the page) — this also makes it obvious when the connection was weak, and fixes it in one tap. This fix has been applied to every list-based screen: Products, Customers, Suppliers, Sales Register, Purchase Register, Daily/Monthly Report, and Profit & Loss Report.
 
 ---
 
-## Naya Premium Look (Dark theme fix + rich UI)
+## "Send PDF on WhatsApp" after saving a bill — how it works now
 
-Interface poora refresh kar diya hai — ab zyada premium aur rich dikhega:
+Previously, WhatsApp used to open automatically as soon as a bill was saved, but only with a text message — it never included the invoice PDF file, because no website can automatically attach a PDF straight to a specific WhatsApp number (this is a limitation of WhatsApp/the phone itself, not of our app) — only the phone's own "Share" menu can attach a file, and that menu only opens on a DIRECT button tap, never automatically.
 
-- **Selected/highlighted tile ab saaf dikhta hai:** Pehle Dark mode mein jab aap kisi sidebar item (jaise "Customers") par ho, to uska text aur background dono itne dark the ki naam kabhi-kabhi ghayab jaisa lagta tha. Ab selected item par bright gold text, ek glowing gold left-bar aur saaf background hai — turant pata chal jayega aap kahan ho.
-- Isi wajah se **customer/supplier avatar ka pehla letter bhi** (jo pehle dark mode mein mushkil se dikhta tha) ab bright aur saaf dikhta hai.
-- **Naye premium effects:** gold gradient buttons, glowing accent lines, stat tiles par colored side-bar, cards par soft depth/shadow, modal popup par smooth glass-blur background aur gold top-accent.
-- **App ab hamesha Light theme mein khulegi** — phone/browser ki Dark mode setting chahe kuch bhi ho. (Dark theme wala code abhi bhi maujood hai, bas app use force-light kar deti hai, taaki look hamesha consistent rahe.)
-- Yeh sirf look-and-feel ka update hai — koi data, calculation ya feature nahi badla.
-- **Agar update ke baad bhi purana look dikhe**, niche diye "Update ke baad bhi purani app dikhe to" section ke steps follow karein (cache clear karna padega, kyunki yeh ek badi visual change hai).
+So now:
+- **As soon as a bill is saved** — as before, a WhatsApp confirmation MESSAGE is sent to the customer automatically right away (with the invoice number, amount, and balance).
+- **To send the actual PDF invoice** — press the "Send PDF on WhatsApp" button yourself in the "Bill Saved" popup. On most phones (Android/iPhone), this will immediately open the phone's Share menu with the PDF already attached — just choose WhatsApp and the customer, and send.
+- If your phone/browser doesn't support this Share menu, the PDF file will download and a clear popup will show step-by-step instructions on how to open WhatsApp and manually attach that downloaded PDF using 📎 (Attach).
 
 ---
 
-## Print Bill — Background Watermark Logo ab Optional Hai
+## New Premium Look (Dark theme fix + rich UI)
 
-Agar aapne Settings mein Company Logo upload kiya hai, to pehle woh logo har print (invoice/statement) ke beech mein ek halka (faint) background watermark ki tarah bhi automatically dikhta tha. Ab yeh **optional** hai:
+The interface has been fully refreshed — it now looks more premium and rich:
 
-- Settings → **Invoice Customization** mein "**Background watermark logo print par dikhayein**" naam ka ek checkbox hai.
-- **ON** (default, jaisa pehle tha) — bill/statement ke beech mein logo ka halka background watermark dikhta hai.
-- **OFF** — sheet bilkul **plain** print hoti hai, sirf upar header mein chota logo dikhega (agar upload kiya ho) — beech mein koi watermark nahi.
-- Yeh setting ek baar save karne ke baad har naye print (invoice aur ledger/statement dono) par apply hoti hai.
-
----
-
-## Fix: Doosre account mein Jokerwal ka data nahi aayega ab (+ cleanup option)
-
-Pehle ek bug tha — is app ki har copy mein JOKERWAL BROTHERS ki purani Excel history built-in hoti hai (taaki asli owner ek click mein apni history import kar sake), lekin **"Import JOKERWAL BROTHERS Excel History"** button Settings mein HAR account (har alag email se Sign Up kiya hua login) ko dikh raha tha — matlab agar koi doosra business isi app ko use kar raha ho aur woh button dabaye, to Jokerwal Brothers ka data (customers, products, invoices, ledger) unke apne account mein aa jata tha.
-
-**Ab yeh fix ho gaya hai:**
-
-- **"Import JOKERWAL BROTHERS Excel History"** button ab sirf **jokerwalbrothers@gmail.com** wale login mein hi dikhta hai — kisi bhi doosre email/account mein yeh option bilkul nahi dikhega.
-- **Agar kisi account mein pehle se galti se yeh data aa chuka hai** (is fix se pehle import ho gaya tha), to us account ke Settings mein ek naya button apne aap dikhega: **"Remove Imported JOKERWAL BROTHERS Data"**. Yeh button sirf tabhi dikhta hai jab aisa data mile.
-  - Isse sirf wahi records hatenge jo asli Jokerwal history se match karte hain (fixed IDs se pehchane jaate hain) — us account ka apna khud ka data (khud ke add kiye customers/products/bills) bilkul safe rehta hai, kuch bhi extra delete nahi hota.
-  - Note: agar import ki wajah se Company Profile (naam/address/GST) bhi badal gaya ho, to woh automatically wapas nahi hota — Settings ke upar wale Company Profile fields mein khud check karke sahi kar lein.
-
-## Products — Qty Type mein Length (Meter/Feet) add kiya
-
-Product add/edit karte waqt "Qty Type" dropdown mein pehle sirf **Piece** aur **Weight (gm)** the. Ab lace/chain/thread/ribbon jaise saamaan ke liye jo length (lambai) mein bikte hain, do naye options add kiye hain:
-
-- **Length (Meter)** — stock aur bill dono mein quantity "meter" mein dikhegi.
-- **Length (Feet)** — stock aur bill dono mein quantity "feet" mein dikhegi.
-
-Product add/edit karte waqt "Qty Type" mein bas apna sahi type chun lein — baaki sab (rate, bill, stock tracking) pehle jaisa hi kaam karega.
+- **Selected/highlighted tile now shows clearly:** Previously in Dark mode, when you were on a sidebar item (like "Customers"), its text and background were both so dark that the name sometimes seemed to disappear. Now the selected item has bright gold text, a glowing gold left-bar, and a clear background — it's immediately obvious where you are.
+- For the same reason, the **first letter of a customer/supplier's avatar** (which was previously hard to see in dark mode) is now bright and clear.
+- **New premium effects:** gold gradient buttons, glowing accent lines, coloured side-bars on stat tiles, soft depth/shadow on cards, and a smooth glass-blur background with a gold top-accent on modal popups.
+- **The app now always opens in Light theme** — regardless of the phone/browser's Dark mode setting. (The Dark theme code is still present, the app just forces light mode so the look stays consistent.)
+- This is purely a look-and-feel update — no data, calculations or features have changed.
+- **If the old look still shows after the update**, follow the steps in the "If the old app still shows after an update" section below (you will need to clear the cache, since this was a big visual change).
 
 ---
 
-## Quotation System (Estimate banao, baad mein Bill mein convert karo)
+## Print Bill — Background Watermark Logo is Now Optional
 
-Ab customer ko pehle sirf ek **estimate/quotation** de sakte hain — bina stock ghataye, bina customer ka balance badle — aur jab customer haan bole, usi quotation ko ek tap mein real bill mein convert kar sakte hain.
+If you have uploaded a Company Logo in Settings, that logo used to also automatically appear as a faint background watermark in the middle of every print (invoice/statement). This is now **optional**:
 
-**Kaise use karein:**
-
-1. Bottom/side menu mein **"New Quotation"** par tap karein (Dashboard par bhi ek quick-action button hai).
-2. Customer ka naam/mobile daalein, product scan/search karke add karein, aur agar chahein to "Valid Till" date daal dein (kitne din tak yeh rate valid hai).
-3. **Save Quotation** dabayein — ek quotation number (jaise `QUO/26-27/000001`) ban jayega. Yahan se turant **Print Quotation** (customer ko PDF dene ke liye) ya **Convert to Bill** kar sakte hain.
-4. Print hone wale PDF par saaf "QUOTATION" likha aata hai (INVOICE nahi), "Payment"/"Balance Due" jaisi lines nahi hoti — sirf ek "Quotation Total" hota hai, taaki customer ko galti se yeh pakka bill na lage.
-5. **"Quotations"** menu se sab quotations ki list dekh sakte hain — status **Open** (abhi bill nahi bana), **Converted** (bill ban chuka), ya **Cancelled** (customer ne mana kar diya) dikhta hai.
-6. Jab bhi customer order confirm kare, usi quotation ko kholkar **"Convert to Bill"** dabayein — New Bill screen customer + saare items ke saath apne aap bhar jayegi, bas Payment Mode/Received Amount daalkar **Save Bill** dabayein. Stock ghategi, customer ka balance/ledger update hoga — bilkul normal bill jaisa hi. Us quotation ka status apne aap "Converted" ho jayega aur usme convert hue bill ka number bhi dikhega.
-7. Agar customer order cancel kar de to quotation kholkar **Cancel** kar sakte hain (ek baar bill mein convert ho chuki quotation cancel nahi ho sakti).
-
-Quotation Prefix (jaise `QUO`) Settings → Company Profile mein "Quotation Prefix" field se change kar sakte hain.
+- In Settings → **Invoice Customization**, there is a checkbox called "**Show background watermark logo on print**".
+- **ON** (default, same as before) — the logo shows as a faint background watermark in the middle of the bill/statement.
+- **OFF** — the sheet prints completely **plain**, with only a small logo showing in the header at the top (if one is uploaded) — no watermark in the middle.
+- Once this setting is saved, it applies to every new print (both invoice and ledger/statement).
 
 ---
 
-## Authorized Signature — Ek Baar Upload Karein, Har Bill Par Apne Aap Print Ho
+## Fix: Another account will no longer get Jokerwal's data (+ cleanup option)
 
-Ab har bill print karne ke baad haath se sign karne ki zaroorat nahi. Settings mein ek baar apna signature photo upload kar dein, aur wo har invoice ke "Authorized Signatory" box mein apne aap chhap jayega.
+There used to be a bug — every copy of this app has JOKERWAL BROTHERS' old Excel history built in (so the real owner could import their history in one click), but the **"Import JOKERWAL BROTHERS Excel History"** button was showing up in Settings for EVERY account (every login signed up with a different email) — meaning that if another business using this same app pressed that button, Jokerwal Brothers' data (customers, products, invoices, ledger) would end up in their own account.
 
-**Kaise use karein:**
+**This has now been fixed:**
 
-1. Settings → Company/Invoice Details section mein **"Authorized Signature"** field mein apna signature ki photo upload karein.
-2. Best result ke liye **background hataya hua (transparent) PNG** use karein — jaise safed kaagaz par sign karke kisi background-remover app/website se background nikaal lein. Normal photo bhi chalegi, bas thoda box jaisa dikhega.
-3. Upload hote hi preview dikhega aur "Remove Signature" button se kabhi bhi hata bhi sakte hain.
-4. Ab jab bhi koi bill ya quotation print/PDF banega, yeh signature "For {Company Name}" ke neeche aur "Authorized Signatory" line ke upar apne aap print ho jayega — dobara haath se sign karne ki zaroorat nahi.
+- The **"Import JOKERWAL BROTHERS Excel History"** button now only shows up when logged in with **jokerwalbrothers@gmail.com** — this option will not appear at all in any other email/account.
+- **If an account already accidentally has this data** (imported before this fix existed), a new button will automatically appear in that account's Settings: **"Remove Imported JOKERWAL BROTHERS Data"**. This button only shows up when such data is found.
+  - This will remove only the records that match the real Jokerwal history (identified by fixed IDs) — that account's own data (customers/products/bills they added themselves) stays completely safe, and nothing extra is deleted.
+  - Note: if the Company Profile (name/address/GST) was also changed because of the import, it will not revert automatically — please check and correct it yourself in the Company Profile fields at the top of Settings.
 
----
+## Products — Added Length (Meter/Feet) to Qty Type
 
-## Data Sharing — Ek Login Se Multiple Companies Ka Ek Hi Product/Customer Master
+When adding/editing a product, the "Qty Type" dropdown previously only had **Piece** and **Weight (gm)**. Now, for items like lace/chain/thread/ribbon that are sold by length, two new options have been added:
 
-Agar ek hi Gmail login se aapne 2 ya zyada companies banayi hain (jaise ek hi shop ki 2 branches, ya ek shop ke 2 tarah ke business), to ab in companies ke beech **Products aur Customers Master (stock aur customer balance samet)** share kar sakte hain — taaki dono jagah same inventory/customer list dikhe. Bills, Invoices, Ledger aur Payments hamesha har company ka apna **alag** hi rehta hai — sirf Products aur Customers + unka stock/balance share hota hai.
+- **Length (Meter)** — quantity will show in "meter" in both stock and bills.
+- **Length (Feet)** — quantity will show in "feet" in both stock and bills.
 
-**Kaise use karein:**
-
-1. Us company mein jayein jiska apna master data ab kisi doosri company jaisa hi hona chahiye, aur **Settings** kholein.
-2. Neeche **"Data Sharing (Multi-Company)"** card mein dropdown se woh company chunein jiska Products/Customers master use karna hai.
-3. **Save Sharing Setting** dabakar confirm karein. Ab is company mein Products/Customers list waale se hi dikhenge, aur ek jagah stock ya customer balance badalne se doosri jagah bhi turant badal jayega (kyunki dono ek hi master data use kar rahe hain).
-4. **Sharing band karni ho** (agar user na chahe) to dropdown mein wapas **"Nahi — is company ka apna alag Master Data rakhein"** chun kar Save Sharing Setting dabayein. Is company apne **purane, alag (independent)** Products/Customers data par wapas chali jayegi — sharing shuru karne se pehle jo bhi data tha wahi wapas dikhega.
-
-**Zaroori baat:** Yeh sirf ek OPTION hai, default mein sab companies ka master data hamesha alag-alag hi rehta hai — sirf jab aap khud jaakar ek company mein sharing ON karte hain, tabhi woh doosri company ka data dikhna shuru hota hai.
+When adding/editing a product, just choose the correct type in "Qty Type" — everything else (rate, billing, stock tracking) works exactly the same as before.
 
 ---
 
-## Paid Access — Naye Users Ko App Bechne Ka System (Admin/Owner ke liye)
+## Quotation System (Create an Estimate, Convert to a Bill Later)
 
-Yeh app ab ek hi link/Firebase project se **multiple alag-alag businesses** ko serve kar sakta hai (har Gmail sign-up ka data poori tarah alag/private rehta hai). Isko doosre users ko **paid** product ke roop mein dene ke liye ek "Paid Access Gate" add kiya gaya hai:
+You can now first give a customer just an **estimate/quotation** — without reducing stock or changing the customer's balance — and once the customer says yes, convert that same quotation into a real bill with one tap.
 
-- Jab bhi koi NAYA Gmail account is app link se sign up karta hai, uska account shuru mein **LOCKED** rehta hai — usse "Payment Pending" screen dikhti hai, koi bhi feature use nahi kar sakta, jab tak **aap** (app owner) usse activate na karein.
-- Sirf app ka LINK share karna bilkul safe hai — link se sign up karke koi apne aap access nahi le sakta, use activate sirf aap kar sakte hain.
-- Yeh sirf ek UI screen nahi hai — Firestore Security Rules ke level par bhi lock kiya gaya hai, isliye koi technical user bhi browser ke "Developer Tools" se isko bypass nahi kar sakta.
+**How to use it:**
 
-**Zaroori Setup (3 kaam, ek hi baar karne hain):**
+1. Tap **"New Quotation"** in the bottom/side menu (there is also a quick-action button on the Dashboard).
+2. Enter the customer's name/mobile, scan/search and add products, and optionally set a "Valid Till" date (how many days this rate is valid for).
+3. Click **Save Quotation** — a quotation number (like `QUO/26-27/000001`) will be created. From here you can immediately **Print Quotation** (to give the customer a PDF) or **Convert to Bill**.
+4. The printed PDF clearly says "QUOTATION" (not INVOICE), and does not have lines like "Payment"/"Balance Due" — it only shows a "Quotation Total", so the customer doesn't mistake it for an actual bill.
+5. From the **"Quotations"** menu you can see a list of all quotations — the status shows as **Open** (not yet made into a bill), **Converted** (already made into a bill), or **Cancelled** (customer said no).
+6. Whenever the customer confirms the order, open that quotation and click **"Convert to Bill"** — the New Bill screen will fill in automatically with the customer and all the items, so just enter the Payment Mode/Received Amount and click **Save Bill**. Stock will reduce and the customer's balance/ledger will update — exactly like a normal bill. That quotation's status will automatically become "Converted" and will also show the number of the bill it was converted into.
+7. If the customer cancels the order, open the quotation and click **Cancel** (a quotation that has already been converted to a bill cannot be cancelled).
 
-1. **Firestore Rules update karein** — Firebase Console → Firestore Database → Rules tab mein jaake, PART 1 mein di gayi purani Rules ko neeche wali se **replace** kar dein (dono paste kiye bina yeh feature kaam nahi karega):
+The Quotation Prefix (like `QUO`) can be changed from the "Quotation Prefix" field in Settings → Company Profile.
+
+---
+
+## Authorized Signature — Upload Once, Prints Automatically on Every Bill
+
+There is no longer a need to sign every printed bill by hand. Upload your signature photo once in Settings, and it will print automatically in the "Authorized Signatory" box on every invoice.
+
+**How to use it:**
+
+1. In Settings → Company/Invoice Details section, upload a photo of your signature in the **"Authorized Signature"** field.
+2. For the best result, use a **transparent PNG with the background removed** — for example, sign on white paper and remove the background using a background-remover app/website. A normal photo will also work, but will look a bit like it's in a box.
+3. As soon as it's uploaded, a preview will show, and you can remove it anytime using the "Remove Signature" button.
+4. From now on, whenever a bill or quotation is printed/turned into a PDF, this signature will automatically print below "For {Company Name}" and above the "Authorized Signatory" line — no need to sign by hand again.
+
+---
+
+## Data Sharing — One Product/Customer Master for Multiple Companies Under One Login
+
+If you have created 2 or more companies under the same Gmail login (for example, 2 branches of the same shop, or 2 kinds of business under one shop), you can now share the **Products and Customers Master (including stock and customer balance)** between these companies — so the same inventory/customer list shows in both places. Bills, Invoices, Ledger and Payments always stay **separate** for each company — only Products and Customers, plus their stock/balance, are shared.
+
+**How to use it:**
+
+1. Go to the company whose master data should now match another company's, and open **Settings**.
+2. In the **"Data Sharing (Multi-Company)"** card below, use the dropdown to choose the company whose Products/Customers master you want to use.
+3. Click **Save Sharing Setting** and confirm. Now this company will show the same Products/Customers list as the other one, and changing stock or a customer's balance in one place will instantly update it in the other (since both are using the same master data).
+4. **To turn sharing off** (if you no longer want it), choose **"No — keep this company's own separate Master Data"** in the dropdown again and click Save Sharing Setting. This company will go back to its own **old, separate (independent)** Products/Customers data — whatever data it had before sharing started will show again.
+
+**Important:** This is only an OPTION — by default, every company's master data always stays separate — another company's data only starts showing when you deliberately go and turn sharing ON for a company.
+
+---
+
+## Paid Access — A System for Selling the App to New Users (for the Admin/Owner)
+
+This app can now serve **multiple separate businesses** from a single link/Firebase project (each Gmail sign-up's data stays completely separate/private). To offer this to other users as a **paid** product, a "Paid Access Gate" has been added:
+
+- Whenever a NEW Gmail account signs up through this app's link, that account starts out **LOCKED** — it sees a "Payment Pending" screen and cannot use any feature until **you** (the app owner) activate it.
+- Simply sharing the app's LINK is completely safe — signing up through the link does not give anyone access on its own; only you can activate it.
+- This is not just a UI screen — it is also locked at the level of the Firestore Security Rules, so even a technical user cannot bypass it using the browser's "Developer Tools".
+
+**Required Setup (3 things, done once):**
+
+1. **Update the Firestore Rules** — go to Firebase Console → Firestore Database → the Rules tab, and **replace** the old Rules from PART 1 with the ones below (this feature will not work unless both are pasted in):
 
 ```
 rules_version = '2';
@@ -329,44 +329,44 @@ service cloud.firestore {
 }
 ```
 
-   Yeh Rules ensure karta hai: (a) sirf app owner (`jokerwalbrothers@gmail.com`) kisi bhi account ko "Paid" mark kar sakta hai, koi apne aap nahi kar sakta; (b) jab tak account "Paid" na ho, uska koi bhi business data (customers/products/bills waghera) padha/likha nahi ja sakta — sirf app ki UI band karne se nahi, asal mein database level par lock hai.
+   These Rules make sure that: (a) only the app owner (`jokerwalbrothers@gmail.com`) can mark any account as "Paid" — no one can do this on their own; (b) until an account is "Paid", none of its business data (customers/products/bills etc.) can be read or written — this isn't just closed off in the app's UI, it is actually locked at the database level.
 
-2. **Apna Razorpay Payment Page aur WhatsApp number set karein** — is `index.html` file ko kisi text/code editor (Notepad, VS Code) mein kholein, `Ctrl+F` se **`PASTE_YOUR_RAZORPAY_PAYMENT_PAGE_LINK_HERE`** dhoondein aur apna Razorpay **Payment Page** ka link (Razorpay Dashboard → Payment Pages → "+ Create Payment Page") us jagah paste kar dein.
+2. **Set your Razorpay Payment Page and WhatsApp number** — open this `index.html` file in a text/code editor (Notepad, VS Code), use `Ctrl+F` to find **`PASTE_YOUR_RAZORPAY_PAYMENT_PAGE_LINK_HERE`**, and paste your Razorpay **Payment Page** link there (Razorpay Dashboard → Payment Pages → "+ Create Payment Page").
 
-   ⚠️ **Zaroori:** Razorpay ke "**Payment Links**" wale option ka use MAT karein — ek Payment Link sirf EK hi customer ke liye kaam karta hai (Razorpay khud customer ka number/email maangta hai aur dobara wahi link kisi aur se pay nahi karwa sakte). Aapko chahiye **"Payment Pages"** — yeh ek hi reusable link deta hai jise kitne bhi alag-alag naye customers (yaani aapke naye shop-owners) use karke pay kar sakte hain. Step-by-step:
-   1. Razorpay Dashboard mein login karein → left menu mein **Payment Pages** par jaayein.
-   2. **"+ Create Payment Page"** button dabayein.
-   3. Ek title dein (jaise "Jokerwal Billing App — Activation"), chahen to short description bhi.
-   4. Amount field ko **Fixed Amount** rakhein aur apna one-time activation price daal dein (ya "Customer Decides" bhi rakh sakte hain agar flexible rakhna ho).
-   5. Business/contact details bhar kar **Save & Publish** karein.
-   6. Publish hote hi ek shareable link milega (jaise `https://pages.razorpay.com/...`) — yehi link **`PASTE_YOUR_RAZORPAY_PAYMENT_PAGE_LINK_HERE`** ki jagah paste karna hai. Yeh EK link sabhi naye customers baar-baar use kar sakte hain, har baar apna khud ka naam/number/email bharke.
+   ⚠️ **Important:** Do NOT use Razorpay's "**Payment Links**" option — a Payment Link only works for ONE customer (Razorpay itself asks for the customer's number/email, and that same link cannot be used by someone else to pay again). What you need is **"Payment Pages"** — this gives you one reusable link that any number of different new customers (i.e. your new shop-owner customers) can use to pay. Step by step:
+   1. Log in to your Razorpay Dashboard → go to **Payment Pages** in the left menu.
+   2. Click the **"+ Create Payment Page"** button.
+   3. Give it a title (for example "Jokerwal Billing App — Activation"), and a short description if you like.
+   4. Keep the Amount field as **Fixed Amount** and enter your one-time activation price (or you can also keep it as "Customer Decides" if you want it to be flexible).
+   5. Fill in the business/contact details and click **Save & Publish**.
+   6. Once published, you will get a shareable link (like `https://pages.razorpay.com/...`) — paste this exact link in place of **`PASTE_YOUR_RAZORPAY_PAYMENT_PAGE_LINK_HERE`**. This ONE link can be used again and again by all new customers, each entering their own name/number/email.
 
-   Usi tarah **`PASTE_YOUR_WHATSAPP_NUMBER_HERE`** dhoond kar apna WhatsApp number country code ke saath, bina `+` ya space ke (jaise `919876543210`) daal dein. Yeh 2 jagah edit karne ke baad hi file ko GitHub Pages par dobara upload karein.
+   In the same way, find **`PASTE_YOUR_WHATSAPP_NUMBER_HERE`** and enter your WhatsApp number with the country code, without a `+` or spaces (for example `919876543210`). Only upload the file again to GitHub Pages after editing these 2 spots.
 
-3. **Apna khud ka account** (`jokerwalbrothers@gmail.com`) hamesha **kabhi lock nahi hota** — aap khud kabhi "Payment Pending" screen nahi dekhenge, chahe Rules update ho ya na ho.
+3. **Your own account** (`jokerwalbrothers@gmail.com`) is **never locked** — you will never see the "Payment Pending" screen yourself, whether or not the Rules have been updated.
 
-**Naye customer ko activate kaise karein:**
+**How to activate a new customer:**
 
-1. Jab koi naya user sign up karega, wo "Payment Pending" screen dekhega — wahan se woh aapka Razorpay link ya WhatsApp button use karke payment kar sakta hai.
-2. Payment confirm hone ke baad (Razorpay dashboard ya WhatsApp screenshot se check karein), apne account se login karein aur menu mein **"Paid Accounts (Admin)"** (Settings ke sidenav mein, ya mobile par "More" menu ke "Admin" section mein) par jaayein.
-3. Wahan har naya sign-up "Pending" status ke saath dikhega — us par **"Activate Karein"** dabayein. Customer ka account turant unlock ho jayega (unhe bas "Maine Payment Kar Diya Hai — Status Check Karein" dabana hai, ya dobara login karna hai).
-4. Agar kabhi kisi ka access wapas band karna ho (jaise payment fail/refund), usi list se **"Lock Karein"** dabakar unlock kiya hua account wapas lock kar sakte hain.
+1. When a new user signs up, they will see the "Payment Pending" screen — from there, they can pay using your Razorpay link or the WhatsApp button.
+2. Once the payment is confirmed (check the Razorpay dashboard or a WhatsApp screenshot), log in with your own account and go to **"Paid Accounts (Admin)"** in the menu (in the Settings sidenav, or under the "Admin" section of the "More" menu on mobile).
+3. Every new sign-up will show there with a "Pending" status — click **"Activate"** next to it. The customer's account will unlock immediately (they just need to click "I Have Made the Payment — Check Status", or log in again).
+4. If you ever need to remove someone's access (for example, a failed payment/refund), click **"Lock"** next to that account in the same list to lock it again.
 
-**Note:** Yeh ek-baar (one-time) payment model hai — ek baar activate hone ke baad account hamesha ke liye unlocked rehta hai (jab tak aap khud "Lock Karein" na dabayein). Agar future mein recurring/monthly subscription chahiye ho, to iske liye alag se kaam karna padega.
+**Note:** This is a one-time payment model — once an account is activated, it stays unlocked forever (unless you press "Lock" yourself). If you want a recurring/monthly subscription in the future, that would need to be built separately.
 
 ---
 
 ## Notes
 
-- Yeh Firebase ka **free (Spark) plan** hai — ek chhoti billing shop ke liye yeh limit kabhi khatam nahi hogi (roughly 50,000 reads/day free milte hain).
-- "Firebase project badlein" button (login screen ke neeche) se aap kabhi bhi doosra Firebase project connect kar sakte hain agar zarurat pade — normally isko kabhi touch karne ki zaroorat nahi.
-- Settings page mein "Export Backup" se extra safety ke liye kabhi-kabhi ek JSON backup file bhi download kar sakte hain.
+- This uses Firebase's **free (Spark) plan** — for a small billing shop, this limit will practically never run out (it gives roughly 50,000 free reads/day).
+- The "Change Firebase project" button (below the login screen) lets you connect a different Firebase project anytime you need to — you should normally never need to touch this.
+- On the Settings page, "Export Backup" lets you download a JSON backup file from time to time for extra safety.
 
-## Update ke baad bhi purani app dikhe to (one-time fix)
+## If the old app still shows after an update (one-time fix)
 
-App phone ke home-screen par "install" hone par offline kaam kare, iske liye ek chhota "service worker" file (`sw.js`) hai jo app ko cache (yaad) rakhta hai. Iska pehla version thoda zyada aggressively cache karta tha — isliye naye update (jaise GST, multi-company fixes) GitHub par dalne ke baad bhi purana version dikh sakta tha. `sw.js` ab hamesha latest version pehle try karta hai, lekin agar aapne pehle se ek baar app khol li thi, to us PURANE cache ko ek baar manually saaf karna padega:
+To let the app work offline when "installed" on a phone's home screen, there is a small "service worker" file (`sw.js`) that keeps the app cached (remembered). Its first version cached things a bit too aggressively — so even after a new update (like the GST or multi-company fixes) was pushed to GitHub, the old version could still show up. `sw.js` now always tries the latest version first, but if you had already opened the app once before, you may need to manually clear that OLD cache once:
 
-1. Sabse pehle, apna live link ek **Incognito/Private tab** mein khol kar dekhein — agar wahan naya version dikh raha hai, to iska matlab update sahi se ho chuka hai, bas aapke normal browser ka cache purana hai.
-2. Normal browser mein cache saaf karne ke liye: Chrome → uss site ke 3-dot menu ya address bar ke bagal wale (i) icon → **Site settings** → **Clear & reset** (ya "Storage" → "Clear data").
-3. Agar app ko phone home-screen par "Add to Home Screen" kiya tha, to uss purane icon ko remove/uninstall kar dein, cache clear karne ke baad link phir se browser mein kholein aur dobara "Add to Home Screen" kar lein.
-4. Ab yeh dobara nahi hoga — naya `sw.js` hamesha pehle internet se latest version check karega.
+1. First, open your live link in an **Incognito/Private tab** and check — if the new version shows up there, the update has worked correctly, and it's just your normal browser's cache that is old.
+2. To clear the cache in your normal browser: Chrome → the site's 3-dot menu, or the (i) icon next to the address bar → **Site settings** → **Clear & reset** (or "Storage" → "Clear data").
+3. If you had used "Add to Home Screen" for the app on your phone, remove/uninstall that old icon, open the link in the browser again after clearing the cache, and use "Add to Home Screen" again.
+4. This will not happen again — the new `sw.js` will always check the internet for the latest version first.
