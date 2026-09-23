@@ -551,7 +551,10 @@ const App = {
   userEmail: null,
   companies: [],
   company: null,      // active company profile record {id,name,...}
-  store: null,         // Store bound to active company's cloud data
+  store: null,         // Store bound to active company's cloud data (invoices, ledger, payments, settings, saleItems)
+  masterStore: null,   // Store bound to whichever company's PRODUCTS/CUSTOMERS master is active for this
+                        // company — same as `store` by default, or another company's Store when this
+                        // company has opted in to "Share Product & Customer Master Data" (see switchCompany()).
   route: '#/dashboard',
   unlocked: false,
   clockTimer: null,
@@ -561,7 +564,7 @@ function companiesCol(){ return fbDb.collection('users').doc(App.uid).collection
 async function loadCompanies(){ const snap = await companiesCol().get(); return snap.docs.map(d=>d.data()); }
 async function saveCompanyMeta(co){ await companiesCol().doc(co.id).set(co, {merge:true}); }
 async function deleteCompanyCloudData(companyId){
-  const stores = ['settings','customers','products','invoices','saleItems','payments','ledger'];
+  const stores = ['settings','customers','products','invoices','saleItems','payments','ledger','quotations','quotationItems'];
   for(const s of stores){ await new Store(fbDb, App.uid, companyId).clear(s); }
   await companiesCol().doc(companyId).delete();
 }
@@ -611,8 +614,8 @@ async function importHistoricalSeed(){
   if(!ok) return;
   const seed = window.__JB_SEED__;
   await App.store.put('settings', Object.assign({}, App.company, seed.company, {id:'profile'}));
-  await App.store.putAll('customers', seed.data.customers);
-  await App.store.putAll('products', seed.data.products);
+  await App.masterStore.putAll('customers', seed.data.customers);
+  await App.masterStore.putAll('products', seed.data.products);
   await App.store.putAll('invoices', seed.data.invoices);
   await App.store.putAll('saleItems', seed.data.saleItems);
   await App.store.putAll('payments', seed.data.payments);
@@ -662,9 +665,9 @@ async function removeImportedJbHistory(matches){
 async function switchCompany(companyId){
   App.store = new Store(fbDb, App.uid, companyId);
   const DEFAULT_PROFILE = {id:'profile', pid:companyId, name:'New Company', tagline:'', address1:'', address2:'',
-    mobile:'', email:'', website:'', gstin:'', pan:'', invoicePrefix:'INV', productPrefix:'PRD', purchasePrefix:'PUR', lowStockDefault:5, pin:'',
-    gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', invoiceTerms:'', logoDataUrl:'', upiId:'',
-    headerColor:'#a2732c', footerColor:'#a2732c', logoSizeMm:16, showWatermark:true};
+    mobile:'', email:'', website:'', gstin:'', pan:'', invoicePrefix:'INV', productPrefix:'PRD', purchasePrefix:'PUR', quotationPrefix:'QUO', lowStockDefault:5, pin:'',
+    gstEnabled:false, defaultGstRate:0, invoiceNote:'Thank you for your business!', invoiceBankDetails:'', invoiceTerms:'', logoDataUrl:'', signatureDataUrl:'', upiId:'',
+    headerColor:'#a2732c', footerColor:'#a2732c', logoSizeMm:16, showWatermark:true, sharedMasterFrom:''};
   let profile = await App.store.get('settings','profile');
   if(!profile){
     profile = Object.assign({}, DEFAULT_PROFILE);
@@ -675,6 +678,31 @@ async function switchCompany(companyId){
   App.company = profile;
   setActiveCompanyId(companyId);
   App.unlocked = !profile.pin;
+  await refreshMasterStore();
+}
+
+/* Points App.masterStore at whichever company's Products/Customers master the
+   ACTIVE company should read/write — its own (default) or another company's,
+   when "Share Product & Customer Master Data" is turned ON in Settings (see
+   viewSettings' "Data Sharing" card). Inventory (stock) and customer balances
+   live wherever the master is, so two companies sharing a master genuinely
+   share one product catalogue + customer list + running stock, while their
+   own bills/invoices/ledger/payments always stay separate (App.store, never
+   touched by this). If the configured source company no longer exists (e.g.
+   it was deleted), this silently falls back to the company's own data
+   instead of failing. */
+async function refreshMasterStore(){
+  const sourceId = App.company && App.company.sharedMasterFrom;
+  if(sourceId && sourceId !== App.company.id){
+    try{
+      const companies = await loadCompanies();
+      if(companies.some(co=>co.id===sourceId)){
+        App.masterStore = new Store(fbDb, App.uid, sourceId);
+        return;
+      }
+    }catch(e){}
+  }
+  App.masterStore = App.store;
 }
 
 /* ---------------- Data-access / business logic layer ---------------- */
@@ -689,14 +717,14 @@ const DB = {
     return prefix+'/'+fy+'/'+String(max+1).padStart(6,'0');
   },
   async nextCustomerId(){
-    const all = await App.store.all('customers');
+    const all = await App.masterStore.all('customers');
     let max=0;
     all.forEach(c=>{ const m=/^CUS(\d+)$/.exec(c.id||''); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
     return 'CUS'+String(max+1).padStart(6,'0');
   },
   async nextProductCode(){
     const prefix = (App.company.productPrefix||'PRD').toUpperCase();
-    const all = await App.store.all('products');
+    const all = await App.masterStore.all('products');
     let max=0;
     const re = new RegExp('^'+prefix+'(\\d+)$');
     all.forEach(p=>{ const m = re.exec((p.productCode||'').toUpperCase()); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
@@ -711,11 +739,11 @@ const DB = {
   async findCustomerByMobile(mobile){
     mobile = String(mobile||'').trim();
     if(!mobile) return null;
-    const all = await App.store.all('customers');
+    const all = await App.masterStore.all('customers');
     return all.find(c=>String(c.mobile||'').trim()===mobile) || null;
   },
   async searchCustomers(text){
-    const all = await App.store.all('customers');
+    const all = await App.masterStore.all('customers');
     text = (text||'').trim().toLowerCase();
     if(!text) return all;
     return all.filter(c=> (c.name||'').toLowerCase().includes(text) || String(c.mobile||'').includes(text) || (c.id||'').toLowerCase().includes(text));
@@ -724,15 +752,15 @@ const DB = {
     mobile = String(mobile||'').trim(); name = (name||'').trim();
     let cust = await DB.findCustomerByMobile(mobile);
     if(cust){
-      if(name && cust.name!==name){ cust.name = name; await App.store.put('customers', cust); }
+      if(name && cust.name!==name){ cust.name = name; await App.masterStore.put('customers', cust); }
       return cust;
     }
     cust = {id: await DB.nextCustomerId(), mobile, name: name||'Walk-in Customer', balance:0, creditLimit:0, createdAt: new Date().toISOString()};
-    await App.store.put('customers', cust);
+    await App.masterStore.put('customers', cust);
     return cust;
   },
   async searchProducts(text){
-    const all = await App.store.all('products');
+    const all = await App.masterStore.all('products');
     text = (text||'').trim().toLowerCase();
     if(!text) return all;
     return all.filter(p=> (p.name||'').toLowerCase().includes(text) || (p.productCode||'').toLowerCase().includes(text) || (p.id||'').toLowerCase().includes(text));
@@ -740,7 +768,7 @@ const DB = {
   async findProductByCode(code){
     code = String(code||'').trim().toUpperCase();
     if(!code) return null;
-    const all = await App.store.all('products');
+    const all = await App.masterStore.all('products');
     return all.find(p=> (p.id||'').toUpperCase()===code || (p.productCode||'').toUpperCase()===code) || null;
   },
   async currentInvoiceRow(invoiceNo){
@@ -803,7 +831,7 @@ const DB = {
     }
     // customer balance = new outstanding balance due (mirrors Excel UpdateCustomerBalance)
     cust.balance = balanceDue;
-    await App.store.put('customers', cust);
+    await App.masterStore.put('customers', cust);
     // Ledger entry is written for EVERY bill, not just CREDIT ones — a CASH
     // bill with a partial payment still leaves the customer owing money, and
     // that needs a ledger trail too (previously only CREDIT bills were
@@ -819,7 +847,7 @@ const DB = {
       const p = await DB.findProductByCode(it.productCode);
       if(!p) continue;
       p.stock = (Number(p.stock)||0) - (Number(it.qty)||0);
-      await App.store.put('products', p);
+      await App.masterStore.put('products', p);
       if(p.lowStockLimit>0 && p.stock<=p.lowStockLimit) low.push(p);
     }
     return low;
@@ -831,7 +859,7 @@ const DB = {
       const p = await DB.findProductByCode(it.productCode);
       if(!p) continue;
       p.stock = (Number(p.stock)||0) + (Number(it.qty)||0);
-      await App.store.put('products', p);
+      await App.masterStore.put('products', p);
     }
   },
   async cancelBill(invoiceNo){
@@ -840,10 +868,10 @@ const DB = {
     if(row.status==='CANCELLED') throw new Error('Yeh invoice pehle se cancelled hai.');
     await DB.restoreStockForInvoiceRow(row);
     // reverse this bill's contribution to the customer's outstanding balance
-    const cust = await App.store.get('customers', row.customerId);
+    const cust = await App.masterStore.get('customers', row.customerId);
     if(cust){
       cust.balance = clamp0((Number(cust.balance)||0) - (Number(row.balanceDue)||0));
-      await App.store.put('customers', cust);
+      await App.masterStore.put('customers', cust);
       await App.store.put('ledger', {id:uid(), date: todayISO(), invoiceNo: invoiceNo+' (CANCELLED)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit:0, credit: clamp0(row.billTotal-row.receivedAmount), balance: cust.balance, remarks:'Bill cancelled'});
     }
     row.status = 'CANCELLED';
@@ -866,8 +894,8 @@ const DB = {
     oldRow.status='MODIFIED';
     await App.store.put('invoices', oldRow);
     // Recompute against customer's balance with old contribution removed
-    const cust = await App.store.get('customers', oldRow.customerId);
-    if(cust){ cust.balance = clamp0((Number(cust.balance)||0) - (Number(oldRow.balanceDue)||0)); await App.store.put('customers', cust); }
+    const cust = await App.masterStore.get('customers', oldRow.customerId);
+    if(cust){ cust.balance = clamp0((Number(cust.balance)||0) - (Number(oldRow.balanceDue)||0)); await App.masterStore.put('customers', cust); }
     const items = b.items.filter(it=>it.productCode && Number(it.qty)>0);
     const previousBalance = cust ? Number(cust.balance)||0 : 0;
     const receivedAmount = Number(b.receivedAmount)||0;
@@ -890,7 +918,7 @@ const DB = {
       const itemProfit = amount - costRate*Number(it.qty);
       await App.store.put('saleItems', {id:uid(), invoiceNo:invId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount, hsn: it.hsn||'', gstRate, gstAmount: amount*gstRate/100, costRate, itemProfit});
     }
-    if(cust){ cust.balance = balanceDue; cust.name = b.customerName; cust.mobile = b.mobile; await App.store.put('customers', cust); }
+    if(cust){ cust.balance = balanceDue; cust.name = b.customerName; cust.mobile = b.mobile; await App.masterStore.put('customers', cust); }
     if(cust){
       await App.store.put('ledger', {id:uid(), date:b.date, invoiceNo: oldInvoiceNo+' (MODIFIED)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit: clamp0(billTotal-receivedAmount), credit:0, balance: balanceDue, remarks:''});
     }
@@ -898,7 +926,7 @@ const DB = {
     return {invoice, lowStock};
   },
   async receivePayment(p){
-    const cust = await App.store.get('customers', p.customerId);
+    const cust = await App.masterStore.get('customers', p.customerId);
     if(!cust) throw new Error('Customer nahi mila.');
     const amount = Number(p.amount)||0;
     if(amount<=0) throw new Error('Valid amount daalein.');
@@ -909,7 +937,7 @@ const DB = {
       paymentMode: p.mode, amountReceived: amount, previousBalance, balanceAfter, remarks: p.remarks||'', status:'RECEIVED', receivedBy: App.company.name||'admin'};
     await App.store.put('payments', payment);
     cust.balance = clamp0(balanceAfter);
-    await App.store.put('customers', cust);
+    await App.masterStore.put('customers', cust);
     await App.store.put('ledger', {id:uid(), date:payment.date, invoiceNo: receiptNo, customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit:0, credit:amount, balance: cust.balance, remarks: p.remarks||''});
     return payment;
   },
@@ -919,11 +947,11 @@ const DB = {
     qty = Number(qty);
     if(!(qty>0)) throw new Error('Valid quantity daalein.');
     p.stock = (Number(p.stock)||0) + qty;
-    await App.store.put('products', p);
+    await App.masterStore.put('products', p);
     return p;
   },
   async lowStockList(){
-    const all = await App.store.all('products');
+    const all = await App.masterStore.all('products');
     return all.filter(p=> p.lowStockLimit>0 && Number(p.stock)<=Number(p.lowStockLimit));
   },
   async currentInvoicesInRange(fromISO, toISO){
@@ -931,6 +959,69 @@ const DB = {
     const byNo = {};
     all.forEach(r=>{ if(!byNo[r.invoiceNo] || r.createdAt>byNo[r.invoiceNo].createdAt) byNo[r.invoiceNo]=r; });
     return Object.values(byNo).filter(r=> r.date>=fromISO && r.date<=toISO).sort((a,b)=> a.date<b.date?1:-1);
+  },
+  /* ---------------- Quotations / Estimates ----------------
+     A quotation is a non-binding estimate: unlike a Sale Bill it never
+     touches stock or a customer's balance/ledger. It can later be turned
+     into a real bill with one tap (see convertQuotationToBill / the
+     "Convert to Bill" button) — that just hands its customer + items over to
+     the SAME New Bill screen used for any other bill, so saving that bill
+     goes through the exact same DB.saveBill() path (stock deduction, ledger
+     entry, customer balance update) as always. No business logic is
+     duplicated here. */
+  async nextQuotationNo(){
+    const fy = financialYear();
+    const prefix = App.company.quotationPrefix || 'QUO';
+    const all = await App.store.all('quotations');
+    const re = new RegExp('^'+prefix.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/'+fy+'/(\\d+)$');
+    let max=0;
+    all.forEach(q=>{ const m = re.exec(q.quoteNo||''); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } });
+    return prefix+'/'+fy+'/'+String(max+1).padStart(6,'0');
+  },
+  validateQuotation(q){
+    if(!q.customerName || !q.customerName.trim()) return 'Customer ka naam daalein.';
+    if(!q.items || !q.items.filter(it=>it.productCode && Number(it.qty)>0).length) return 'Kam se kam ek product add karein.';
+    return null;
+  },
+  async saveQuotation(q){
+    const err = DB.validateQuotation(q); if(err) throw new Error(err);
+    const items = q.items.filter(it=>it.productCode && Number(it.qty)>0);
+    const gstEnabled = !!App.company.gstEnabled;
+    const {taxableTotal,gstTotal,billTotal} = DB.computeTotals(items, 0, 0, gstEnabled);
+    const qId = uid();
+    const quotation = {
+      id:qId, quoteNo:q.quoteNo, date:q.date, validTill:q.validTill||'', customerId:q.customerId||null,
+      customerName:q.customerName, mobile:q.mobile||'', quoteTotal:billTotal, taxableTotal, gstTotal, gstEnabled,
+      status:'OPEN', convertedInvoiceNo:'', createdAt:new Date().toISOString(),
+    };
+    await App.store.put('quotations', quotation);
+    for(const it of items){
+      const amount = Number(it.qty)*Number(it.rate);
+      const gstRate = gstEnabled ? (Number(it.gstRate)||0) : 0;
+      await App.store.put('quotationItems', {id:uid(), quoteRowId:qId, productCode:it.productCode, productName:it.productName, qty:Number(it.qty), rate:Number(it.rate), amount, hsn:it.hsn||'', gstRate, gstAmount: amount*gstRate/100});
+    }
+    return quotation;
+  },
+  async itemsForQuotationRow(quoteRowId){
+    return App.store.byIndex('quotationItems','quoteRowId', quoteRowId);
+  },
+  async currentQuotationsInRange(fromISO, toISO){
+    const all = await App.store.all('quotations');
+    return all.filter(r=> r.date>=fromISO && r.date<=toISO).sort((a,b)=> a.date<b.date?1:-1);
+  },
+  async cancelQuotation(quoteRowId){
+    const q = await App.store.get('quotations', quoteRowId);
+    if(!q) throw new Error('Quotation nahi mili.');
+    if(q.status==='CONVERTED') throw new Error('Yeh quotation pehle se bill mein convert ho chuki hai, cancel nahi ho sakti.');
+    q.status = 'CANCELLED';
+    await App.store.put('quotations', q);
+    return q;
+  },
+  async markQuotationConverted(quoteRowId, invoiceNo){
+    const q = await App.store.get('quotations', quoteRowId);
+    if(!q) return;
+    q.status = 'CONVERTED'; q.convertedInvoiceNo = invoiceNo;
+    await App.store.put('quotations', q);
   },
   async ledgerForCustomer(customerId){
     const rows = await App.store.byIndex('ledger','customerId', customerId);
@@ -1007,7 +1098,7 @@ const DB = {
       // Keep the product's Purchase Cost current with the last purchase rate paid —
       // this is what the Profit & Loss report and future Purchase Bill entries use as cost.
       if(Number(it.rate)>0) p.purchaseRate = Number(it.rate);
-      await App.store.put('products', p);
+      await App.masterStore.put('products', p);
     }
   },
   async removeStockForItems(items){
@@ -1015,7 +1106,7 @@ const DB = {
       const p = await DB.findProductByCode(it.productCode);
       if(!p) continue;
       p.stock = (Number(p.stock)||0) - (Number(it.qty)||0);
-      await App.store.put('products', p);
+      await App.masterStore.put('products', p);
     }
   },
   // Save a brand-new purchase bill. Returns {purchase}
@@ -1178,6 +1269,8 @@ const NAV_ITEMS = [
   {key:'#/stock', label:'Stock', icon:iconLayers},
   {key:'#/payments', label:'Payments', icon:iconWallet},
   {key:'#/sales-register', label:'Sales Register', icon:iconList},
+  {key:'#/quotation', label:'New Quotation', icon:iconBill},
+  {key:'#/quotations', label:'Quotations', icon:iconList},
   {key:'#/purchase', label:'Purchase Bill', icon:iconTruck},
   {key:'#/suppliers', label:'Suppliers / Parties', icon:iconUsers},
   {key:'#/purchase-register', label:'Purchase Register', icon:iconList},
@@ -1435,11 +1528,18 @@ function makeQrDataUrl(text, size){
     }catch(e){ holder.remove(); resolve(null); }
   });
 }
-async function generateInvoicePdf(invoice, items){
+async function generateInvoicePdf(invoice, items, opts){
   if(typeof window.jspdf==='undefined') throw new Error('PDF library load nahi ho payi. Internet check karke dobara try karein.');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'mm', format:'a4'});
   const pageW = 210, pageH = 297, marginX = 15;
+  // Quotations reuse this exact layout (header/branding/watermark/signature all
+  // stay identical) via an "invoice-shaped" adapter object — see
+  // quotationToInvoiceShape() and generateQuotationPdf() — with only the title,
+  // the No/Date/Payment line, the BILL TO label, the UPI QR (not shown — nothing
+  // is actually due yet on an estimate) and the totals block's payment-specific
+  // lines (Previous Balance/Total Payable/Received/Balance Due) differing.
+  const isQuote = !!(opts && opts.docType === 'QUOTATION');
   const gstOn = !!invoice.gstEnabled;
   const c = App.company;
   // Header/footer band colours are customizable in Settings; accentDark (used
@@ -1543,18 +1643,22 @@ async function generateInvoicePdf(invoice, items){
   }
 
   doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...accentDark);
-  doc.text('INVOICE', pageW-marginX, y, {align:'right'});
+  doc.text(isQuote?'QUOTATION':'INVOICE', pageW-marginX, y, {align:'right'});
   doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(20,20,20);
   doc.text('No: '+invoice.invoiceNo, pageW-marginX, y+6, {align:'right'});
   doc.text('Date: '+fmtDate(invoice.date), pageW-marginX, y+11, {align:'right'});
-  doc.text('Payment: '+invoice.paymentMode, pageW-marginX, y+16, {align:'right'});
+  if(isQuote){
+    doc.text(invoice.validTill ? ('Valid Till: '+fmtDate(invoice.validTill)) : 'Estimate Only', pageW-marginX, y+16, {align:'right'});
+  } else {
+    doc.text('Payment: '+invoice.paymentMode, pageW-marginX, y+16, {align:'right'});
+  }
   const rightY = y + 16;
 
   y = Math.max(leftY, rightY) + 8;
   doc.setDrawColor(...lineGray); doc.setFillColor(250,248,243);
   doc.rect(marginX, y, 180, 16, 'FD');
   doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...gray);
-  doc.text('BILL TO', marginX+4, y+5.5);
+  doc.text(isQuote?'QUOTE FOR':'BILL TO', marginX+4, y+5.5);
   doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20,20,20);
   doc.text(String(invoice.customerName||''), marginX+4, y+11.5, {maxWidth:110});
   doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(...gray);
@@ -1612,12 +1716,19 @@ async function generateInvoicePdf(invoice, items){
     totalLine('CGST', fmtMoneyPdf((Number(invoice.gstTotal)||0)/2), {size:8.5,color:gray,gap:4.8});
     totalLine('SGST', fmtMoneyPdf((Number(invoice.gstTotal)||0)/2), {size:8.5,color:gray,gap:4.8});
   }
-  totalLine('Bill Total', fmtMoneyPdf(invoice.billTotal), {bold:true});
-  totalLine('Previous Balance', fmtMoneyPdf(invoice.previousBalance));
-  totalLine('Total Payable', fmtMoneyPdf(invoice.totalPayable));
-  totalLine('Received', fmtMoneyPdf(invoice.receivedAmount));
-  doc.setDrawColor(...lineGray); doc.line(totalsX, y-3.5, pageW-marginX, y-3.5);
-  totalLine('Balance Due', fmtMoneyPdf(invoice.balanceDue), {bold:true, size:11.5, color: Number(invoice.balanceDue)>0?[181,64,47]:[47,125,84]});
+  if(isQuote){
+    // A quotation is just an estimate — nothing is "due" yet, so none of the
+    // payment-tracking lines below (Previous Balance/Total Payable/Received/
+    // Balance Due) apply. Just the one clear total.
+    totalLine('Quotation Total', fmtMoneyPdf(invoice.billTotal), {bold:true, size:12, color:accentDark});
+  } else {
+    totalLine('Bill Total', fmtMoneyPdf(invoice.billTotal), {bold:true});
+    totalLine('Previous Balance', fmtMoneyPdf(invoice.previousBalance));
+    totalLine('Total Payable', fmtMoneyPdf(invoice.totalPayable));
+    totalLine('Received', fmtMoneyPdf(invoice.receivedAmount));
+    doc.setDrawColor(...lineGray); doc.line(totalsX, y-3.5, pageW-marginX, y-3.5);
+    totalLine('Balance Due', fmtMoneyPdf(invoice.balanceDue), {bold:true, size:11.5, color: Number(invoice.balanceDue)>0?[181,64,47]:[47,125,84]});
+  }
   const totalsBottomY = y;
 
   // Terms & Conditions box fills the space to the LEFT of the totals column
@@ -1658,7 +1769,8 @@ async function generateInvoicePdf(invoice, items){
   if(y > 200){ doc.addPage(); paintWatermark(); y = 20; }
 
   let qrDataUrl = null;
-  if(c.upiId && Number(invoice.balanceDue)>0){
+  // No "Scan & Pay" QR on a quotation — nothing is actually payable yet on an estimate.
+  if(!isQuote && c.upiId && Number(invoice.balanceDue)>0){
     try{ qrDataUrl = await makeQrDataUrl(buildUpiUri(invoice), 240); }catch(e){}
   }
   const blockTop = y;
@@ -1696,6 +1808,14 @@ async function generateInvoicePdf(invoice, items){
   doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...gray);
   doc.text('For '+(c.name||'Company'), sigRight, dividerY+7, {align:'right'});
   const sigLineY = dividerY+26; // ~19mm of blank space above the line, reserved for the actual signature
+  // If an Authorized Signature photo is uploaded (Settings > Invoice Customization),
+  // print it right there in that reserved blank gap so every bill already carries a
+  // signature — no more signing each printed copy by hand.
+  if(c.signatureDataUrl){
+    const sigImgH = Math.min(13, sigLineY - (dividerY+8) - 1);
+    const sigImgW = Math.min(45, sigRight-sigLeft);
+    try{ doc.addImage(c.signatureDataUrl, 'PNG', sigRight-sigImgW, sigLineY-sigImgH-1, sigImgW, sigImgH); }catch(e){}
+  }
   doc.setDrawColor(...lineGray); doc.line(sigLeft, sigLineY, sigRight, sigLineY);
   doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(20,20,20);
   doc.text('Authorized Signatory', sigRight, sigLineY+5, {align:'right'});
@@ -2287,7 +2407,7 @@ function openPrintLabelsModal(initialItems){
 
 /* ---------------- Dashboard ---------------- */
 async function viewDashboard(root){
-  const [invoices, customers, low] = await Promise.all([App.store.all('invoices'), App.store.all('customers'), DB.lowStockList()]);
+  const [invoices, customers, low] = await Promise.all([App.store.all('invoices'), App.masterStore.all('customers'), DB.lowStockList()]);
   const byNo = {}; invoices.forEach(r=>{ if(!byNo[r.invoiceNo] || r.createdAt>byNo[r.invoiceNo].createdAt) byNo[r.invoiceNo]=r; });
   const current = Object.values(byNo);
   const today = todayISO();
@@ -2326,6 +2446,7 @@ async function viewDashboard(root){
     ]),
     el('div',{class:'grid2'},[
       quickAction('New Bill', iconBill, ()=>navigate('#/bill')),
+      quickAction('New Quotation', iconList, ()=>navigate('#/quotation')),
       quickAction('Receive Payment', iconWallet, ()=>navigate('#/payments')),
       quickAction('Add Customer', iconUsers, ()=>navigate('#/customers')),
       quickAction('Add Product', iconBox, ()=>navigate('#/products')),
@@ -2363,7 +2484,7 @@ function invoiceListRow(inv){
 /* ---------------- New Bill (POS) ---------------- */
 let billDraft = null;
 function freshDraft(invoiceNo){
-  return {invoiceNo, date: todayISO(), customerId:null, customerName:'', mobile:'', previousBalance:0, items:[], paymentMode:'CASH', receivedAmount:'', editingInvoiceNo:null};
+  return {invoiceNo, date: todayISO(), customerId:null, customerName:'', mobile:'', previousBalance:0, items:[], paymentMode:'CASH', receivedAmount:'', editingInvoiceNo:null, convertingQuotationRowId:null};
 }
 async function viewBill(root){
   if(!billDraft){ billDraft = freshDraft(await DB.nextInvoiceNo()); }
@@ -2548,6 +2669,11 @@ async function onSaveBill(){
     else{ result = await DB.saveBill(b); }
     if(result.lowStock.length) toast('Low stock: '+result.lowStock.map(p=>p.name).join(', '), 'err');
     toast('Bill saved successfully.', 'ok');
+    // If this bill started life as a quotation (via "Convert to Bill"), mark
+    // that quotation CONVERTED now that a real invoice actually exists for it.
+    if(billDraft.convertingQuotationRowId){
+      try{ await DB.markQuotationConverted(billDraft.convertingQuotationRowId, result.invoice.invoiceNo); }catch(e){}
+    }
     showPostSaveOptions(result.invoice);
   }catch(e){ toast(e.message,'err'); }
 }
@@ -2616,6 +2742,274 @@ function openInvoiceDetail(inv){
     ]);
     openModal('Invoice', body);
   });
+}
+
+/* ---------------- Quotations / Estimates ----------------
+   A lightweight version of the New Bill screen above: pick/type a customer,
+   add items with qty/rate (GST-aware like the bill screen), and save — but
+   unlike a bill, saving a quotation never touches stock or a customer's
+   balance/ledger (see DB.saveQuotation). A saved quotation can be printed as
+   a "QUOTATION" PDF (generateQuotationPdf, which reuses generateInvoicePdf's
+   exact branding/layout via an adapter — see quotationToInvoiceShape) or
+   turned into a real bill with one tap (startConvertQuotationToBill), which
+   just prefills the SAME New Bill screen and lets the normal Save Bill flow
+   take over from there — no duplicated stock/ledger logic. */
+let quoteDraft = null;
+function freshQuoteDraft(quoteNo){
+  const d = new Date(); d.setDate(d.getDate()+7);
+  return {quoteNo, date: todayISO(), validTill: d.toISOString().slice(0,10), customerId:null, customerName:'', mobile:'', items:[]};
+}
+async function viewQuotationNew(root){
+  if(!quoteDraft){ quoteDraft = freshQuoteDraft(await DB.nextQuotationNo()); }
+  renderQuoteScreen(root);
+}
+function quoteTotals(){
+  return DB.computeTotals(quoteDraft.items, 0, 0, !!App.company.gstEnabled);
+}
+function renderQuoteScreen(root){
+  root.innerHTML='';
+  const t = quoteTotals();
+  const wrap = el('div',{class:'stack'});
+
+  wrap.appendChild(el('div',{class:'card pad'},[
+    el('div',{class:'spread'},[
+      el('div',{},[el('div',{class:'tiny muted'},['Quotation No']), el('div',{class:'bold'},[quoteDraft.quoteNo])]),
+      el('label',{class:'field', style:'width:150px;'},['Date', el('input',{type:'date', value:quoteDraft.date, onchange:(e)=>{quoteDraft.date=e.target.value;}})]),
+    ]),
+    el('label',{class:'field'},['Valid Till', el('input',{type:'date', value:quoteDraft.validTill, onchange:(e)=>{quoteDraft.validTill=e.target.value;}})]),
+  ]));
+
+  const custCard = el('div',{class:'card pad stack'});
+  custCard.appendChild(el('div',{class:'bold'},['Customer']));
+  const custRow = el('div',{class:'row'});
+  const mobileInput = el('input',{placeholder:'Mobile number (optional)', value:quoteDraft.mobile, inputmode:'numeric'});
+  const nameInput = el('input',{placeholder:'Customer name', value:quoteDraft.customerName});
+  mobileInput.addEventListener('change', async ()=>{
+    quoteDraft.mobile = mobileInput.value.trim();
+    const cust = await DB.findCustomerByMobile(quoteDraft.mobile);
+    if(cust){
+      quoteDraft.customerId=cust.id;
+      if(!nameInput.value.trim()){ quoteDraft.customerName=cust.name; nameInput.value=cust.name; }
+      toast('Customer mil gaya: '+cust.name);
+    } else { quoteDraft.customerId=null; }
+  });
+  nameInput.addEventListener('input', ()=>{ quoteDraft.customerName = nameInput.value; });
+  custRow.appendChild(mobileInput);
+  custRow.appendChild(el('button',{class:'icon-btn', onclick:()=>openCustomerPicker((c)=>{ quoteDraft.customerId=c.id; quoteDraft.customerName=c.name; quoteDraft.mobile=c.mobile; renderQuoteScreen(root); })},[iconSearch()]));
+  custCard.appendChild(custRow);
+  custCard.appendChild(nameInput);
+  wrap.appendChild(custCard);
+
+  const itemsCard = el('div',{class:'card pad stack'});
+  itemsCard.appendChild(el('div',{class:'bold'},['Items']));
+  const scan = el('div',{class:'scanline'});
+  const codeInput = el('input',{placeholder:'Product code scan/type karein aur Enter dabayein'});
+  scan.appendChild(codeInput);
+  scan.appendChild(el('button',{class:'btn btn-sm', onclick:()=>openProductPicker(addItemFromProduct)},[iconSearch()]));
+  codeInput.addEventListener('keydown', async (e)=>{
+    if(e.key==='Enter'){
+      e.preventDefault();
+      const code = codeInput.value.trim();
+      if(!code) return;
+      const p = await DB.findProductByCode(code);
+      if(p){ addItemFromProduct(p); codeInput.value=''; }
+      else{
+        const matches = await DB.searchProducts(code);
+        if(matches.length){ openProductPicker((prod)=>{ addItemFromProduct(prod); codeInput.value=''; }); }
+        else{
+          const goAdd = await confirmDialog('Product "'+escapeHtml(code)+'" nahi mila. Naya product add karein?', 'Add Product');
+          if(goAdd){ openProductForm(null, code); }
+          codeInput.value='';
+        }
+      }
+    }
+  });
+  itemsCard.appendChild(scan);
+
+  if(quoteDraft.items.length){
+    const tbl = el('div',{class:'stack', style:'gap:6px;'});
+    tbl.appendChild(el('div',{class:'item-row tiny muted'},[el('span',{},['Item']),el('span',{},['Qty']),el('span',{},['Rate']),el('span',{},['Amount']),el('span',{},[''])]));
+    quoteDraft.items.forEach((it,idx)=>{
+      const qtyInput = el('input',{type:'number', value:it.qty, min:'0', step:'any'});
+      const rateInput = el('input',{type:'number', value:it.rate, min:'0', step:'any'});
+      const amtEl = el('div',{class:'amt num'},[fmtNum(it.qty*it.rate)]);
+      qtyInput.addEventListener('input', ()=>{ it.qty = Number(qtyInput.value)||0; amtEl.textContent=fmtNum(it.qty*it.rate); updateComputedTotals(); });
+      rateInput.addEventListener('input', ()=>{ it.rate = Number(rateInput.value)||0; amtEl.textContent=fmtNum(it.qty*it.rate); updateComputedTotals(); });
+      const rm = el('button',{class:'icon-btn btn-sm', onclick:()=>{ quoteDraft.items.splice(idx,1); renderQuoteScreen(root); }},[iconTrash()]);
+      const nameCell = App.company.gstEnabled
+        ? el('div',{class:'small'},[it.productName, el('div',{class:'tiny muted'},[(it.hsn?('HSN '+it.hsn+' • '):'')+'GST '+(Number(it.gstRate)||0)+'%'])])
+        : el('div',{class:'small'},[it.productName]);
+      tbl.appendChild(el('div',{class:'item-row'},[ nameCell, qtyInput, rateInput, amtEl, rm ]));
+    });
+    itemsCard.appendChild(tbl);
+  } else {
+    itemsCard.appendChild(el('div',{class:'empty small'},['Koi item add nahi hua.']));
+  }
+  wrap.appendChild(itemsCard);
+
+  const totalsCard = el('div',{class:'card pad stack'});
+  const gstOn = !!App.company.gstEnabled;
+  const totalLine = el('div',{class:'spread'},[el('span',{},[gstOn?'Taxable Amount':'Total']), el('span',{class:'bold num'},['₹0.00'])]);
+  const totalValueEl = totalLine.lastChild;
+  const gstLine = el('div',{class:'spread small muted'},[el('span',{},['GST']), el('span',{class:'num'},['₹0.00'])]);
+  const gstValueEl = gstLine.lastChild;
+  gstLine.style.display = gstOn ? '' : 'none';
+  const quoteTotalLine = el('div',{class:'spread'},[el('span',{class:'bold'},['Quotation Total']), el('span',{class:'bold num'},['₹0.00'])]);
+  const quoteTotalValueEl = quoteTotalLine.lastChild;
+  const wordsLine = el('div',{class:'tiny muted', style:'font-style:italic;'});
+  totalsCard.appendChild(totalLine);
+  totalsCard.appendChild(gstLine);
+  totalsCard.appendChild(quoteTotalLine);
+  totalsCard.appendChild(wordsLine);
+  wrap.appendChild(totalsCard);
+
+  function updateComputedTotals(){
+    const t = quoteTotals();
+    totalValueEl.textContent = fmtMoney(t.taxableTotal);
+    gstValueEl.textContent = fmtMoney(t.gstTotal);
+    quoteTotalValueEl.textContent = fmtMoney(t.billTotal);
+    wordsLine.textContent = amountInWordsIndian(t.billTotal);
+  }
+
+  wrap.appendChild(el('div',{class:'row wrap'},[
+    el('button',{class:'btn btn-primary btn-block', onclick:onSaveQuotation},[iconCheck(),'Save Quotation']),
+  ]));
+  wrap.appendChild(el('div',{class:'row wrap'},[
+    el('button',{class:'btn', onclick:async ()=>{ quoteDraft = freshQuoteDraft(await DB.nextQuotationNo()); renderQuoteScreen(root); }},['New Quotation']),
+    el('button',{class:'btn', onclick:()=>navigate('#/quotations')},[iconList(),'View Quotations']),
+  ]));
+
+  root.appendChild(wrap);
+  updateComputedTotals();
+
+  function addItemFromProduct(p){
+    const existing = quoteDraft.items.find(it=>it.productCode===p.productCode);
+    if(existing){ existing.qty = Number(existing.qty)+1; }
+    else{ quoteDraft.items.push({productCode:p.productCode, productName:p.name, qty:1, rate:Number(p.rate)||0, hsn:p.hsn||'', gstRate:Number(p.gstRate)||0}); }
+    renderQuoteScreen(root);
+  }
+}
+async function onSaveQuotation(){
+  try{
+    const q = {quoteNo: quoteDraft.quoteNo, date: quoteDraft.date, validTill: quoteDraft.validTill, customerId: quoteDraft.customerId, customerName: quoteDraft.customerName, mobile: quoteDraft.mobile, items: quoteDraft.items};
+    const saved = await DB.saveQuotation(q);
+    toast('Quotation saved successfully.', 'ok');
+    showQuotationPostSaveOptions(saved);
+  }catch(e){ toast(e.message,'err'); }
+}
+async function showQuotationPostSaveOptions(quotation){
+  const items = await DB.itemsForQuotationRow(quotation.id);
+  const body = el('div',{class:'stack'},[
+    el('div',{},['Quotation ', el('b',{},[quotation.quoteNo]), ' saved. ', fmtMoney(quotation.quoteTotal), ' total.']),
+    el('button',{class:'btn btn-block', onclick:()=>printQuotation(quotation, items)},[iconPrint(),'Print Quotation']),
+    el('button',{class:'btn btn-primary btn-block', onclick:()=>{ closeModal(); startConvertQuotationToBill(quotation); }},[iconCheck(),'Convert to Bill']),
+    el('button',{class:'btn btn-block', onclick:async ()=>{ closeModal(); quoteDraft = freshQuoteDraft(await DB.nextQuotationNo()); renderRoute(); }},['New Quotation']),
+  ]);
+  openModal('Quotation Saved', body, {persist:true});
+}
+// Builds an "invoice-shaped" object from a quotation so it can be handed
+// straight to generateInvoicePdf (with {docType:'QUOTATION'}) and reuse its
+// entire header/branding/watermark/signature layout unchanged.
+function quotationToInvoiceShape(q){
+  return {
+    invoiceNo: q.quoteNo, date: q.date, validTill: q.validTill, customerName: q.customerName, mobile: q.mobile,
+    paymentMode:'', billTotal: q.quoteTotal, previousBalance:0, totalPayable:q.quoteTotal, receivedAmount:0, balanceDue:q.quoteTotal,
+    taxableTotal: q.taxableTotal, gstTotal: q.gstTotal, gstEnabled: q.gstEnabled,
+  };
+}
+function generateQuotationPdf(quotation, items){
+  return generateInvoicePdf(quotationToInvoiceShape(quotation), items, {docType:'QUOTATION'});
+}
+function printQuotation(quotation, items){
+  generateQuotationPdf(quotation, items).then(doc=>{
+    window.open(doc.output('bloburl'), '_blank');
+  }).catch(e=>{ toast(e.message,'err'); });
+}
+function quotationStatusPill(status){
+  const map = {OPEN:['pill-neutral','Open'], CONVERTED:['pill-success','Converted'], CANCELLED:['pill-danger','Cancelled']};
+  const [cls,label] = map[status] || ['pill-neutral', status];
+  return el('span',{class:'pill '+cls},[label]);
+}
+function quotationListRow(q){
+  return el('div',{class:'list-row', onclick:()=>openQuotationDetail(q)},[
+    el('div',{},[ el('div',{class:'bold small'},[q.quoteNo]), el('div',{class:'tiny muted'},[q.customerName+' • '+fmtDate(q.date)]) ]),
+    el('div',{style:'text-align:right;'},[ el('div',{class:'bold num'},[fmtMoney(q.quoteTotal)]), quotationStatusPill(q.status) ]),
+  ]);
+}
+async function viewQuotationRegister(root){
+  const wrap = el('div',{class:'stack'});
+  wrap.appendChild(el('div',{},[el('div',{class:'section-title'},['Quotations']), el('div',{class:'section-sub'},['Saare quotations/estimates, ek jagah'])]));
+  wrap.appendChild(el('button',{class:'btn btn-primary', onclick:()=>navigate('#/quotation')},[iconPlus(),'New Quotation']));
+  const filterRow = el('div',{class:'row wrap'});
+  const fromI = el('input',{type:'date', value: (()=>{const d=new Date(); d.setDate(d.getDate()-30); return d.toISOString().slice(0,10);})()});
+  const toI = el('input',{type:'date', value: todayISO()});
+  const statusI = el('select',{},[el('option',{value:''},['All Status']),el('option',{value:'OPEN'},['Open']),el('option',{value:'CONVERTED'},['Converted']),el('option',{value:'CANCELLED'},['Cancelled'])]);
+  filterRow.appendChild(el('label',{class:'field'},['From', fromI]));
+  filterRow.appendChild(el('label',{class:'field'},['To', toI]));
+  filterRow.appendChild(el('label',{class:'field'},['Status', statusI]));
+  wrap.appendChild(filterRow);
+  const list = el('div',{class:'card pad'});
+  wrap.appendChild(list);
+  root.appendChild(wrap);
+  async function refresh(){
+    let rows = await DB.currentQuotationsInRange(fromI.value, toI.value);
+    if(statusI.value) rows = rows.filter(r=>r.status===statusI.value);
+    list.innerHTML='';
+    if(!rows.length){ list.appendChild(el('div',{class:'empty'},['Is range mein koi quotation nahi.'])); return; }
+    rows.forEach(r=> list.appendChild(quotationListRow(r)));
+  }
+  const safeRefresh = guardedRefresh(refresh, list);
+  [fromI,toI,statusI].forEach(i=>i.addEventListener('change',safeRefresh));
+  await safeRefresh();
+}
+function openQuotationDetail(q){
+  DB.itemsForQuotationRow(q.id).then(items=>{
+    const body = el('div',{class:'stack'},[
+      el('div',{class:'spread'},[el('b',{},[q.quoteNo]), quotationStatusPill(q.status)]),
+      el('div',{class:'small muted'},[q.customerName+(q.mobile?(' • '+q.mobile):'')+' • '+fmtDate(q.date)]),
+      q.validTill ? el('div',{class:'small muted'},['Valid Till: '+fmtDate(q.validTill)]) : null,
+      el('div',{class:'card pad', style:'padding:10px;'}, items.map(it=> el('div',{class:'spread small', style:'padding:3px 0;'},[el('span',{},[it.productName+' x'+fmtNum(it.qty)]), el('span',{class:'num'},[fmtMoney(it.amount)])]))),
+      el('div',{class:'spread'},[el('span',{},['Quotation Total']), el('span',{class:'bold num'},[fmtMoney(q.quoteTotal)])]),
+      q.convertedInvoiceNo ? el('div',{class:'small muted'},['Converted to Invoice: '+q.convertedInvoiceNo]) : null,
+      el('div',{class:'row wrap'},[
+        el('button',{class:'btn', onclick:()=>printQuotation(q,items)},[iconPrint(),'Print']),
+        q.status==='OPEN' ? el('button',{class:'btn btn-primary', onclick:()=>{ closeModal(); startConvertQuotationToBill(q); }},[iconCheck(),'Convert to Bill']) : null,
+      ]),
+      q.status==='OPEN' ? el('button',{class:'btn btn-danger btn-block', onclick: async ()=>{
+        const ok = await confirmDialog('Quotation "'+q.quoteNo+'" cancel karni hai?','Cancel Quotation');
+        if(!ok) return;
+        try{ await DB.cancelQuotation(q.id); closeModal(); toast('Quotation cancelled.','ok'); renderRoute(); }
+        catch(e){ toast(e.message,'err'); }
+      }},['Cancel Quotation']) : null,
+    ]);
+    openModal('Quotation', body);
+  });
+}
+// Hands a saved quotation's customer + items to the New Bill screen, ready to
+// save as a real bill — actual saving still goes through the normal
+// DB.saveBill()/onSaveBill() path (stock deduction, ledger, customer
+// balance), which then marks this quotation CONVERTED (see onSaveBill()).
+async function startConvertQuotationToBill(quotation){
+  const items = await DB.itemsForQuotationRow(quotation.id);
+  billDraft = freshDraft(await DB.nextInvoiceNo());
+  billDraft.customerId = quotation.customerId;
+  billDraft.customerName = quotation.customerName;
+  billDraft.mobile = quotation.mobile;
+  if(quotation.customerId){
+    try{
+      const cust = await App.masterStore.get('customers', quotation.customerId);
+      billDraft.previousBalance = cust ? (Number(cust.balance)||0) : 0;
+    }catch(e){}
+  }
+  billDraft.items = [];
+  for(const it of items){
+    let costRate = 0;
+    try{ const prod = await DB.findProductByCode(it.productCode); costRate = prod ? (Number(prod.purchaseRate)||0) : 0; }catch(e){}
+    billDraft.items.push({productCode: it.productCode, productName: it.productName, qty: Number(it.qty)||0, rate: Number(it.rate)||0, hsn: it.hsn||'', gstRate: Number(it.gstRate)||0, costRate});
+  }
+  billDraft.convertingQuotationRowId = quotation.id;
+  toast('Quotation "'+quotation.quoteNo+'" load ho gayi — ab Save Bill dabakar isse real bill banayein.');
+  navigate('#/bill');
 }
 
 /* ---------------- Purchase Bill (party-wise, item-wise) ----------------
@@ -2938,7 +3332,7 @@ function openCustomerForm(cust, prefill, onSaved){
       if(!name||!mobile){ toast('Naam aur mobile dono zaroori hain.','err'); return; }
       const rec = cust || {id: await DB.nextCustomerId(), createdAt: new Date().toISOString()};
       rec.name=name; rec.mobile=mobile; rec.creditLimit=Number(creditI.value)||0; rec.balance=Number(balanceI.value)||0;
-      await App.store.put('customers', rec);
+      await App.masterStore.put('customers', rec);
       closeModal(); toast('Customer saved.','ok');
       if(onSaved) onSaved(rec);
       renderRoute();
@@ -3225,7 +3619,7 @@ async function openProductForm(p, prefillCode, prefillName, onSaved){
         rec.productCode = code; rec.name=name; rec.rate=Number(rateI.value)||0; rec.purchaseRate=Number(costI.value)||0; rec.qtyType=typeI.value;
         rec.stock=Number(stockI.value)||0; rec.lowStockLimit=Number(lowI.value)||0;
         rec.hsn = hsnI.value.trim(); rec.gstRate = Number(gstRateI.value)||0;
-        await App.store.put('products', rec);
+        await App.masterStore.put('products', rec);
         closeModal(); toast('Product saved.','ok');
         if(onSaved) onSaved(rec);
         renderRoute();
@@ -3234,7 +3628,7 @@ async function openProductForm(p, prefillCode, prefillName, onSaved){
     !isNew ? el('button',{class:'btn btn-block', onclick:()=>openPrintLabelsModal([{productCode:p.productCode, name:p.name, rate:p.rate, qty:1}])},[iconPrint(),'Print QR Label']) : null,
     !isNew ? el('button',{class:'btn btn-danger btn-block', onclick: async ()=>{
       const ok = await confirmDialog('Product delete karein?','Delete');
-      if(ok){ await App.store.del('products', p.id); closeModal(); toast('Deleted.'); renderRoute(); }
+      if(ok){ await App.masterStore.del('products', p.id); closeModal(); toast('Deleted.'); renderRoute(); }
     }},[iconTrash(),'Delete Product']) : null,
   ]);
   openModal(isNew?'Add Product':'Edit Product', body);
@@ -3587,7 +3981,7 @@ async function viewSettings(root){
   profCard.appendChild(el('div',{class:'grid2'},[mk('website','Website'), mk('gstin','GSTIN (optional)')]));
   profCard.appendChild(mk('pan','PAN Number (GST na ho to invoice par yeh print hoga)'));
   profCard.appendChild(el('div',{class:'grid2'},[mk('invoicePrefix','Invoice Prefix'), mk('productPrefix','Product Code Prefix')]));
-  profCard.appendChild(mk('purchasePrefix','Purchase Bill Prefix'));
+  profCard.appendChild(el('div',{class:'grid2'},[mk('purchasePrefix','Purchase Bill Prefix'), mk('quotationPrefix','Quotation Prefix')]));
   const lowI = el('input',{type:'number', value:c.lowStockDefault||0}); fields.lowStockDefault=lowI;
   profCard.appendChild(el('label',{class:'field'},['Default Low Stock Limit (naye products ke liye)', lowI]));
 
@@ -3644,6 +4038,43 @@ async function viewSettings(root){
   logoSizeSel.value = String([12,16,22,28].includes(Number(c.logoSizeMm)) ? Number(c.logoSizeMm) : 16);
   fields.logoSizeMm = logoSizeSel;
   invCard.appendChild(el('label',{class:'field'},['Logo Size (invoice/ledger PDF ke header mein)', logoSizeSel]));
+
+  // Authorized Signature: a one-time upload of a signature photo (background
+  // removed / transparent PNG works best) that then prints automatically in
+  // the "Authorized Signatory" box of every invoice — no need to sign each
+  // printed bill by hand anymore.
+  const sigPreviewWrap = el('div',{class:'row', style:'align-items:center;gap:12px;'});
+  function renderSignaturePreview(){
+    sigPreviewWrap.innerHTML='';
+    if(c.signatureDataUrl){
+      sigPreviewWrap.appendChild(el('img',{src:c.signatureDataUrl, style:'width:90px;height:36px;object-fit:contain;border-radius:8px;border:1px solid var(--border);background:#fff;'}));
+      sigPreviewWrap.appendChild(el('button',{class:'btn btn-sm btn-ghost', onclick: async ()=>{ c.signatureDataUrl=''; await App.store.put('settings',c); toast('Signature removed.'); renderRoute(); }},['Remove Signature']));
+    } else {
+      sigPreviewWrap.appendChild(el('div',{class:'small muted'},['Koi signature set nahi hai — abhi bhi print karke haath se sign karna padega.']));
+    }
+  }
+  renderSignaturePreview();
+  const sigFileI = el('input',{type:'file', accept:'image/*'});
+  sigFileI.addEventListener('change', ()=>{
+    const file = sigFileI.files[0];
+    if(!file) return;
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = ()=>{ img.onload = async ()=>{
+      const maxDim = 400;
+      let {width:w, height:h} = img;
+      if(w>maxDim || h>maxDim){ const scale = maxDim/Math.max(w,h); w=Math.round(w*scale); h=Math.round(h*scale); }
+      const canvas = document.createElement('canvas'); canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h); // no background fill first — keeps a transparent PNG's transparency
+      c.signatureDataUrl = canvas.toDataURL('image/png');
+      await App.store.put('settings', c);
+      toast('Signature saved.','ok'); renderRoute();
+    }; img.src = reader.result; };
+    reader.readAsDataURL(file);
+  });
+  invCard.appendChild(el('label',{class:'field'},['Authorized Signature (photo, background hataya hua/transparent PNG best hai)', sigFileI]));
+  invCard.appendChild(sigPreviewWrap);
+  invCard.appendChild(el('div',{class:'tiny muted'},['Ek baar upload karne ke baad har invoice ke "Authorized Signatory" box mein yeh signature apne aap print hoga — dobara haath se sign karne ki zaroorat nahi.']));
 
   const watermarkToggle = el('input',{type:'checkbox'}); watermarkToggle.checked = c.showWatermark!==false; fields.showWatermark = watermarkToggle;
   invCard.appendChild(el('label',{class:'row', style:'gap:8px; cursor:pointer;'},[watermarkToggle, el('span',{},['Background watermark logo print par dikhayein'])]));
@@ -3731,6 +4162,49 @@ async function viewSettings(root){
     companyMgmt.appendChild(el('div',{class:'tiny muted'},['Is company mein JOKERWAL BROTHERS ki purani history data mil gaya hai (shayad galti se import ho gaya tha). Yeh button sirf wahi records hatayega, aapka khud ka data safe rahega.']));
   }
   wrap.appendChild(companyMgmt);
+
+  // Data Sharing: lets a second (or third...) company under this SAME login
+  // use another company's Products + Customers master (including live stock
+  // and customer balances) instead of keeping its own separate one — useful
+  // when multiple companies here are really the same shop's branches/divisions
+  // and should share one product catalogue + customer list. Bills, invoices,
+  // ledger and payments always stay separate per company regardless of this
+  // setting (see refreshMasterStore()). Fully reversible — turning it back
+  // OFF restores whatever this company's own master data was before sharing
+  // started (nothing is ever deleted by toggling this).
+  const shareCard = el('div',{class:'card pad stack'});
+  shareCard.appendChild(el('div',{class:'bold'},['Data Sharing (Multi-Company)']));
+  shareCard.appendChild(el('div',{class:'small muted'},['Agar isi login se bani koi doosri company ka Products + Customers Master (stock aur customer balance samet) is company mein bhi use karna hai (jaise ek hi shop ki 2 branches), to yahan se woh company chunein. Bills/Invoices/Ledger/Payments hamesha har company ka apna alag hi rehta hai — sirf Products aur Customers + stock share hote hain.']));
+  const otherCompaniesForShare = companies.filter(co=>co.id!==App.company.id);
+  if(!otherCompaniesForShare.length){
+    shareCard.appendChild(el('div',{class:'tiny muted'},['Sharing ke liye kam se kam ek aur company honi chahiye — pehle upar "Add New Company" se ek aur company banayein.']));
+  } else {
+    const shareSel = el('select',{}, [el('option',{value:''},['Nahi — is company ka apna alag Master Data rakhein (default)'])].concat(
+      otherCompaniesForShare.map(co=>el('option',{value:co.id},['Is company ka Master Data use karein: '+co.name]))
+    ));
+    shareSel.value = App.company.sharedMasterFrom || '';
+    shareCard.appendChild(el('label',{class:'field'},['Product/Customer Master kahan se use karein', shareSel]));
+    shareCard.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+      const newVal = shareSel.value;
+      if(newVal === (App.company.sharedMasterFrom||'')){ toast('Koi change nahi hai.'); return; }
+      const ok = await confirmDialog(newVal
+        ? 'Is company ke Products aur Customers (stock/balance samet) ab is doosri company ke saath SHARE ho jayenge — dono companies mein ek hi master data dikhega aur ek jagah stock/balance badalne se doosri jagah bhi turant badlega. Is company ka apna PURANA master data (agar tha) delete nahi hota, bas jab tak sharing ON hai tab tak chupa rehta hai. Continue?'
+        : 'Sharing OFF karne par yeh company wapas apne ALAG (independent) Products/Customers master par chali jayegi — sharing shuru karne se pehle jo bhi is company ka apna data tha wahi wapas dikhega. Continue?',
+        'Confirm')
+      ;
+      if(!ok) return;
+      App.company.sharedMasterFrom = newVal;
+      await App.store.put('settings', App.company);
+      await refreshMasterStore();
+      toast(newVal ? 'Master Data sharing ON ho gaya.' : 'Master Data sharing OFF ho gaya — apna alag data wapas.','ok');
+      renderRoute();
+    }},['Save Sharing Setting']));
+    if(App.company.sharedMasterFrom){
+      const sourceCo = otherCompaniesForShare.find(co=>co.id===App.company.sharedMasterFrom);
+      shareCard.appendChild(el('div',{class:'tiny muted'},['Abhi is company ka Product/Customer Master "'+(sourceCo?sourceCo.name:'(company mil nahi rahi, shayad delete ho gayi)')+'" se shared hai.']));
+    }
+  }
+  wrap.appendChild(shareCard);
 
   const acctCard = el('div',{class:'card pad stack'});
   acctCard.appendChild(el('div',{class:'bold'},[iconLock(),' Cloud Account']));
@@ -3936,6 +4410,8 @@ on('#/products', viewProducts);
 on('#/stock', viewStock);
 on('#/payments', viewPayments);
 on('#/sales-register', viewSalesRegister);
+on('#/quotation', viewQuotationNew);
+on('#/quotations', viewQuotationRegister);
 on('#/purchase', viewPurchaseBill);
 on('#/suppliers', viewSuppliers);
 on('#/purchase-register', viewPurchaseRegister);

@@ -234,6 +234,52 @@ Product add/edit karte waqt "Qty Type" mein bas apna sahi type chun lein — baa
 
 ---
 
+## Quotation System (Estimate banao, baad mein Bill mein convert karo)
+
+Ab customer ko pehle sirf ek **estimate/quotation** de sakte hain — bina stock ghataye, bina customer ka balance badle — aur jab customer haan bole, usi quotation ko ek tap mein real bill mein convert kar sakte hain.
+
+**Kaise use karein:**
+
+1. Bottom/side menu mein **"New Quotation"** par tap karein (Dashboard par bhi ek quick-action button hai).
+2. Customer ka naam/mobile daalein, product scan/search karke add karein, aur agar chahein to "Valid Till" date daal dein (kitne din tak yeh rate valid hai).
+3. **Save Quotation** dabayein — ek quotation number (jaise `QUO/26-27/000001`) ban jayega. Yahan se turant **Print Quotation** (customer ko PDF dene ke liye) ya **Convert to Bill** kar sakte hain.
+4. Print hone wale PDF par saaf "QUOTATION" likha aata hai (INVOICE nahi), "Payment"/"Balance Due" jaisi lines nahi hoti — sirf ek "Quotation Total" hota hai, taaki customer ko galti se yeh pakka bill na lage.
+5. **"Quotations"** menu se sab quotations ki list dekh sakte hain — status **Open** (abhi bill nahi bana), **Converted** (bill ban chuka), ya **Cancelled** (customer ne mana kar diya) dikhta hai.
+6. Jab bhi customer order confirm kare, usi quotation ko kholkar **"Convert to Bill"** dabayein — New Bill screen customer + saare items ke saath apne aap bhar jayegi, bas Payment Mode/Received Amount daalkar **Save Bill** dabayein. Stock ghategi, customer ka balance/ledger update hoga — bilkul normal bill jaisa hi. Us quotation ka status apne aap "Converted" ho jayega aur usme convert hue bill ka number bhi dikhega.
+7. Agar customer order cancel kar de to quotation kholkar **Cancel** kar sakte hain (ek baar bill mein convert ho chuki quotation cancel nahi ho sakti).
+
+Quotation Prefix (jaise `QUO`) Settings → Company Profile mein "Quotation Prefix" field se change kar sakte hain.
+
+---
+
+## Authorized Signature — Ek Baar Upload Karein, Har Bill Par Apne Aap Print Ho
+
+Ab har bill print karne ke baad haath se sign karne ki zaroorat nahi. Settings mein ek baar apna signature photo upload kar dein, aur wo har invoice ke "Authorized Signatory" box mein apne aap chhap jayega.
+
+**Kaise use karein:**
+
+1. Settings → Company/Invoice Details section mein **"Authorized Signature"** field mein apna signature ki photo upload karein.
+2. Best result ke liye **background hataya hua (transparent) PNG** use karein — jaise safed kaagaz par sign karke kisi background-remover app/website se background nikaal lein. Normal photo bhi chalegi, bas thoda box jaisa dikhega.
+3. Upload hote hi preview dikhega aur "Remove Signature" button se kabhi bhi hata bhi sakte hain.
+4. Ab jab bhi koi bill ya quotation print/PDF banega, yeh signature "For {Company Name}" ke neeche aur "Authorized Signatory" line ke upar apne aap print ho jayega — dobara haath se sign karne ki zaroorat nahi.
+
+---
+
+## Data Sharing — Ek Login Se Multiple Companies Ka Ek Hi Product/Customer Master
+
+Agar ek hi Gmail login se aapne 2 ya zyada companies banayi hain (jaise ek hi shop ki 2 branches, ya ek shop ke 2 tarah ke business), to ab in companies ke beech **Products aur Customers Master (stock aur customer balance samet)** share kar sakte hain — taaki dono jagah same inventory/customer list dikhe. Bills, Invoices, Ledger aur Payments hamesha har company ka apna **alag** hi rehta hai — sirf Products aur Customers + unka stock/balance share hota hai.
+
+**Kaise use karein:**
+
+1. Us company mein jayein jiska apna master data ab kisi doosri company jaisa hi hona chahiye, aur **Settings** kholein.
+2. Neeche **"Data Sharing (Multi-Company)"** card mein dropdown se woh company chunein jiska Products/Customers master use karna hai.
+3. **Save Sharing Setting** dabakar confirm karein. Ab is company mein Products/Customers list waale se hi dikhenge, aur ek jagah stock ya customer balance badalne se doosri jagah bhi turant badal jayega (kyunki dono ek hi master data use kar rahe hain).
+4. **Sharing band karni ho** (agar user na chahe) to dropdown mein wapas **"Nahi — is company ka apna alag Master Data rakhein"** chun kar Save Sharing Setting dabayein. Is company apne **purane, alag (independent)** Products/Customers data par wapas chali jayegi — sharing shuru karne se pehle jo bhi data tha wahi wapas dikhega.
+
+**Zaroori baat:** Yeh sirf ek OPTION hai, default mein sab companies ka master data hamesha alag-alag hi rehta hai — sirf jab aap khud jaakar ek company mein sharing ON karte hain, tabhi woh doosri company ka data dikhna shuru hota hai.
+
+---
+
 ## Notes
 
 - Yeh Firebase ka **free (Spark) plan** hai — ek chhoti billing shop ke liye yeh limit kabhi khatam nahi hogi (roughly 50,000 reads/day free milte hain).
