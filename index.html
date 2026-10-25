@@ -1076,6 +1076,26 @@ const DB = {
     await App.store.put('ledger', {id:uid(), date:payment.date, invoiceNo: receiptNo, customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit:0, credit:amount, balance: cust.balance, remarks: p.remarks||''});
     return payment;
   },
+  // Removes a wrongly-entered/duplicate payment (e.g. from a double-tap on
+  // "Save Payment" before this double-submit guard existed). Mirrors
+  // cancelBill(): never hard-deletes — marks the payment DELETED (so it
+  // drops out of the Payments list but stays as an audit trail) and adds a
+  // reversing ledger entry that restores the customer's balance, exactly
+  // undoing what receivePayment() did.
+  async deletePayment(paymentId){
+    const payment = await App.store.get('payments', paymentId);
+    if(!payment) throw new Error('Payment not found.');
+    if(payment.status==='DELETED') throw new Error('This payment has already been deleted.');
+    const cust = await App.masterStore.get('customers', payment.customerId);
+    if(cust){
+      cust.balance = clamp0((Number(cust.balance)||0) + (Number(payment.amountReceived)||0));
+      await App.masterStore.put('customers', cust);
+      await App.store.put('ledger', {id:uid(), date: todayISO(), invoiceNo: payment.id+' (DELETED)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit: Number(payment.amountReceived)||0, credit:0, balance: cust.balance, remarks:'Payment entry deleted'});
+    }
+    payment.status = 'DELETED';
+    await App.store.put('payments', payment);
+    return payment;
+  },
   async addStock(productCode, qty){
     const p = await DB.findProductByCode(productCode);
     if(!p) throw new Error('Product not found.');
@@ -2834,7 +2854,7 @@ function renderBillScreen(root){
   }
 
   const actions = el('div',{class:'row wrap'},[
-    el('button',{class:'btn btn-primary btn-block', onclick:onSaveBill},[iconCheck(), billDraft.editingInvoiceNo?'Update Bill':'Save Bill']),
+    el('button',{class:'btn btn-primary btn-block', onclick:(ev)=>onSaveBill(ev)},[iconCheck(), billDraft.editingInvoiceNo?'Update Bill':'Save Bill']),
   ]);
   wrap.appendChild(actions);
   const secondary = el('div',{class:'row wrap'},[
@@ -2854,7 +2874,15 @@ function renderBillScreen(root){
     renderBillScreen(root);
   }
 }
-async function onSaveBill(){
+async function onSaveBill(ev){
+  // Guard against double-submit: a double-tap/double-click (common on a slow
+  // mobile connection) used to fire this handler twice before the first
+  // await finished, silently saving the SAME bill twice under the same
+  // invoice number (two ledger rows, balance counted twice). This lock plus
+  // disabling the button while saving stops that.
+  if(onSaveBill._busy) return;
+  onSaveBill._busy = true;
+  const btn = ev && ev.currentTarget; if(btn) btn.disabled = true;
   try{
     const b = {invoiceNo: billDraft.invoiceNo, date: billDraft.date, customerName: billDraft.customerName, mobile: billDraft.mobile, items: billDraft.items, paymentMode: billDraft.paymentMode, receivedAmount: billDraft.receivedAmount};
     let result;
@@ -2869,6 +2897,7 @@ async function onSaveBill(){
     }
     showPostSaveOptions(result.invoice);
   }catch(e){ toast(e.message,'err'); }
+  finally{ onSaveBill._busy = false; if(btn) btn.disabled = false; }
 }
 async function showPostSaveOptions(invoice){
   const items = await DB.itemsForInvoiceRow(invoice.id);
@@ -3343,7 +3372,7 @@ function renderPurchaseBillScreen(root){
   }
 
   const actions = el('div',{class:'row wrap'},[
-    el('button',{class:'btn btn-primary btn-block', onclick:onSavePurchaseBill},[iconCheck(), purchaseDraft.editingPurchaseNo?'Update Bill':'Save Purchase Bill']),
+    el('button',{class:'btn btn-primary btn-block', onclick:(ev)=>onSavePurchaseBill(ev)},[iconCheck(), purchaseDraft.editingPurchaseNo?'Update Bill':'Save Purchase Bill']),
   ]);
   wrap.appendChild(actions);
   const secondary = el('div',{class:'row wrap'},[
@@ -3369,7 +3398,11 @@ function renderPurchaseBillScreen(root){
     renderPurchaseBillScreen(root);
   }
 }
-async function onSavePurchaseBill(){
+async function onSavePurchaseBill(ev){
+  // Same double-submit guard as onSaveBill — see its comment.
+  if(onSavePurchaseBill._busy) return;
+  onSavePurchaseBill._busy = true;
+  const btn = ev && ev.currentTarget; if(btn) btn.disabled = true;
   try{
     const b = {purchaseNo: purchaseDraft.purchaseNo, date: purchaseDraft.date, partyName: purchaseDraft.partyName, mobile: purchaseDraft.mobile, items: purchaseDraft.items, paymentMode: purchaseDraft.paymentMode, paidAmount: purchaseDraft.paidAmount};
     let result;
@@ -3378,6 +3411,7 @@ async function onSavePurchaseBill(){
     toast('Purchase bill saved successfully.', 'ok');
     showPostSavePurchaseOptions(result.purchase);
   }catch(e){ toast(e.message,'err'); }
+  finally{ onSavePurchaseBill._busy = false; if(btn) btn.disabled = false; }
 }
 async function showPostSavePurchaseOptions(purchase){
   const items = await DB.itemsForPurchaseRow(purchase.id);
@@ -3868,7 +3902,8 @@ async function viewPayments(root){
     el('div',{},[el('div',{class:'section-title'},['Payments']), el('div',{class:'section-sub'},['Receive payment from a customer'])]),
     el('button',{class:'btn btn-primary', onclick:()=>openReceivePaymentModal(null)},[iconPlus(),'Receive']),
   ]));
-  const list = await App.store.all('payments');
+  let list = await App.store.all('payments');
+  list = list.filter(p=>p.status!=='DELETED');
   list.sort((a,b)=> (a.date<b.date?1:-1));
   const card = el('div',{class:'card pad'});
   if(!list.length){ card.appendChild(el('div',{class:'empty'},['No payment records.'])); }
@@ -3877,6 +3912,12 @@ async function viewPayments(root){
       el('div',{class:'small'},[p.customerName+' • '+p.mobile]),
       el('div',{class:'spread'},[el('span',{},['Amount']), el('span',{class:'bold num'},[fmtMoney(p.amountReceived)])]),
       el('div',{class:'row wrap'},[ el('button',{class:'btn btn-sm',onclick:()=>printReceipt(p)},[iconPrint(),'Print']), el('button',{class:'btn btn-sm',onclick:()=>sendReceiptWhatsApp(p)},[iconWhatsapp(),'WhatsApp']) ]),
+      el('div',{class:'row wrap'},[ el('button',{class:'btn btn-sm btn-danger', onclick: async ()=>{
+        const ok = await confirmDialog('Delete this payment entry? The amount will be added back to the customer\'s balance. This cannot be undone.', 'Delete Payment');
+        if(!ok) return;
+        try{ await DB.deletePayment(p.id); closeModal(); toast('Payment deleted.','ok'); renderRoute(); }
+        catch(e){ toast(e.message,'err'); }
+      }},[iconTrash(),'Delete Payment']) ]),
     ]); openModal('Receipt', body); } },[
     el('div',{},[ el('div',{class:'bold'},[p.customerName]), el('div',{class:'small muted'},[p.id+' • '+fmtDate(p.date)]) ]),
     el('div',{class:'pill pill-success'},[fmtMoney(p.amountReceived)]),
@@ -3896,8 +3937,13 @@ function openReceivePaymentModal(cust){
   body.appendChild(el('label',{class:'field'},['Amount Received', amtI]));
   body.appendChild(el('label',{class:'field'},['Payment Mode', modeI]));
   body.appendChild(el('label',{class:'field'},['Remarks', remarksI]));
-  body.appendChild(el('button',{class:'btn btn-primary btn-block', onclick: async ()=>{
+  let savingPayment = false;
+  const savePayBtn = el('button',{class:'btn btn-primary btn-block', onclick: async (ev)=>{
+    // Guard against double-submit (double-tap on a slow connection used to
+    // create two separate payment + ledger entries for the same receipt).
+    if(savingPayment) return;
     if(!selected){ toast('Select a customer.','err'); return; }
+    savingPayment = true; ev.currentTarget.disabled = true;
     try{
       const payment = await DB.receivePayment({customerId:selected.id, amount:amtI.value, mode:modeI.value, remarks:remarksI.value});
       closeModal(); toast('Payment received.','ok');
@@ -3908,8 +3954,9 @@ function openReceivePaymentModal(cust){
       ]);
       openModal('Payment Saved', body2);
       renderRoute();
-    }catch(e){ toast(e.message,'err'); }
-  }},['Save Payment']));
+    }catch(e){ toast(e.message,'err'); savingPayment = false; ev.currentTarget.disabled = false; }
+  }},['Save Payment']);
+  body.appendChild(savePayBtn);
   openModal('Receive Payment', body);
   function renderSel(){ pickBtn.lastChild.textContent = 'Customer: '+selected.name; selInfo.innerHTML=''; selInfo.appendChild(el('div',{class:'small muted', style:'padding:4px 0;'},['Current Balance: '+fmtMoney(selected.balance||0)])); }
   if(selected) renderSel();

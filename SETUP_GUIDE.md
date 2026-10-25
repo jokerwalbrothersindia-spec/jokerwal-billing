@@ -356,6 +356,20 @@ service cloud.firestore {
 
 ---
 
+## Fix: Duplicate Payments and Duplicate Bills from Double-Tapping Save
+
+**The problem:** On a slow mobile connection, tapping "Save Bill"/"Save Purchase Bill"/"Save Payment" twice in a row (because the first tap seemed to do nothing right away) could create the record TWICE — two separate ledger entries for the same payment or the same invoice number, which doubled the customer's balance incorrectly.
+
+**The fix (applied to this version):**
+
+- The **Save Bill**, **Save Purchase Bill**, and **Save Payment** buttons now lock themselves the instant you tap them, and stay locked (greyed out) until that save finishes — so a second tap during that short wait is simply ignored. This stops the duplicate from being created in the first place.
+- A new **"Delete Payment"** button has been added. Open **Payments**, tap on the duplicate (or wrong) payment entry, and tap **"Delete Payment"** at the bottom (confirm when asked). The amount is automatically added back to the customer's balance, and the entry disappears from the Payments list. For your records, the deleted entry is not permanently erased — it is just marked as deleted and kept out of sight, and the ledger shows a clear reversing entry so the balance always stays traceable.
+- There is currently no "Delete" button for a duplicate Bill/Invoice the same way — use **"Cancel Invoice"** (in New Bill → Cancel Invoice, enter the invoice number) for that instead, which safely restores stock and the customer balance and marks it Cancelled (also not permanently erased, for the same record-keeping reason).
+
+If you already have an old duplicate payment from before this fix (like the one from MJ Jewellery's account), just open it from the Payments list and tap "Delete Payment" once this updated file is live — that one click will correct the balance.
+
+---
+
 ## Notes
 
 - This uses Firebase's **free (Spark) plan** — for a small billing shop, this limit will practically never run out (it gives roughly 50,000 free reads/day).
