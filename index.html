@@ -907,11 +907,40 @@ const DB = {
     return all.find(p=> (p.id||'').toUpperCase()===code || (p.productCode||'').toUpperCase()===code) || null;
   },
   async currentInvoiceRow(invoiceNo){
-    const rows = await App.store.byIndex('invoices','invoiceNo', invoiceNo);
+    const rows = (await App.store.byIndex('invoices','invoiceNo', invoiceNo)).filter(r=>r.status!=='DELETED');
     const active = rows.filter(r=>r.status==='COMPLETED');
     if(active.length) return active.sort((a,b)=> (a.createdAt<b.createdAt?1:-1))[0];
     if(rows.length) return rows.sort((a,b)=> (a.createdAt<b.createdAt?1:-1))[0];
     return null;
+  },
+  // All invoice records that ever existed under this invoice number (every duplicate
+  // from a double-tap, every MODIFIED/CANCELLED version), oldest first — used by the
+  // "manage duplicate invoices" screen so the admin can see and remove exactly the
+  // wrong copies instead of only ever seeing/affecting the single "current" one.
+  async invoiceVersions(invoiceNo){
+    const rows = await App.store.byIndex('invoices','invoiceNo', invoiceNo);
+    return rows.sort((a,b)=> (a.createdAt<b.createdAt?-1:1));
+  },
+  // Removes ONE specific duplicate/erroneous invoice record by its exact document id
+  // (not by invoice number, since several records can share the same invoice number).
+  // Mirrors cancelBill: restores stock, reverses this record's OWN billTotal-received
+  // delta from the customer's balance (never the stored cumulative balanceDue — see
+  // the fix note on cancelBill), and marks it DELETED rather than hard-erasing it.
+  async deleteInvoiceRecord(invoiceId){
+    const row = await App.store.get('invoices', invoiceId);
+    if(!row) throw new Error('Invoice record not found.');
+    if(row.status==='DELETED') throw new Error('This record has already been deleted.');
+    await DB.restoreStockForInvoiceRow(row);
+    const cust = await App.masterStore.get('customers', row.customerId);
+    if(cust){
+      const delta = clamp0(Number(row.billTotal)||0) - (Number(row.receivedAmount)||0);
+      cust.balance = clamp0((Number(cust.balance)||0) - delta);
+      await App.masterStore.put('customers', cust);
+      await App.store.put('ledger', {id:uid(), date: todayISO(), invoiceNo: row.invoiceNo+' (DELETED DUPLICATE)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit:0, credit: clamp0(delta), balance: cust.balance, remarks:'Duplicate/erroneous invoice record removed'});
+    }
+    row.status = 'DELETED';
+    await App.store.put('invoices', row);
+    return row;
   },
   async itemsForInvoiceRow(invoiceRowId){
     return App.store.byIndex('saleItems','invoiceNo', invoiceRowId);
@@ -1002,12 +1031,16 @@ const DB = {
     if(!row) throw new Error('Invoice not found: '+invoiceNo);
     if(row.status==='CANCELLED') throw new Error('This invoice is already cancelled.');
     await DB.restoreStockForInvoiceRow(row);
-    // reverse this bill's contribution to the customer's outstanding balance
+    // reverse this bill's OWN contribution to the customer's outstanding balance —
+    // row.balanceDue is the CUMULATIVE running balance at the time this bill was
+    // saved (previousBalance + thisBill - received), not this bill's own delta, so
+    // subtracting it directly would wipe out every other bill's contribution too.
     const cust = await App.masterStore.get('customers', row.customerId);
     if(cust){
-      cust.balance = clamp0((Number(cust.balance)||0) - (Number(row.balanceDue)||0));
+      const delta = clamp0(Number(row.billTotal)||0) - (Number(row.receivedAmount)||0);
+      cust.balance = clamp0((Number(cust.balance)||0) - delta);
       await App.masterStore.put('customers', cust);
-      await App.store.put('ledger', {id:uid(), date: todayISO(), invoiceNo: invoiceNo+' (CANCELLED)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit:0, credit: clamp0(row.billTotal-row.receivedAmount), balance: cust.balance, remarks:'Bill cancelled'});
+      await App.store.put('ledger', {id:uid(), date: todayISO(), invoiceNo: invoiceNo+' (CANCELLED)', customerId:cust.id, customerName:cust.name, mobile:cust.mobile, debit:0, credit: clamp0(delta), balance: cust.balance, remarks:'Bill cancelled'});
     }
     row.status = 'CANCELLED';
     await App.store.put('invoices', row);
@@ -1028,9 +1061,10 @@ const DB = {
     await DB.restoreStockForInvoiceRow(oldRow);
     oldRow.status='MODIFIED';
     await App.store.put('invoices', oldRow);
-    // Recompute against customer's balance with old contribution removed
+    // Recompute against customer's balance with the OLD bill's own delta removed
+    // (same fix as cancelBill above — oldRow.balanceDue is cumulative, not a delta).
     const cust = await App.masterStore.get('customers', oldRow.customerId);
-    if(cust){ cust.balance = clamp0((Number(cust.balance)||0) - (Number(oldRow.balanceDue)||0)); await App.masterStore.put('customers', cust); }
+    if(cust){ const oldDelta = clamp0(Number(oldRow.billTotal)||0) - (Number(oldRow.receivedAmount)||0); cust.balance = clamp0((Number(cust.balance)||0) - oldDelta); await App.masterStore.put('customers', cust); }
     const items = b.items.filter(it=>it.productCode && Number(it.qty)>0);
     const previousBalance = cust ? Number(cust.balance)||0 : 0;
     const receivedAmount = Number(b.receivedAmount)||0;
@@ -1112,7 +1146,7 @@ const DB = {
   async currentInvoicesInRange(fromISO, toISO){
     const all = await App.store.all('invoices');
     const byNo = {};
-    all.forEach(r=>{ if(!byNo[r.invoiceNo] || r.createdAt>byNo[r.invoiceNo].createdAt) byNo[r.invoiceNo]=r; });
+    all.filter(r=>r.status!=='DELETED').forEach(r=>{ if(!byNo[r.invoiceNo] || r.createdAt>byNo[r.invoiceNo].createdAt) byNo[r.invoiceNo]=r; });
     return Object.values(byNo).filter(r=> r.date>=fromISO && r.date<=toISO).sort((a,b)=> a.date<b.date?1:-1);
   },
   /* ---------------- Quotations / Estimates ----------------
@@ -2588,7 +2622,7 @@ function openPrintLabelsModal(initialItems){
 /* ---------------- Dashboard ---------------- */
 async function viewDashboard(root){
   const [invoices, customers, low] = await Promise.all([App.store.all('invoices'), App.masterStore.all('customers'), DB.lowStockList()]);
-  const byNo = {}; invoices.forEach(r=>{ if(!byNo[r.invoiceNo] || r.createdAt>byNo[r.invoiceNo].createdAt) byNo[r.invoiceNo]=r; });
+  const byNo = {}; invoices.filter(r=>r.status!=='DELETED').forEach(r=>{ if(!byNo[r.invoiceNo] || r.createdAt>byNo[r.invoiceNo].createdAt) byNo[r.invoiceNo]=r; });
   const current = Object.values(byNo);
   const today = todayISO();
   const todaysBills = current.filter(r=>r.date===today && r.status!=='CANCELLED');
@@ -2940,14 +2974,52 @@ function openCancelInvoicePrompt(){
   const body = el('div',{class:'stack'});
   const input = el('input',{placeholder:'e.g. INV/26-27/000023'});
   body.appendChild(el('label',{class:'field'},['Invoice Number', input]));
-  body.appendChild(el('div',{class:'small muted'},['Stock will be restored and the customer balance will be updated.']));
-  body.appendChild(el('button',{class:'btn btn-danger btn-block', onclick: async ()=>{
-    const ok = await confirmDialog('Cancel this invoice? This cannot be undone.', 'Cancel Invoice');
-    if(!ok) return;
-    try{ await DB.cancelBill(input.value.trim()); closeModal(); toast('Invoice cancelled.','ok'); renderRoute(); }
-    catch(e){ toast(e.message,'err'); }
-  }},['Cancel Invoice']));
-  openModal('Cancel Invoice', body);
+  const resultArea = el('div',{class:'stack'});
+  body.appendChild(resultArea);
+  body.appendChild(el('button',{class:'btn btn-block', onclick: async ()=>{
+    const no = input.value.trim();
+    if(!no){ toast('Enter an invoice number.','err'); return; }
+    resultArea.innerHTML='';
+    let versions;
+    try{ versions = await DB.invoiceVersions(no); }catch(e){ toast(e.message,'err'); return; }
+    const active = versions.filter(v=>v.status!=='DELETED');
+    if(!active.length){ resultArea.appendChild(el('div',{class:'empty'},['No invoice found with this number.'])); return; }
+    if(active.length===1){
+      // Normal case — exactly one record, just like before.
+      resultArea.appendChild(el('div',{class:'small muted'},['Stock will be restored and the customer balance will be updated.']));
+      resultArea.appendChild(el('button',{class:'btn btn-danger btn-block', onclick: async ()=>{
+        const ok = await confirmDialog('Cancel this invoice? This cannot be undone.', 'Cancel Invoice');
+        if(!ok) return;
+        try{ await DB.cancelBill(no); closeModal(); toast('Invoice cancelled.','ok'); renderRoute(); }
+        catch(e){ toast(e.message,'err'); }
+      }},['Cancel Invoice']));
+      return;
+    }
+    // Multiple records share this invoice number — almost always caused by tapping
+    // "Save Bill" more than once (on a slow connection) before this was fixed. Show
+    // every record so the admin can see which amounts are genuine and delete the rest.
+    resultArea.appendChild(el('div',{class:'small', style:'color:var(--warning);'},[
+      String(active.length)+' records were found under this invoice number — this usually means "Save Bill" was tapped more than once by mistake. Review each one below and delete the wrong ones, keeping only the correct bill.'
+    ]));
+    active.sort((a,b)=> a.createdAt<b.createdAt?-1:1).forEach((v,idx)=>{
+      const row = el('div',{class:'card pad', style:'padding:10px;'},[
+        el('div',{class:'spread'},[
+          el('span',{class:'small'},['#'+(idx+1)+' • '+fmtDate(v.date)+' • '+new Date(v.createdAt).toLocaleTimeString()]),
+          statusPill(v.status),
+        ]),
+        el('div',{class:'spread'},[el('span',{class:'small muted'},['Bill Total']), el('span',{class:'bold num'},[fmtMoney(v.billTotal)])]),
+        el('div',{class:'spread'},[el('span',{class:'small muted'},['Received']), el('span',{class:'num'},[fmtMoney(v.receivedAmount)])]),
+        el('button',{class:'btn btn-sm btn-danger btn-block', onclick: async ()=>{
+          const ok = await confirmDialog('Delete this one record ('+fmtMoney(v.billTotal)+', '+fmtDate(v.date)+')? Stock will be restored and the balance corrected. This cannot be undone.', 'Delete This Record');
+          if(!ok) return;
+          try{ await DB.deleteInvoiceRecord(v.id); closeModal(); toast('Record deleted.','ok'); renderRoute(); }
+          catch(e){ toast(e.message,'err'); }
+        }},[iconTrash(),'Delete This Record']),
+      ]);
+      resultArea.appendChild(row);
+    });
+  }},['Check Invoice Number']));
+  openModal('Cancel Invoice / Fix Duplicates', body);
 }
 function openInvoiceDetail(inv){
   DB.itemsForInvoiceRow(inv.id).then(items=>{
